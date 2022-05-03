@@ -27,7 +27,7 @@ using BenchmarkTools
     # cubic case
     slow = @belapsed pointGroup_basic($d, $e, $f)
     fast = @belapsed pointGroup($d, $e, $f)
-    @test slow / fast > 54
+    @test slow / fast > 53
     # tetragonal case
     d, e, f = threeDrotation([1.1, 0, 0], [0, 1, 0], [0, 0, 1], π / 3, π / 5, π / 7)
     slow = @belapsed pointGroup_basic($d, $e, $f)
