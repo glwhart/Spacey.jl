@@ -10,4 +10,4 @@ MinkowskiReduction = "d617d09d-b3c0-43f1-8886-30d89b900f25"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
-julia = "^1.2"
+julia = "1.5"
