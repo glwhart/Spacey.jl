@@ -1,7 +1,7 @@
 module Spacey
 using MinkowskiReduction
 using LinearAlgebra
-export pointGroup_simple, threeDrotation, pointGroup, pointGroup_fast
+export pointGroup_fast, pointGroup_simple, threeDrotation, pointGroup
 
 """
 threeDrotation(u,v,w,α,β,γ)
@@ -112,13 +112,15 @@ vol = abs(u×v⋅w) # Volume of the parallelipiped formed by the basis vectors
 # There are 27 of these (==3^3)
 c = [A*[i,j,k] for i ∈ (-1,0,1) for j ∈ (-1,0,1) for k ∈ (-1,0,1)]
 # Now keep only those vectors that have a norm matching one of the input vectors
-# efficiency: Maybe gather three groups, according to length. That would limit the sets even more
+# efficiency: Gather three groups, according to length. This limits the candidates even more
 c1 = c[findall([norm(i)≈norms[1] for i ∈ c])] # All vectors with first norm
 c2 = c[findall([norm(i)≈norms[2] for i ∈ c])] # All vectors with second norm
 c3 = c[findall([norm(i)≈norms[3] for i ∈ c])] # All vectors with third norm
 # Construct all possible bases, (i.e., all combinations of c vectors), skip duplicate vectors
 R = [[i j k] for i ∈ c1 for j ∈ c2 if i≉j for k ∈ c3 if i≉k && j≉k]
-R = R[findall([abs(det(r))≈vol for r in R])] # Delete candidate bases with the wrong volume
+ R = R[findall([abs(det(r))≈vol for r in R])] # Delete candidate bases with the wrong volume
+# The cross product is slightly (<1%) faster
+#R = R[findall([abs(r[1]×r[2]⋅r[3])≈vol for r in R])] # Delete candidate bases with the wrong volume
 RT = [transpose(i) for i ∈ R]
 # This is the Uᵀ ̇U, where U transforms original basis to candidate basis
 # If Tᵢ==identity then the U was a symmetry of the lattice
