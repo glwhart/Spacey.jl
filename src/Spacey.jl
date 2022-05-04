@@ -1,7 +1,7 @@
 module Spacey
 using MinkowskiReduction
 using LinearAlgebra
-export pointGroup_basic, threeDrotation, pointGroup
+export pointGroup_simple, threeDrotation, pointGroup, pointGroup_fast
 
 """
 threeDrotation(u,v,w,α,β,γ)
@@ -30,7 +30,7 @@ julia> pointGroup_basic(u,v,w)
 ...
 ```
 """
-function pointGroup_basic(a1,a2,a3,debug=false)
+function pointGroup_simple(a1,a2,a3,debug=false)
 u,v,w = minkReduce(a1,a2,a3)
 A = [u v w] # Put the lattice vectors as columns in matrix A
 B = inv(A)*transpose(inv(A)) # Use this for checking for orthogonality
@@ -71,7 +71,7 @@ AiAiT = Ai*transpose(Ai) # Use this for checking for orthogonality
 # A list of all possible lattice vectors in a rotated basis 
 # These are lattice points from the vertices of the 8 cells with a corner at the origin)
 # There are 27 of these (==3^3)
-c = [A*[i;j;k] for i ∈ (-1,0,1) for j ∈ (-1,0,1) for k ∈ (-1,0,1)]
+c = [A*[i,j,k] for i ∈ (-1,0,1) for j ∈ (-1,0,1) for k ∈ (-1,0,1)]
 # Now keep only those vectors that have a norm matching one of the input vectors
 # efficiency: Maybe gather three groups, according to length. That would limit the sets even more
 c = c[findall([any(norm(i).≈norms) for i ∈ c])] 
@@ -84,6 +84,48 @@ RT = [transpose(i) for i ∈ R]
 T = [R[i]*AiAiT*RT[i] for i ∈ 1:length(R)]
 # Indices of candidate T's that match the identity
 idx = findall([t≈I(3) for t ∈ T].==true)
+ops = [round.(Int,Ai*R[i]) for i in idx]
+return ops
+end
+
+"""
+Generate the symmetry operations of a lattice, defined by three 3-vectors.
+This function aims to be more efficient than `pointGroup_basic` and so is more complex
+
+```juliadoctest
+julia> u = [1,0,0]; v = [.5,√3/2,0]; w = [0,0,√(8/3)];
+julia> pointGroup(u,v,w)
+24-element Array{Array{Float64,2},1}:
+[-1.0 0.0 0.0; -1.0 1.0 0.0; 0.0 0.0 -0.9999999999999999]
+...
+```
+"""
+function pointGroup_fast(a1,a2,a3) 
+u,v,w = minkReduce(a1,a2,a3) # Always do this first, algorithm assumes reduced basis
+A = [u v w] # Define a matrix with input vectors as columns
+Ai = inv(A) 
+AiAiT = Ai*transpose(Ai) # Use this for checking for orthogonality
+norms=norm.([u,v,w]) # Compute the norms of the three input vectors
+vol = abs(u×v⋅w) # Volume of the parallelipiped formed by the basis vectors
+# A list of all possible lattice vectors in a rotated basis 
+# These are lattice points from the vertices of the 8 cells with a corner at the origin)
+# There are 27 of these (==3^3)
+c = [A*[i,j,k] for i ∈ (-1,0,1) for j ∈ (-1,0,1) for k ∈ (-1,0,1)]
+# Now keep only those vectors that have a norm matching one of the input vectors
+# efficiency: Maybe gather three groups, according to length. That would limit the sets even more
+c1 = c[findall([norm(i)≈norms[1] for i ∈ c])] # All vectors with first norm
+c2 = c[findall([norm(i)≈norms[2] for i ∈ c])] # All vectors with second norm
+c3 = c[findall([norm(i)≈norms[3] for i ∈ c])] # All vectors with third norm
+# Construct all possible bases, (i.e., all combinations of c vectors), skip duplicate vectors
+R = [[i j k] for i ∈ c1 for j ∈ c2 if i≉j for k ∈ c3 if i≉k && j≉k]
+R = R[findall([abs(det(r))≈vol for r in R])] # Delete candidate bases with the wrong volume
+RT = [transpose(i) for i ∈ R]
+# This is the Uᵀ ̇U, where U transforms original basis to candidate basis
+# If Tᵢ==identity then the U was a symmetry of the lattice
+T = [R[i]*AiAiT*RT[i] for i ∈ 1:length(R)]
+# Indices of candidate T's that match the identity
+idx = findall([t≈I(3) for t ∈ T].==true)
+# Convert the transformations to integer matrices (formally they should be)
 ops = [round.(Int,Ai*R[i]) for i in idx]
 return ops
 end
