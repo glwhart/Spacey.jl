@@ -3,12 +3,16 @@ using Test
 using BenchmarkTools
 
 @testset "Spacey.jl" begin
-    # Δ = 0.2 # Fractional change in speedup between fast and slow algorithms that triggers an error
-    # #ideal hex lattice, 60° between basal plane vectors
-    # u = [1, 0, 0]
-    # v = [0.5, √3 / 2, 0]
-    # w = [0, 0, √(8 / 3)]
-    # @test length(pointGroup_simple(u, v, w)) == 24
+    Δ = 0.2 # Fractional change in speedup between fast and slow algorithms that triggers an error
+    #ideal hex lattice, 60° between basal plane vectors
+    u = [1, 0, 0]
+    v = [0.5, √3 / 2, 0]
+    w = [0, 0, √(8 / 3)]
+    @test length(pointGroup_simple(u, v, w)) == 24
+    # Add a bit of noise
+    @test length(pointGroup_simple(u, v.+[0,1e-9,0], w)) == 24
+    # A bit more noise
+    @test length(pointGroup_simple(u, v.+[0,1e-8,0], w)) ≠ 24
     # #ideal hex lattice, 120° between basal plane vectors
     # a = -u + v
     # b = v
