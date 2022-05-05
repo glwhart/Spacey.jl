@@ -117,7 +117,7 @@ c1 = c[findall([norm(i)≈norms[1] for i ∈ c])] # All vectors with first norm
 c2 = c[findall([norm(i)≈norms[2] for i ∈ c])] # All vectors with second norm
 c3 = c[findall([norm(i)≈norms[3] for i ∈ c])] # All vectors with third norm
 # Construct all possible bases, (i.e., all combinations of c vectors), skip duplicate vectors
-R = [[i j k] for i ∈ c1 for j ∈ c2 if i!≈j for k ∈ c3 if i!≈k && j!≈k]
+R = [[i j k] for i ∈ c1 for j ∈ c2 if i !≈j for k ∈ c3 if i !≈k && j !≈k]
 R = R[findall([abs(det(r))≈vol for r in R])] # Delete candidate bases with the wrong volume
 # The cross product is slightly (<1%) faster
 #R = R[findall([abs(r[1]×r[2]⋅r[3])≈vol for r in R])] # Delete candidate bases with the wrong volume
