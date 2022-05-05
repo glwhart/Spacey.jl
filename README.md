@@ -1,6 +1,5 @@
 # Spacey.jl
 [![Runtests](https://github.com/glwhart/Spacey.jl/actions/workflows/Runtests.yml/badge.svg)](https://github.com/glwhart/Spacey.jl/actions/workflows/Runtests.yml)
-
 [![codecov](https://codecov.io/gh/glwhart/Spacey.jl/branch/main/graph/badge.svg?token=OYAPFZI28I)](https://codecov.io/gh/glwhart/Spacey.jl)
 
 The package provides functions related to finding the spacegroup of a crystal. (The spacegroup of a crystal is useful in the context density functional theory calculations, computational materials science, and machine learning for materials prediction.)
