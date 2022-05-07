@@ -83,7 +83,7 @@ RT = [transpose(i) for i ∈ R]
 # If Tᵢ==identity then the U was a symmetry of the lattice
 T = [R[i]*AiAiT*RT[i] for i ∈ 1:length(R)]
 # Indices of candidate T's that match the identity
-idx = findall([t≈I(3) for t ∈ T].==true)
+idx = findall([t≈I(3) for t ∈ T])
 ops = [round.(Int,Ai*R[i]) for i in idx]
 return ops
 end
@@ -126,10 +126,60 @@ RT = [transpose(i) for i ∈ R]
 # If Tᵢ==identity then the U was a symmetry of the lattice
 T = [R[i]*AiAiT*RT[i] for i ∈ 1:length(R)]
 # Indices of candidate T's that match the identity
-idx = findall([t≈I(3) for t ∈ T].==true)
+idx = findall([t≈I(3) for t ∈ T])
 # Convert the transformations to integer matrices (formally they should be)
 ops = [round.(Int,Ai*R[i]) for i in idx]
 return ops
+end
+
+""" Calculate the pointGroup using epsilon based on input 
+
+The routine works in a similar fashion to the pointGroup_fast routine but
+finite precision comparisons use an epsilon scaled to the input. The 
+epsilon is quite large, 10% (may change) of the smallest scale of the 
+input. With sufficient testing, this routine may become the defacto standard
+for the Spacey package.
+"""
+function pointGroup_robust(a1,a2,a3)
+u,v,w = minkReduce(a1,a2,a3) # Always do this first, algorithm assumes reduced basis
+A = [u v w] # Define a matrix with input vectors as columns
+Ai = inv(A) 
+AiAiT = Ai*transpose(Ai) # Use this for checking for orthogonality
+norms=norm.([u,v,w]) # Compute the norms of the three input vectors
+ε = 0.1min(norms) # Scale factor for comparisons (unit tests must decide correct rescaling)
+vol = abs(u×v⋅w) # Volume of the parallelipiped formed by the basis vectors
+# A list of all possible lattice vectors in a rotated basis 
+# These are lattice points from the vertices of the 8 cells with a corner at the origin)
+# There are 27 of these (==3^3)
+c = [A*[i,j,k] for i ∈ (-1,0,1) for j ∈ (-1,0,1) for k ∈ (-1,0,1)]
+# Now keep only those vectors that have a norm matching one of the input vectors
+# efficiency: Gather three groups, according to length. This limits the candidates even more
+c1 = c[findall([isapprox(norms[1],norm(i),rtol=ε) for i ∈ c])] # All vectors with first norm
+c2 = c[findall([isapprox(norms[2],norm(i),rtol=ε) for i ∈ c])] # All vectors with second norm
+c3 = c[findall([isapprox(norms[3],norm(i),rtol=ε) for i ∈ c])] # All vectors with third norm
+# Construct all possible bases, (i.e., all combinations of c vectors), skip duplicate vectors
+R = [[i j k] for i ∈ c1 for j ∈ c2 if !isapprox(i,j,rtol=ε) for k ∈ c3 if !isapprox(i,j,rtol=ε) && !isapprox(i,j,rtol=ε)]
+R = R[findall([isapprox(abs(det(r)),vol,rtol=ε) for r in R])] # Delete candidate bases with the wrong volume
+# The cross product is slightly (<1%) faster
+#R = R[findall([abs(r[1]×r[2]⋅r[3])≈vol for r in R])] # Delete candidate bases with the wrong volume
+RT = [transpose(i) for i ∈ R]
+# This is the Uᵀ ̇U, where U transforms original basis to candidate basis
+# If Tᵢ==identity then the U was a symmetry of the lattice
+T = [R[i]*AiAiT*RT[i] for i ∈ 1:length(R)]
+# Indices of candidate T's that match the identity
+idx = findall([norm.(t.-I(3)) .< ε for t ∈ T])
+# Convert the transformations to integer matrices (formally they should be)
+ops = [round.(Int,Ai*R[i]) for i in idx]
+return ops
+
+end
+
+
+""" Adjust input vectors and atomic basis to be an exact match to symmetry
+
+"""
+function snapToSymmetry()
+
 end
 
 end
