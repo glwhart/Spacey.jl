@@ -26,7 +26,8 @@ using BenchmarkTools
     @test length(pointGroup_simple(g, h, i)) == 24
     
     # Timing tests are not consistent on github virtual machines.
-    
+    # Timing tests are only checked locally, see runTimingTests.jl
+
     # Add a timing check against basic and "fast" make sure fast is fast
     # hexagonal case
     # slow = @belapsed pointGroup_simple($g, $h, $i)
