@@ -1,6 +1,5 @@
 using Spacey
 using Test
-using BenchmarkTools
 
 @testset "Spacey.jl" begin
     Δ = 0.2 # Fractional change in speedup between fast and slow algorithms that triggers an error
