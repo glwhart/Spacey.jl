@@ -2,8 +2,8 @@ module Spacey
 using MinkowskiReduction
 using LinearAlgebra
 using StatsBase
-export pointGroup_fast, pointGroup_simple, threeDrotation, pointGroup,
-       pointGroup_robust
+export pointGroup_fast, pointGroup_simple, threeDrotation, 
+       pointGroup, pointGroup_robust, snapToSymmetry
 
 """
 threeDrotation(u,v,w,α,β,γ)
@@ -128,23 +128,21 @@ c = [A*[i,j,k] for i ∈ (-1,0,1) for j ∈ (-1,0,1) for k ∈ (-1,0,1)]
 c1 = c[findall([isapprox(norms[1],norm(i),rtol=ε) for i ∈ c])] # All vectors with first norm
 c2 = c[findall([isapprox(norms[2],norm(i),rtol=ε) for i ∈ c])] # All vectors with second norm
 c3 = c[findall([isapprox(norms[3],norm(i),rtol=ε) for i ∈ c])] # All vectors with third norm
-# Construct all possible bases, (i.e., all combinations of c vectors), skip duplicate vectors
-R = [[i j k] for i ∈ c1 for j ∈ c2 if !isapprox(i,j,rtol=ε) for k ∈ c3 if !isapprox(i,j,rtol=ε) && !isapprox(i,j,rtol=ε)]
-R = R[findall([isapprox(abs(det(r)),vol,rtol=ε) for r in R])] # Delete candidate bases with the wrong volume
+# Construct all possible bases, A' (i.e., all combinations of c vectors), skip duplicate vectors
+Ap = [[i j k] for i ∈ c1 for j ∈ c2 if !isapprox(i,j,rtol=ε) for k ∈ c3 if !isapprox(i,j,rtol=ε) && !isapprox(i,j,rtol=ε)]
+Ap = Ap[findall([isapprox(abs(det(i)),vol,rtol=ε) for i in Ap])] # Delete candidate bases with the wrong volume
 # The cross product is slightly (<1%) faster
 #R = R[findall([abs(r[1]×r[2]⋅r[3])≈vol for r in R])] # Delete candidate bases with the wrong volume
-RT = [transpose(i) for i ∈ R]
+ApT = [transpose(i) for i ∈ Ap]
 # This is the Uᵀ ̇U, where U transforms original basis to candidate basis
 # If Tᵢ==identity then the U was a symmetry of the lattice
-T = [R[i]*AiAiT*RT[i] for i ∈ 1:length(R)]
+T = [Ap[i]*AiAiT*ApT[i] for i ∈ 1:length(Ap)]
 # Indices of candidate T's that match the identity
 idx = findall([all(norm.(t-I(3)) .< ε) for t ∈ T])
 # Convert the transformations to integer matrices (formally they should be)
-ops = [round.(Int,Ai*R[i]) for i in idx]
+ops = [round.(Int,Ai*Ap[i]*A) for i in idx]
 return ops
-
 end
-
 
 """ Adjust input vectors and atomic basis to be an exact match to symmetry
 found. Adjust symmetries to be exact orthonormal transforms (to machine precision)
@@ -153,7 +151,6 @@ In most applications, where robustness/accuracy is the most important
 consideration (rather than speed), one should probably always call the "robust"
 pointGroup finder and then follow up with a call to this routine. If the input
 is trustworthy (highly accurate), then calling this routine would be unnecessary.
-
 """
 function snapToSymmetry(u,v,w,ops)
 A = [u v w] # Take the lattice basis as a matrix 
@@ -169,7 +166,7 @@ offDiag = [(i,j) for i ∈ 1:n for j ∈ 1:n if j < i]
 # for each index, assign the proper cos(angle)|a||b|==a⋅b 
 for (i,idx) ∈ enumerate(offDiag)
      B[idx[1],idx[2]] = cos(angles[i])*lengths[idx[1]]*lengths[idx[2]]
-     B[idx[2],idx[1]] = B[idx[1],idx[2]]
+     B[idx[2],idx[1]] = B[idx[1],idx[2]] # Symmetric matrix, copy elements across diagonal
 end
 s = svd(B)
 Anew = diagm(sqrt.(s.S))*s.V'
@@ -181,5 +178,5 @@ ops = pointGroup_robust(u,v,w)
 return u,v,w,ops
 end
 
-end
+end 
 
