@@ -1,5 +1,6 @@
 using Spacey
 using Test
+using LinearAlgebra
 
 @testset "Spacey.jl" begin
     Δ = 0.2 # Fractional change in speedup between fast and slow algorithms that triggers an error
@@ -8,6 +9,7 @@ using Test
     v = [0.5, √3 / 2, 0]
     w = [0, 0, √(8 / 3)]
     @test length(pointGroup_simple(u, v, w)) == 24
+    @test all(abs.(det.(pointGroup_robust(u,v,w)[2])).==1.0)
     # Add a bit of noise
     @test length(pointGroup_simple(u, v.+[0,1e-9,0], w)) == 24
     # A bit more noise
