@@ -125,12 +125,12 @@ vol = abs(u×v⋅w) # Volume of the parallelipiped formed by the basis vectors
 c = [A*[i,j,k] for i ∈ (-1,0,1) for j ∈ (-1,0,1) for k ∈ (-1,0,1)]
 # Now keep only those vectors that have a norm matching one of the input vectors
 # efficiency: Gather three groups, according to length. This limits the candidates even more
-c1 = c[findall([isapprox(norms[1],norm(i),rtol=ε) for i ∈ c])] # All vectors with first norm
-c2 = c[findall([isapprox(norms[2],norm(i),rtol=ε) for i ∈ c])] # All vectors with second norm
-c3 = c[findall([isapprox(norms[3],norm(i),rtol=ε) for i ∈ c])] # All vectors with third norm
+c1 = c[findall([isapprox(norms[1],norm(i),atol=ε) for i ∈ c])] # All vectors with first norm
+c2 = c[findall([isapprox(norms[2],norm(i),atol=ε) for i ∈ c])] # All vectors with second norm
+c3 = c[findall([isapprox(norms[3],norm(i),atol=ε) for i ∈ c])] # All vectors with third norm
 # Construct all possible bases, A′ (i.e., all combinations of c vectors), skip duplicate vectors
-A′ = [[i j k] for i ∈ c1 for j ∈ c2 if !isapprox(i,j,rtol=ε) for k ∈ c3 if !isapprox(i,j,rtol=ε) && !isapprox(i,j,rtol=ε)]
-A′ = A′[findall([isapprox(abs(det(i)),vol,rtol=ε) for i in A′])] # Delete candidate bases with the wrong volume
+A′ = [[i j k] for i ∈ c1 for j ∈ c2 if !isapprox(i,j,atol=ε) for k ∈ c3 if !isapprox(i,j,rtol=ε) && !isapprox(i,j,rtol=ε)]
+A′ = A′[findall([isapprox(abs(det(i)),vol,atol=ε) for i in A′])] # Delete candidate bases with the wrong volume
 # The cross product is slightly (<1%) faster
 #R = R[findall([abs(r[1]×r[2]⋅r[3])≈vol for r in R])] # Delete candidate bases with the wrong volume
 A′ᵀ = [transpose(i) for i ∈ A′]
@@ -142,7 +142,7 @@ idx = findall([all(norm.(t-I(3)) .< ε) for t ∈ T])
 # Convert the transformations to integer matrices (formally they should be)
 ops = [round.(Int,Ai*A′[i]) for i in idx] # Need the 'Int' so integers are returned
 rops = [A′[i]*Ai for i in idx] 
-return rops,ops
+return ops
 end
 
 """ Adjust input vectors and atomic basis to be an exact match to symmetry
@@ -155,9 +155,9 @@ is trustworthy (highly accurate), then calling this routine would be unnecessary
 """
 function snapToSymmetry(u,v,w,ops)
 A = [u v w] # Take the lattice basis as a matrix 
-Ap = [A*k for k ∈ ops] # Convert the operators into Cartesian coordinates
+Ap = [A*k for k ∈ ops] # Apply the integer tranforms to get new basis vectors
 lengths = mean([[norm(i) for i ∈ eachcol(b)] for b ∈ Ap]) 
-angles= mean([[acos(i'*j/norm(i)/norm(j)) for i ∈ eachcol(b) for j ∈ eachcol(b) if j<i] for b ∈ ops])
+angles= mean([[acos(i⋅j/norm(i)/norm(j)) for i ∈ eachcol(b) for j ∈ eachcol(b) if j<i] for b ∈ Ap])
 
 B = diagm(lengths.^2)
 n = length(lengths)
@@ -169,13 +169,19 @@ for (i,idx) ∈ enumerate(offDiag)
      B[idx[1],idx[2]] = cos(angles[i])*lengths[idx[1]]*lengths[idx[2]]
      B[idx[2],idx[1]] = B[idx[1],idx[2]] # Symmetric matrix, copy elements across diagonal
 end
-s = svd(B)
-Anew = diagm(sqrt.(s.S))*s.V'
-T = A*inv(Anew)
+s = svd(B) # Averaged metric matrix
+Anew = diagm(sqrt.(s.S))*s.V' # Getting back to a basis matrix
+T = A*inv(Anew) # Finding the transformation to get from old basis to new
+# This transformation contains a rotational component and a distortion component
 t = svd(T)
-Afinal = t.U*t.V'*Anew
+rescale = cbrt(abs(det(A)/det(Anew)))
+Afinal = t.U*t.V'*Anew*rescale # use the the ortho transform of the svd to get rid of the distortion component
 u,v,w=[Afinal[:,i] for i ∈ 1:length(u)]
 ops = pointGroup_robust(u,v,w)
+if det([u v w]) < 0 
+     u,v,w = v,u,w
+end
+
 return u,v,w,ops
 end
 
