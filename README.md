@@ -8,7 +8,7 @@ This package will eventually provide all of the functionality of the [enumlib pa
 
 One of the unique features of the package is its robustness to finite-precision issues, a constant bane of other spacegroup codes.
 
-A few simple examples are provided below. This package finds spacegroup symmetries very efficiently* by relying on the assumption that the basis is as compact as possible. To assure the most compact basis, thes code first reduces the input basis vectors to a "Minkowski-reduced" basis. (See [MinkowskiReduce.jl](https://github.com/glwhart/MinkowskiReduction.jl))
+A few simple examples are provided below. This package finds spacegroup symmetries very efficiently* by relying on the assumption that the basis is as compact as possible. To assure the most compact basis, this code first reduces the input basis vectors to a "Minkowski-reduced" basis. (See [MinkowskiReduce.jl](https://github.com/glwhart/MinkowskiReduction.jl))
 
 (* Normally efficiency is not important, since finding the symmmetryies is a relatively quick computation, but when the symmetries of tens of thousands of cases are needed in just a second or two, as in [autoGR](https://github.com/msg-byu/autoGR), efficiency becomes essential.)
 
@@ -53,3 +53,33 @@ julia> pointGroup(u, v, w)
  [1 -1 0; 1 0 1; 0 0 -1]
  [1 0 0; 1 -1 -1; 0 0 1]
  ```
+
+ ## Example 3: Slightly distorted cubic case, "snap back" to perfect cubic cell
+The lattice vectors are not quite orthogonal, not quite all the same length. First `pointGroup_robust` gets the symmetries that _should_ be present for a perfect cubic cell. `snapToSymmetry` then finds the perfect cubic cell that is _as close as possible_ to the original cell.
+
+```
+julia> u = [1+.01,0,0]; v = [0.,1-.01,0]; w = [0,0,1-.001];
+
+julia> ops = pointGroup_robust(u,v,w)
+48-element Vector{Matrix{Int64}}:
+ [-1 0 0; 0 -1 0; 0 0 -1]
+ [-1 0 0; 0 -1 0; 0 0 1]
+ [-1 0 0; 0 0 -1; 0 -1 0]
+ [-1 0 0; 0 0 1; 0 -1 0]
+ [-1 0 0; 0 0 -1; 0 1 0]
+ [-1 0 0; 0 0 1; 0 1 0]
+ [-1 0 0; 0 1 0; 0 0 -1]
+ [-1 0 0; 0 1 0; 0 0 1]
+ [0 -1 0; -1 0 0; 0 0 -1]
+ ⋮
+ [1 0 0; 0 -1 0; 0 0 -1]
+ [1 0 0; 0 -1 0; 0 0 1]
+ [1 0 0; 0 0 -1; 0 -1 0]
+ [1 0 0; 0 0 1; 0 -1 0]
+ [1 0 0; 0 0 -1; 0 1 0]
+ [1 0 0; 0 0 1; 0 1 0]
+ [1 0 0; 0 1 0; 0 0 -1]
+ [1 0 0; 0 1 0; 0 0 1]
+a,b,c,newops = snapToSymmetry(u,v,w,ops)
+([0.9996332321644671, -1.1098158305294557e-16, 3.329447491588367e-16], [0.0, 0.9996332321644675, -3.330557677480862e-16], [0.0, -3.330557677480862e-16, 0.9996332321644676], [[-1 0 0; 0 -1 0; 0 0 -1], [-1 0 0; 0 -1 0; 0 0 1], [-1 0 0; 0 0 -1; 0 -1 0], [-1 0 0; 0 0 1; 0 -1 0], [-1 0 0; 0 0 -1; 0 1 0], [-1 0 0; 0 0 1; 0 1 0], [-1 0 0; 0 1 0; 0 0 -1], [-1 0 0; 0 1 0; 0 0 1], [0 -1 0; -1 0 0; 0 0 -1], [0 -1 0; -1 0 0; 0 0 1]  …  [0 1 0; 1 0 0; 0 0 -1], [0 1 0; 1 0 0; 0 0 1], [1 0 0; 0 -1 0; 0 0 -1], [1 0 0; 0 -1 0; 0 0 1], [1 0 0; 0 0 -1; 0 -1 0], [1 0 0; 0 0 1; 0 -1 0], [1 0 0; 0 0 -1; 0 1 0], [1 0 0; 0 0 1; 0 1 0], [1 0 0; 0 1 0; 0 0 -1], [1 0 0; 0 1 0; 0 0 1]])
+```
