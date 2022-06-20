@@ -1,6 +1,7 @@
 using Spacey
 using Test
 using LinearAlgebra
+using MinkowskiReduction
 
 @testset "Spacey.jl" begin
     Δ = 0.2 # Fractional change in speedup between fast and slow algorithms that triggers an error
@@ -9,7 +10,7 @@ using LinearAlgebra
     v = [0.5, √3 / 2, 0]
     w = [0, 0, √(8 / 3)]
     @test length(pointGroup_simple(u, v, w)) == 24
-    @test all(abs.(det.(pointGroup_robust(u,v,w)[2])).==1.0)
+    @test all(abs.(det.(pointGroup_robust(u,v,w))).==1.0)
     # Add a bit of noise
     @test length(pointGroup_simple(u, v.+[0,1e-9,0], w)) == 24
     # A bit more noise
@@ -65,4 +66,30 @@ using LinearAlgebra
     @test length(pointGroup_fast(u,v,w))==16
     a = 2^26; u = [1, 0, 0]; v = [0,a,0];  w = [0,0,1]
     @test length(pointGroup_fast(u,v,w))≠16
+
+    # Simple cubic example of snap function, ~1% noise
+    a1 = [1+.01,0,0]; a2 = [0.,1-.01,0]; a3 = [0,0,1-.001];
+    u,v,w = minkReduce(a1,a2,a3)
+    ops = pointGroup_robust(u,v,w)
+    a,b,c,ops = snapToSymmetry(u,v,w,ops)
+    @test det([a b c])≈det([a1 a2 a3])
+    @test norm(a)≈norm(b)≈norm(c)
+    @test length(ops)==48
+
+    # Simple tetragonal example of snap
+    a1 = [1+.01,0,0]; a2 = [0.,1-.01,0]; a3 = [0,0,1.5];
+    u,v,w = minkReduce(a1,a2,a3)
+    ops = pointGroup_robust(u,v,w)
+    a,b,c,ops = snapToSymmetry(u,v,w,ops)
+    @test length(ops)==16
+    @test norm(a)≈norm(b)
+    @test det([a b c])≈det([a1 a2 a3])
+    
+    # Simple orthorhombic example of snap
+    a1 = [1,0.01,-.05]; a2 = [0.001,2,-0.01]; a3 = [0.02,-0.003,1.5];
+    u,v,w = minkReduce(a1,a2,a3)
+    ops = pointGroup_robust(u,v,w)
+    a,b,c,ops = snapToSymmetry(u,v,w,ops)
+    @test length(ops)==8
+    @test det([a b c])≈det([a1 a2 a3])
 end
