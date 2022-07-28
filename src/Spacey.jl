@@ -142,7 +142,7 @@ idx = findall([all(norm.(t-I(3)) .< ε) for t ∈ T])
 # Convert the transformations to integer matrices (formally they should be)
 ops = [round.(Int,Ai*A′[i]) for i in idx] # Need the 'Int' so integers are returned
 rops = [A′[i]*Ai for i in idx] 
-return ops
+return ops, rops
 end
 
 """ Adjust input vectors and atomic basis to be an exact match to symmetry
