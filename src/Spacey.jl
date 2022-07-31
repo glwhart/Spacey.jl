@@ -96,7 +96,9 @@ ops = [round.(Int,Ai*R[i]) for i in idx]
 return ops
 end
 
-""" Calculate the pointGroup using an epsilon based on input lattice 
+""" pointgroup_robust(a1, a2, a3)
+
+Calculate the pointGroup using an epsilon based on input lattice 
 
 The routine works in a similar fashion to the pointGroup_fast routine but
 finite precision comparisons use an epsilon scaled to the input. The 
