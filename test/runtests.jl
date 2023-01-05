@@ -67,7 +67,7 @@ using MinkowskiReduction
     a = 2^26; u = [1, 0, 0]; v = [0,a,0];  w = [0,0,1]
     @test length(pointGroup_fast(u,v,w))≠16
 
-    # Simple cubic example of snap function, ~1% noise
+    # Simple cubic example of ] function, ~1% noise
     a1 = [1+.01,0,0]; a2 = [0.,1-.01,0]; a3 = [0,0,1-.001];
     u,v,w = minkReduce(a1,a2,a3)
     ops,_ = pointGroup_robust(u,v,w)
@@ -100,5 +100,5 @@ using MinkowskiReduction
     a2 = [-0.001, 16-.0001, -.0001]
     a3 = [-.0001, .0001, 1.51]
     ops,_ = pointGroup_robust(a1,a2,a3)
-    @test isagroup(ops)
+    @test isagroup(ops)==false
 end
