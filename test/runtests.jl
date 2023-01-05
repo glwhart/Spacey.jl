@@ -72,7 +72,7 @@ using MinkowskiReduction
     u,v,w = minkReduce(a1,a2,a3)
     ops,_ = pointGroup_robust(u,v,w)
     @test isagroup(ops)
-    a,b,c,ops = snapToSymmetry(u,v,w,ops)
+    a,b,c,ops = snapToSymmetry_SVD(u,v,w,ops)
     @test det([a b c])≈det([a1 a2 a3])
     @test norm(a)≈norm(b)≈norm(c)
     @test length(ops)==48
@@ -82,7 +82,7 @@ using MinkowskiReduction
     u,v,w = minkReduce(a1,a2,a3)
     ops,_ = pointGroup_robust(u,v,w)
     @test isagroup(ops)
-    a,b,c,ops = snapToSymmetry(u,v,w,ops)
+    a,b,c,ops = snapToSymmetry_SVD(u,v,w,ops)
     @test length(ops)==16
     @test norm(a)≈norm(b)
     @test det([a b c])≈det([a1 a2 a3])
@@ -91,7 +91,7 @@ using MinkowskiReduction
     a1 = [1,0.01,-.05]; a2 = [0.001,2,-0.01]; a3 = [0.02,-0.003,1.5];
     u,v,w = minkReduce(a1,a2,a3)
     ops,_ = pointGroup_robust(u,v,w)
-    a,b,c,ops = snapToSymmetry(u,v,w,ops)
+    a,b,c,ops = snapToSymmetry_SVD(u,v,w,ops)
     @test length(ops)==8
     @test det([a b c])≈det([a1 a2 a3])
     @test isagroup(ops)
