@@ -4,11 +4,11 @@
 
 The package provides functions related to finding the spacegroup of a crystal. (The spacegroup of a crystal is useful in the context density functional theory calculations, computational materials science, and machine learning for materials prediction.)
 
-This package will eventually provide all of the functionality of the [enumlib package](https://github.com/msg-byu/enumlib) and some additional functionality, useful for machine learning applications and materials science. In this pre-release version, only a pointgroup finder is provided.
+This package will eventually provide all of the functionality of the [enumlib package](https://github.com/msg-byu/enumlib) and some additional functionality, useful for machine learning applications and materials science. In this pre-release version, only a pointgroup finder is provided, as well as a "snap to symmetry" function for unit cells.
 
 One of the unique features of the package is its robustness to finite-precision issues, a constant bane of other spacegroup codes.
 
-A few simple examples are provided below. This package finds spacegroup symmetries very efficiently* by relying on the assumption that the basis is as compact as possible. To assure the most compact basis, this code first reduces the input basis vectors to a "Minkowski-reduced" basis. (See [MinkowskiReduce.jl](https://github.com/glwhart/MinkowskiReduction.jl))
+A few simple examples are provided below. This package finds symmetries very efficiently* by relying on the assumption that the basis is as compact as possible. To assure the most compact basis, this code first reduces the input basis vectors to a "Minkowski-reduced" basis. (See [MinkowskiReduce.jl](https://github.com/glwhart/MinkowskiReduction.jl))
 
 (* Normally efficiency is not important, since finding the symmmetryies is a relatively quick computation, but when the symmetries of tens of thousands of cases are needed in just a second or two, as in [autoGR](https://github.com/msg-byu/autoGR), efficiency becomes essential.)
 
