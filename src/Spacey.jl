@@ -3,8 +3,75 @@ using MinkowskiReduction
 using LinearAlgebra
 using StatsBase
 export pointGroup_fast, pointGroup_simple, threeDrotation, 
-       pointGroup, pointGroup_robust, snapToSymmetry
+       pointGroup, pointGroup_robust, snapToSymmetry_SVD, isagroup,
+       snapToSymmetry_avg
 
+""" averageOverOps(vec,ops) 
+
+Apply each operator in the list to the input vector. Take the average over the vectors that are approximately invariant
+"""
+function avgVecOverOps(vec,ops)
+     cands = [iop*vec for iop ∈ ops]
+     cands = filter(i->norm(i-vec)<.1*norm(vec),cands)
+     avgVec = sum(cands)/length(cands)
+     return avgVec
+end
+
+""" snapToSymmetry_avg(v1,v2,v3,ops)
+
+Average three basis vectors over the operators
+
+(The average is only over the resultant vectors that are ≈ to the original.)
+"""
+function snapToSymmetry_avg(v1,v2,v3,ops)
+     w1 = avgVecOverOps(v1,ops)
+     w2 = avgVecOverOps(v2,ops)
+     w3 = avgVecOverOps(v3,ops)
+     return w1,w2,w3
+end
+
+""" snapToSymmetry_avg(M,ops) 
+
+Average three basis vectors (columns of M) over the operators.
+
+(The average is only over the resultant vectors that are ≈ to the original.)
+"""
+function snapToSymmetry_avg(M,ops)
+     res = snapToSymmetry_avg(M[:,1],M[:,2],M[:,3],ops)
+     return [res[1] res[2] res[3]]
+end
+
+""" isagroup(members)
+Check and see if a list of operators form a valid group. 
+Assumes that the operators are integer matrices.
+     
+Checks that 1) each member is unique and 2) that the product of 
+any two members is still in the list (closure).
+"""
+function isagroup(members)
+     # Check that each member is unique
+     if length(unique(members)) < length(members)
+     return false
+     end
+     # Check that there is closure 
+     for i ∈ members
+     for j ∈ members
+          if !(i*j ∈ members)
+               return false
+          end
+     end
+     end 
+     return true
+end
+
+struct Crystal
+     a1
+     a2 
+     a3
+     r::Array{Float64,2}
+     a::Array{Int}
+end
+         
 """
 threeDrotation(u,v,w,α,β,γ)
 
@@ -105,6 +172,7 @@ finite precision comparisons use an epsilon scaled to the input. The
 epsilon is quite large, 10% (may change) of the smallest scale of the 
 input. With sufficient testing, this routine may become the defacto standard
 for the Spacey package.
+
      ```juliadoctest
      julia>  u = [1,0,1e-4]; v = [.5,√3/2,-1e-5]; w = [0,1e-4,√(8/3)];
      julia> pointGroup_robust(u,v,w)
@@ -113,13 +181,13 @@ for the Spacey package.
      ...
      ```
 """
-function pointGroup_robust(a1,a2,a3)
+function pointGroup_robust(a1,a2,a3,tol=0.1)
 u,v,w = minkReduce(a1,a2,a3) # Always do this first, algorithm assumes reduced basis
 A = [u v w] # Define a matrix with input vectors as columns
 Ai = inv(A) 
 Aiᵀ = transpose(Ai)
 norms=norm.([u,v,w]) # Compute the norms of the three input vectors
-ε = 0.1min(norms...) # Scale factor for comparisons (unit tests must decide correct rescaling)
+ε = tol*min(norms...) # Scale factor for comparisons (unit tests must decide correct rescaling)
 vol = abs(u×v⋅w) # Volume of the parallelipiped formed by the basis vectors
 # A list of all possible lattice vectors in a rotated basis 
 # These are lattice points from the vertices of the 8 cells with a corner at the origin)
@@ -141,10 +209,29 @@ A′ᵀ = [transpose(i) for i ∈ A′]
 T = [Aiᵀ*A′ᵀ[i]*A′[i]*Ai for i ∈ 1:length(A′)]
 # Indices of candidate T's that match the identity
 idx = findall([all(norm.(t-I(3)) .< ε) for t ∈ T])
+#ϵList = 
 # Convert the transformations to integer matrices (formally they should be)
 ops = [round.(Int,Ai*A′[i]) for i in idx] # Need the 'Int' so integers are returned
 rops = [A′[i]*Ai for i in idx] 
-return ops, rops
+return ops, rops#, ϵList
+end
+
+""" spaceGroup(a1, a2, a3, r, ele) 
+
+Calculate the spacegroup of a crystal
+
+Relies on the `pointgroup_robust` function for point group operations
+(need to replace the doctest)     
+     ```juliadoctest
+     julia>  u = [1,0,1e-4]; v = [.5,√3/2,-1e-5]; w = [0,1e-4,√(8/3)];
+     julia> pointGroup_robust(u,v,w)
+     24-element Array{Array{Float64,2},1}:
+     [-1.0 0.0 0.0; -1.0 1.0 0.0; 0.0 0.0 -0.9999999999999999]
+     ...
+     ```
+"""
+function spacegroup(c::Crystal)
+     return true
 end
 
 """ Adjust input vectors and atomic basis to be an exact match to symmetry
@@ -155,7 +242,7 @@ consideration (rather than speed), one should probably always call the "robust"
 pointGroup finder and then follow up with a call to this routine. If the input
 is trustworthy (highly accurate), then calling this routine would be unnecessary.
 """
-function snapToSymmetry(u,v,w,ops)
+function snapToSymmetry_SVD(u,v,w,ops)
 A = [u v w] # Take the lattice basis as a matrix 
 Ap = [A*k for k ∈ ops] # Apply the integer tranforms to get new basis vectors
 lengths = mean([[norm(i) for i ∈ eachcol(b)] for b ∈ Ap]) 
