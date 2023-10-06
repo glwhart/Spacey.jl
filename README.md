@@ -10,7 +10,7 @@ One of the unique features of the package is its robustness to finite-precision 
 
 A few simple examples are provided below. This package finds symmetries very efficiently* by relying on the assumption that the basis is as compact as possible. To assure the most compact basis, this code first reduces the input basis vectors to a "Minkowski-reduced" basis. (See [MinkowskiReduce.jl](https://github.com/glwhart/MinkowskiReduction.jl))
 
-(* Normally efficiency is not important, since finding the symmmetryies is a relatively quick computation, but when the symmetries of tens of thousands of cases are needed in just a second or two, as in [autoGR](https://github.com/msg-byu/autoGR), efficiency becomes essential.)
+(* Normally, efficiency is not important, since finding the symmmetryies is a relatively quick computation. When the symmetries of tens of thousands of cases are needed in just a second or two, as in [autoGR](https://github.com/msg-byu/autoGR), efficiency becomes essential.)
 
 
 ## Example 1: Hexagonal lattice
