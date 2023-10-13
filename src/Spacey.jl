@@ -274,5 +274,9 @@ end
 return u,v,w,ops
 end
 
+""" Calculate the point group of a lattice using a matrix of column vectors as the basis """
+function pointGroup(A)
+     return pointGroup_robust(A[:,1],A[:,2],A[:,3])
+end
 end 
 

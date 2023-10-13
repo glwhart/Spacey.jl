@@ -1,16 +1,20 @@
 using MinkowskiReduction
-using LinearAlgebra
-a1 = [1/16 - .0001, .001, .0001]
+a1 = [1/16 - .0001, .0001, .0001]
 a2 = [-0.001, 16-.0001, -.0001]
 a3 = [-.0001, .0001, 1.51]
 u,v,w = minkReduce(a1,a2,a3) # Always do this first, algorithm assumes reduced basis
 #A = [a1 a2 a3]
+a3 = [-.0000, .0001, 1.51]
+a1 = [1+.01,0,0]; a2 = [0.,1-.01,0]; a3 = [0,0,1.5];
+u,v,w=a1,a2,a3
+#u,v,w = minkReduce(a1,a2,a3) # Always do this first, algorithm assumes reduced basis
+#u = [1/16,0.,0.]; v=[0.,16.,0];w=[0.,0.,1.51];
 A = [u v w] # Define a matrix with input vectors as columns
 Ai = inv(A) 
 Aiᵀ = transpose(Ai)
-lens=norm.([u,v,w]) # Compute the norms of the three input vectors
-#lens=norm.([a1,a2,a3]) # Compute the norms of the three input vectors
-ε = 0.1min(lens...) # Scale factor for comparisons (unit tests must decide correct rescaling)
+norms=norm.([u,v,w]) # Compute the norms of the three input vectors
+#ε = 0.05min(norms...) # Scale factor for comparisons (unit tests must decide correct rescaling)
+ε=.025
 vol = abs(u×v⋅w) # Volume of the parallelipiped formed by the basis vectors
 # A list of all possible lattice vectors in a rotated basis 
 # These are lattice points from the vertices of the 8 cells with a corner at the origin)
@@ -21,6 +25,9 @@ c = [A*[i,j,k] for i ∈ (-1,0,1) for j ∈ (-1,0,1) for k ∈ (-1,0,1)]
 c1 = c[findall([isapprox(lens[1],norm(i),rtol=ε) for i ∈ c])] # All vectors with first norm
 c2 = c[findall([isapprox(lens[2],norm(i),rtol=ε) for i ∈ c])] # All vectors with second norm
 c3 = c[findall([isapprox(lens[3],norm(i),rtol=ε) for i ∈ c])] # All vectors with third norm
+c1 = c[findall([isapprox(norms[1],norm(i),atol=ε) for i ∈ c])] # All vectors with first norm
+c2 = c[findall([isapprox(norms[2],norm(i),atol=ε) for i ∈ c])] # All vectors with second norm
+c3 = c[findall([isapprox(norms[3],norm(i),atol=ε) for i ∈ c])] # All vectors with third norm
 # Construct all possible bases, A′ (i.e., all combinations of c vectors), skip duplicate vectors
 A′ = [[i j k] for i ∈ c1 for j ∈ c2 if !isapprox(i,j,rtol=ε) for k ∈ c3 if !isapprox(i,j,rtol=ε) && !isapprox(i,j,rtol=ε)]
 A′ = A′[findall([isapprox(abs(det(i)),vol,rtol=ε) for i in A′])] # Delete candidate bases with the wrong volume
@@ -119,3 +126,26 @@ function snapToSymmetry_avg(M,ops)
     res = snapToSymmetry_avg(M[:,1],M[:,2],M[:,3],ops)
     return [res[1] res[2] res[3]]
 end
+#snapToSymmetry(u,v,w,ops)
+A = [u v w] # Take the lattice basis as a matrix 
+Ap = [A*k for k ∈ ops] # Convert the operators into Cartesian coordinates
+lengths = mean([[norm(i) for i ∈ eachcol(b)] for b ∈ Ap]) 
+angles= mean([[acos(i'*j/norm(i)/norm(j)) for i ∈ eachcol(b) for j ∈ eachcol(b) if j<i] for b ∈ Ap])
+
+B = diagm(lengths.^2)
+n = length(lengths)
+# Fill in the off-diagonal components in the B matrix
+# get the "Cartesian indices" of the lower off-diagonal elements
+offDiag = [(i,j) for i ∈ 1:n for j ∈ 1:n if j < i]
+# for each index, assign the proper cos(angle)|a||b|==a⋅b 
+for (i,idx) ∈ enumerate(offDiag)
+     B[idx[1],idx[2]] = cos(angles[i])*lengths[idx[1]]*lengths[idx[2]]
+     B[idx[2],idx[1]] = B[idx[1],idx[2]] # Symmetric matrix, copy elements across diagonal
+end
+s = svd(B)
+Anew = diagm(sqrt.(s.S))*s.V'
+T = A*inv(Anew)
+t = svd(T)
+Afinal = t.U*t.V'*Anew
+u,v,w=[Afinal[:,i] for i ∈ 1:length(u)]
+ops = pointGroup_robust(u,v,w)
