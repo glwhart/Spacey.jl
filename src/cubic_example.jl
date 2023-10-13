@@ -18,4 +18,4 @@ println(det([u v w]))
 println(det([a1 a2 a3]))
 println(det([a b c]))
 A=[a1 a2 a3]
-pointGroup(A)
+pg, rpg = pointGroup(A)
