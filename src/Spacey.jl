@@ -182,7 +182,11 @@ for the Spacey package.
      ```
 """
 function pointGroup_robust(a1,a2,a3,tol=0.1)
-u,v,w = minkReduce(a1,a2,a3) # Always do this first, algorithm assumes reduced basis
+# Mink reduction can changes the basis even when the basis is already reduced (degenerate cases). So don't do it here.
+if !orthogonalityDefect(a1,a2,a3)≈orthogonalityDefect(minkReduce(a1,a2,a3))
+     error("Input basis is not reduced. use 'minkReduce' to pick the shortest basis vectors.")
+end
+     #u,v,w = minkReduce(a1,a2,a3) # Always do this first, algorithm assumes reduced basis
 A = [u v w] # Define a matrix with input vectors as columns
 Ai = inv(A) 
 Aiᵀ = transpose(Ai)
@@ -199,8 +203,8 @@ c1 = c[findall([isapprox(norms[1],norm(i),atol=ε) for i ∈ c])] # All vectors 
 c2 = c[findall([isapprox(norms[2],norm(i),atol=ε) for i ∈ c])] # All vectors with second norm
 c3 = c[findall([isapprox(norms[3],norm(i),atol=ε) for i ∈ c])] # All vectors with third norm
 # Construct all possible bases, A′ (i.e., all combinations of c vectors), skip duplicate vectors
-A′ = [[i j k] for i ∈ c1 for j ∈ c2 if !isapprox(i,j,atol=ε) for k ∈ c3 if !isapprox(i,j,rtol=ε) && !isapprox(i,j,rtol=ε)]
-A′ = A′[findall([isapprox(abs(det(i)),vol,atol=ε) for i in A′])] # Delete candidate bases with the wrong volume
+A′ = [[i j k] for i ∈ c1 for j ∈ c2 if !isapprox(i,j,rtol=ε) for k ∈ c3 if !isapprox(i,k,rtol=ε) && !isapprox(j,k,rtol=ε)]
+A′ = A′[findall([isapprox(abs(det(i)),vol,rtol=ε) for i in A′])] # Delete candidate bases with the wrong volume
 # The cross product is slightly (<1%) faster
 #R = R[findall([abs(r[1]×r[2]⋅r[3])≈vol for r in R])] # Delete candidate bases with the wrong volume
 A′ᵀ = [transpose(i) for i ∈ A′]
@@ -208,7 +212,7 @@ A′ᵀ = [transpose(i) for i ∈ A′]
 # If Tᵢ==identity then the U was a symmetry of the lattice
 T = [Aiᵀ*A′ᵀ[i]*A′[i]*Ai for i ∈ 1:length(A′)]
 # Indices of candidate T's that match the identity
-idx = findall([all(norm.(t-I(3)) .< ε) for t ∈ T])
+idx = findall([norm(t-I(3)) < ε for t ∈ T])
 #ϵList = 
 # Convert the transformations to integer matrices (formally they should be)
 ops = [round.(Int,Ai*A′[i]) for i in idx] # Need the 'Int' so integers are returned
