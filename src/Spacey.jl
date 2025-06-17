@@ -181,10 +181,10 @@ for the Spacey package.
      ...
      ```
 """
-function pointGroup_robust(a1,a2,a3,tol=0.1)
-# Mink reduction can changes the basis even when the basis is already reduced (degenerate cases). So don't do it here.
-if !orthogonalityDefect(a1,a2,a3)≈orthogonalityDefect(minkReduce(a1,a2,a3))
-     error("Input basis is not reduced. use 'minkReduce' to pick the shortest basis vectors.")
+function pointGroup_robust(u,v,w,tol=0.1)
+# Mink reduction can change the basis even when the basis is already reduced (degenerate cases). So don't do it here.
+if !(orthogonalityDefect(u,v,w)≈orthogonalityDefect(eachcol(minkReduce(u,v,w)[1:3]...)))
+    error("Input basis for 'pointGroup' is not reduced. use 'minkReduce' to pick the shortest basis vectors.")
 end
      #u,v,w = minkReduce(a1,a2,a3) # Always do this first, algorithm assumes reduced basis
 A = [u v w] # Define a matrix with input vectors as columns
@@ -204,20 +204,16 @@ c2 = c[findall([isapprox(norms[2],norm(i),atol=ε) for i ∈ c])] # All vectors 
 c3 = c[findall([isapprox(norms[3],norm(i),atol=ε) for i ∈ c])] # All vectors with third norm
 # Construct all possible bases, A′ (i.e., all combinations of c vectors), skip duplicate vectors
 A′ = [[i j k] for i ∈ c1 for j ∈ c2 if !isapprox(i,j,rtol=ε) for k ∈ c3 if !isapprox(i,k,rtol=ε) && !isapprox(j,k,rtol=ε)]
-A′ = A′[findall([isapprox(abs(det(i)),vol,rtol=ε) for i in A′])] # Delete candidate bases with the wrong volume
-# The cross product is slightly (<1%) faster
-#R = R[findall([abs(r[1]×r[2]⋅r[3])≈vol for r in R])] # Delete candidate bases with the wrong volume
-A′ᵀ = [transpose(i) for i ∈ A′]
+Rc = [i*Ai for i ∈ A′[findall([isapprox(abs(det(i)),vol,rtol=ε) for i in A′])]] # Delete candidate bases with the wrong volume
+
 # This is the Uᵀ ̇U, where U transforms original basis to candidate basis
-# If Tᵢ==identity then the U was a symmetry of the lattice
-T = [Aiᵀ*A′ᵀ[i]*A′[i]*Ai for i ∈ 1:length(A′)]
+# If Tᵢ==identity then the Rc is orthogonal and is a symmetry of the lattice
+T = [transpose(rc)*rc for rc ∈ Rc]
 # Indices of candidate T's that match the identity
 idx = findall([norm(t-I(3)) < ε for t ∈ T])
-#ϵList = 
 # Convert the transformations to integer matrices (formally they should be)
 ops = [round.(Int,Ai*A′[i]) for i in idx] # Need the 'Int' so integers are returned
-rops = [A′[i]*Ai for i in idx] 
-return ops, rops#, ϵList
+return ops, Rc[idx]
 end
 
 """ spaceGroup(a1, a2, a3, r, ele) 
