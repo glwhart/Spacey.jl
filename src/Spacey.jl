@@ -200,9 +200,9 @@ c1 = c[findall([isapprox(norms[1],norm(i),atol=ε) for i ∈ c])] # All vectors 
 c2 = c[findall([isapprox(norms[2],norm(i),atol=ε) for i ∈ c])] # All vectors with second norm
 c3 = c[findall([isapprox(norms[3],norm(i),atol=ε) for i ∈ c])] # All vectors with third norm
 # Construct all candidate bases, Rc (i.e., all combinations of c vectors), skip duplicate vectors.
-Rc = [[i j k] for i ∈ c1 for j ∈ c2 if i !≈ j for k ∈ c3 if i ≈ k && j !≈ k]
-Rc = Rc[findall([isapprox(abs(det(i)),vol,rtol=ε) for i in Rc])]  # Delete candidate bases with the wrong volume
-Rc = [i*Ai for i ∈ Rc] # Compute the candidate rotations from the candidate bases
+A′ = [[i j k] for i ∈ c1 for j ∈ c2 if !(i≈j) for k ∈ c3 if !(i≈k) && !(j≈k)] # All candidate bases
+A′ = A′[findall([isapprox(abs(det(i)),vol,rtol=ε) for i in A′])]  # Delete candidate bases with the wrong volume
+Rc = [i*Ai for i ∈ A′] # Compute the candidate rotations from the candidate bases
 
 # This is the Uᵀ ̇U, where U transforms original basis to candidate basis
 # If Tᵢ==identity then the Rc is orthogonal and is a symmetry of the lattice
