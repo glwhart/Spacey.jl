@@ -184,26 +184,25 @@ for the Spacey package.
 function pointGroup_robust(u,v,w,tol=0.1)
 # Mink reduction can change the basis even when the basis is already reduced (degenerate cases). So don't do it here. But do check that no reduction is needed.
 if !(orthogonalityDefect(u,v,w)≈orthogonalityDefect(minkReduce(u,v,w)[1:3]...))
-    error("Input basis for 'pointGroup' is not reduced. use 'minkReduce' to pick the shortest basis vectors.")
+    error("Input basis for 'pointGroup' is not reduced. Use 'minkReduce' to pick the shortest basis vectors.")
 end
 A = [u v w] # Define a matrix with input vectors as columns
 Ai = inv(A) 
-Aiᵀ = transpose(Ai)
 norms=norm.([u,v,w]) # Compute the norms of the three input vectors
 ε = tol*min(norms...) # Scale factor for comparisons (unit tests must decide correct rescaling)
 vol = abs(u×v⋅w) # Volume of the parallelipiped formed by the basis vectors
-# A list of all possible lattice vectors in a rotated basis 
-# These are lattice points from the vertices of the 8 cells with a corner at the origin)
-# There are 27 of these (==3^3)
+
+# A list of all possible lattice vectors in a rotated basis. These are lattice points from the vertices of the 8 cells that have a corner at the origin. There are 27 of these (==3^3)
 c = [A*[i,j,k] for i ∈ (-1,0,1) for j ∈ (-1,0,1) for k ∈ (-1,0,1)]
 # Now keep only those vectors that have a norm matching one of the input vectors
 # efficiency: Gather three groups, according to length. This limits the candidates even more
 c1 = c[findall([isapprox(norms[1],norm(i),atol=ε) for i ∈ c])] # All vectors with first norm
 c2 = c[findall([isapprox(norms[2],norm(i),atol=ε) for i ∈ c])] # All vectors with second norm
 c3 = c[findall([isapprox(norms[3],norm(i),atol=ε) for i ∈ c])] # All vectors with third norm
-# Construct all possible bases, A′ (i.e., all combinations of c vectors), skip duplicate vectors
-A′ = [[i j k] for i ∈ c1 for j ∈ c2 if !isapprox(i,j,rtol=ε) for k ∈ c3 if !isapprox(i,k,rtol=ε) && !isapprox(j,k,rtol=ε)]
-Rc = [i*Ai for i ∈ A′[findall([isapprox(abs(det(i)),vol,rtol=ε) for i in A′])]] # Delete candidate bases with the wrong volume
+# Construct all candidate bases, Rc (i.e., all combinations of c vectors), skip duplicate vectors.
+Rc = [[i j k] for i ∈ c1 for j ∈ c2 if i !≈ j for k ∈ c3 if i ≈ k && j !≈ k]
+Rc = Rc[findall([isapprox(abs(det(i)),vol,rtol=ε) for i in Rc])]  # Delete candidate bases with the wrong volume
+Rc = [i*Ai for i ∈ Rc] # Compute the candidate rotations from the candidate bases
 
 # This is the Uᵀ ̇U, where U transforms original basis to candidate basis
 # If Tᵢ==identity then the Rc is orthogonal and is a symmetry of the lattice
@@ -211,7 +210,7 @@ T = [transpose(rc)*rc for rc ∈ Rc]
 # Indices of candidate T's that match the identity
 idx = findall([norm(t-I(3)) < ε for t ∈ T])
 # Convert the transformations to integer matrices (formally they should be)
-ops = [round.(Int,Ai*A′[i]) for i in idx] # Need the 'Int' so integers are returned
+ops = [round.(Int,Ai*i*A) for i in Rc[idx]] # Need the 'Int' so integers are returned
 return ops, Rc[idx]
 end
 
@@ -273,7 +272,10 @@ end
 return u,v,w,ops
 end
 
-""" Calculate the point group of a lattice using a matrix of column vectors as the basis """
+""" pointGroup(basisMatrix)
+
+Calculate the point group of a lattice using a matrix of column vectors as the basis. The routine is a wrapper for the `pointGroup_robust` routine. See docstring for that routine for more details.
+"""
 function pointGroup(A)
      return pointGroup_robust(A[:,1],A[:,2],A[:,3])
 end
