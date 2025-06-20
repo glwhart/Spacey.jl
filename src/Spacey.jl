@@ -201,7 +201,6 @@ c2 = c[findall([isapprox(norms[2],norm(i),atol=ε) for i ∈ c])] # All vectors 
 c3 = c[findall([isapprox(norms[3],norm(i),atol=ε) for i ∈ c])] # All vectors with third norm
 # Construct all candidate bases, Rc (i.e., all combinations of c vectors), skip duplicate vectors.
 A′ = [[i j k] for i ∈ c1 for j ∈ c2 if !(i≈j) for k ∈ c3 if !(i≈k) && !(j≈k)] # All candidate bases
-println("Volumes:  ",[det(i) for i in A′])
 A′ = A′[findall([isapprox(abs(det(i)),vol,rtol=ε) for i in A′])]  # Delete candidate bases with the wrong volume
 Rc = [i*Ai for i ∈ A′] # Compute the candidate rotations from the candidate bases
 
@@ -210,15 +209,12 @@ Rc = [i*Ai for i ∈ A′] # Compute the candidate rotations from the candidate 
 T = [transpose(rc)*rc for rc ∈ Rc]
 
 # Indices of candidate T's that match the identity
-println("ε: ",ε)
-println("Norms: ",[norm(t-I(3)) for t ∈ T])
 idx = findall([norm(t-I(3)) < ε*vol for t ∈ T])
-println("Number of candidate rotations: ",length(idx))
 # Convert the transformations to integer matrices (formally they should be)
 ops = [round.(Int,Ai*i*A) for i in Rc[idx]] # Need the 'Int' so integers are returned
-# This part is new...
-tt = [norm(t-I(3)) for t ∈ T]
-tp = sortperm(tt[idx])
+# Get norms of deviation from orthogonal case
+tn = [norm(t-I(3)) for t ∈ T]
+tp = sortperm(tn[idx]) # Sort by deviation
 # Find the largest number of (sorted) ops that form a group.
 maxl = 48
 for il ∈ [48,24,16,12,8,4,2] # These are the only possible group sizes for a 3D lattice
