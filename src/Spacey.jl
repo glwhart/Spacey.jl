@@ -201,17 +201,34 @@ c2 = c[findall([isapprox(norms[2],norm(i),atol=ε) for i ∈ c])] # All vectors 
 c3 = c[findall([isapprox(norms[3],norm(i),atol=ε) for i ∈ c])] # All vectors with third norm
 # Construct all candidate bases, Rc (i.e., all combinations of c vectors), skip duplicate vectors.
 A′ = [[i j k] for i ∈ c1 for j ∈ c2 if !(i≈j) for k ∈ c3 if !(i≈k) && !(j≈k)] # All candidate bases
+println("Volumes:  ",[det(i) for i in A′])
 A′ = A′[findall([isapprox(abs(det(i)),vol,rtol=ε) for i in A′])]  # Delete candidate bases with the wrong volume
 Rc = [i*Ai for i ∈ A′] # Compute the candidate rotations from the candidate bases
 
 # This is the Uᵀ ̇U, where U transforms original basis to candidate basis
 # If Tᵢ==identity then the Rc is orthogonal and is a symmetry of the lattice
 T = [transpose(rc)*rc for rc ∈ Rc]
+
 # Indices of candidate T's that match the identity
-idx = findall([norm(t-I(3)) < ε for t ∈ T])
+println("ε: ",ε)
+println("Norms: ",[norm(t-I(3)) for t ∈ T])
+idx = findall([norm(t-I(3)) < ε*vol for t ∈ T])
+println("Number of candidate rotations: ",length(idx))
 # Convert the transformations to integer matrices (formally they should be)
 ops = [round.(Int,Ai*i*A) for i in Rc[idx]] # Need the 'Int' so integers are returned
-return ops, Rc[idx]
+# This part is new...
+tt = [norm(t-I(3)) for t ∈ T]
+tp = sortperm(tt[idx])
+# Find the largest number of (sorted) ops that form a group.
+maxl = 48
+for il ∈ [48,24,16,12,8,4,2] # These are the only possible group sizes for a 3D lattice
+     if il > length(idx) continue end
+     if isagroup(ops[tp[1:il]]) # Keep the largest set that is a group
+          maxl = il
+          break
+     end
+end
+return ops[tp][1:maxl], Rc[idx][tp][1:maxl]
 end
 
 """ spaceGroup(a1, a2, a3, r, ele) 
