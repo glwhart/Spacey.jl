@@ -88,6 +88,7 @@ using MinkowskiReduction
     @test det([a b c])≈det([a1 a2 a3])
     
     # Simple orthorhombic example of snap
+    println("Orthorhombic example of snap")
     a1 = [1,0.01,-.05]; a2 = [0.001,2,-0.01]; a3 = [0.02,-0.003,1.5];
     u,v,w = minkReduce(a1,a2,a3)
     ops,_ = pointGroup_robust(u,v,w)
@@ -96,9 +97,39 @@ using MinkowskiReduction
     @test det([a b c])≈det([a1 a2 a3])
     @test isagroup(ops)
 
+    println("Example of large aspect ratio: 256 (should still succeed)")
     a1 = [1/16 - .0001, .001, .0001]
     a2 = [-0.001, 16-.0001, -.0001]
     a3 = [-.0001, .0001, 1.51]
-    ops,_ = pointGroup_robust(a1,a2,a3)
-    @test isagroup(ops)==false
+    ops,_ = pointGroup_robust(minkReduce(a1,a2,a3)...)
+    @test length(ops)==8
+
+    println("Example of large aspect ratio: 500 (should still succeed)")
+    a1 = [1/10 - .0001, .001, .0001]
+    a2 = [-0.001, 50-.0001, -.0001]
+    a3 = [-.0001, .0001, 1.51]
+    ops,_ = pointGroup_robust(minkReduce(a1,a2,a3)...)
+    @test length(ops)==8
+
+    println("Example of large aspect ratio: 512 (fails, even with large tolerance)")
+    a1 = [1/16 - .0001, .001, .0001]
+    a2 = [-0.001, 32-.0001, -.0001]
+    a3 = [-.0001, .0001, 1.51]
+    ops,_ = pointGroup_robust(minkReduce(a1,a2,a3)[1:3]...,9e-1)
+    @test length(ops)==4
+
+    println("Example of large aspect ratio: 1024 (fails, even with large tolerance)")
+    a1 = [1/32 - .0001, .001, .0001]
+    a2 = [-0.001, 32-.0001, -.0001]
+    a3 = [-.0001, .0001, 1.51]
+    ops,_ = pointGroup_robust(minkReduce(a1,a2,a3)[1:3]...,9e-1)
+    @test length(ops)==4
+
+
+    println("Example of large aspect ratio: 1024 (succeeds, smaller noise,)")
+    a1 = [1/32 - .0001, .00001, .00001]
+    a2 = [-0.0001, 32-.0001, -.00001]
+    a3 = [-.0001, .00001, 1.51]
+    ops,_ = pointGroup_robust(minkReduce(a1,a2,a3)[1:3]...,1e-1)
+    @test length(ops)==8
 end
