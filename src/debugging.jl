@@ -85,5 +85,35 @@ norm.([b1,b2,b3])
 norm.([a1,a2,a3])
 
 using Spacey
+using MinkowskiReduction
+
 A = [0.0 0.5 0.5; 0.5 0.0 0.5; 0.5 0.5 0.0]
-pointGroup(A)
+ε = 1e-3
+@time for i ∈ 1:1000
+    noise = (2*rand(3,3).-1)*ε
+    Atemp = A + noise
+    length(pointGroup_robust(minkReduce(eachcol(Atemp)...)[1:3]...)[1])!=48 && error("Point group is not 48")
+end 
+
+# Test case 2
+begin
+ar = 500
+aspect_ratio = [1 0 0; 0 1 0; 0 0 ar]
+A = aspect_ratio*[0.0 0.5 0.5; 0.5 0.0 0.5; 0.5 0.5 0.0]
+ε = 1e-4
+@time for i ∈ 1:1000
+    noise = (2*rand(3,3).-1)*ε
+    Atemp = A + noise
+    length(pointGroup_robust(minkReduce(eachcol(Atemp)...)[1:3]...)[1])!=16 && error("Point group is not 16")
+end 
+end
+
+
+
+
+
+@time for i ∈ 1:1000
+    noise = (2*rand(3,3).-1)*ε
+    Atemp = A + noise
+    length(pointGroup_robust(minkReduce(eachcol(Atemp)...)[1:3]...)[1])!=48 && error("Point group is not 48")
+end 
