@@ -1,3 +1,5 @@
+using Revise
+using Spacey
 using MinkowskiReduction
 using LinearAlgebra
 
@@ -97,23 +99,55 @@ end
 
 # Test case 2
 begin
-ar = 500
+maxε = 1e-6
+for ε ∈ logrange(2*maxε,1e-3,10)
+ar = 1.0
 aspect_ratio = [1 0 0; 0 1 0; 0 0 ar]
 A = aspect_ratio*[0.0 0.5 0.5; 0.5 0.0 0.5; 0.5 0.5 0.0]
-ε = 1e-4
-@time for i ∈ 1:1000
+for i ∈ 1:50
     noise = (2*rand(3,3).-1)*ε
     Atemp = A + noise
-    length(pointGroup_robust(minkReduce(eachcol(Atemp)...)[1:3]...)[1])!=16 && error("Point group is not 16")
+    if length(pointGroup_robust(minkReduce(eachcol(Atemp)...)[1:3]...)[1])!=16
+        println("ε: ", ε)
+        maxε = ε
+        break
+    end
+    end
+    if maxε == ε; break; end
 end 
+println("Max ε: ", maxε)
 end
 
 
+begin
+a = 5e-3; maxε = 0.0
+for ε ∈ logrange(1e-5,1.2e-3,10)
+    maxε = ε
+    success = true
+    for i ∈ 1:1000
+        noise = (2*rand(3,3).-1)*ε*a
+        Atemp = A*a + noise
+        @show Atemp
+        if length(pointGroup_robust(minkReduce(eachcol(Atemp)...)[1:3]...)[1])!=48
+            println("Symmetry group is not 48")
+            success = false
+            break
+        end
+    end 
+    if !success; maxε = ε; break; end
+end
+println("Max ε: ", round(maxε,digits=6))
+end
+
+
+Atemp = [-1.7233692904465637e-9 0.0025000286163305314 0.0024999524070139123; 0.0024999730832105326 2.591951474986415e-8 0.0025000013059337757; 0.0024999629647447772 0.002499967442175358 -1.891891458670977e-8]
+orthogonalityDefect(eachcol(Atemp)...)
+minkReduce(eachcol(Atemp)...)
+orthogonalityDefect(minkReduce(eachcol(Atemp)...)[1:3]...)
 
 
 
-@time for i ∈ 1:1000
-    noise = (2*rand(3,3).-1)*ε
-    Atemp = A + noise
-    length(pointGroup_robust(minkReduce(eachcol(Atemp)...)[1:3]...)[1])!=48 && error("Point group is not 48")
-end 
+
+
+
+
