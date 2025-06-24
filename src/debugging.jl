@@ -142,6 +142,31 @@ end
 
 Atemp = [-1.7233692904465637e-9 0.0025000286163305314 0.0024999524070139123; 0.0024999730832105326 2.591951474986415e-8 0.0025000013059337757; 0.0024999629647447772 0.002499967442175358 -1.891891458670977e-8]
 orthogonalityDefect(eachcol(Atemp)...)
+A2 = hcat(minkReduce(eachcol(Atemp)...)[1:3]...)
+isMinkReduced(eachcol(A2)...)
+norm.([A2[:,1],A2[:,2],A2[:,3]])
+norm(A2[:,1])>norm(A2[:,2])+eps()
+
+orthogonalityDefect(eachcol(A2)...)
+Atemp.-A2
+A3 = hcat(minkReduce(eachcol(A2)...)[1:3]...)
+orthogonalityDefect(eachcol(A3)...)
+A3.-A2
+A4 = hcat(minkReduce(eachcol(A3)...)[1:3]...) 
+A4.-A3
+minkReduce(Atemp)
+
+orthogonalityDefect(eachcol(Atemp)...)
+orthogonalityDefect(eachcol(A2)...)
+pointGroup_robust(minkReduce(eachcol(Atemp)...)...)
+pointGroup_robust(eachcol(A2)...)
+A2.-hcat(minkReduce(eachcol(A2)...)[1:3]...)
+orthogonalityDefect(eachcol(A2)...)
+orthogonalityDefect(eachcol(hcat(minkReduce(eachcol(A2)...)[1:3]...))...)
+
+minkReduce(eachcol(A2))
+A2
+pointGroup_robust(minkReduce(eachcol(A2)...)...)
 minkReduce(eachcol(Atemp)...)
 orthogonalityDefect(minkReduce(eachcol(Atemp)...)[1:3]...)
 
