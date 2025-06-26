@@ -2,10 +2,11 @@ using Spacey
 using Test
 using LinearAlgebra
 using MinkowskiReduction
+    
+# Timing tests are not consistent on github virtual machines.
+# Timing tests are only checked locally, see runTimingTests.jl
 
 @testset "Spacey.jl" begin
-    Δ = 0.2 # Fractional change in speedup between fast and slow algorithms that triggers an error
-    #ideal hex lattice, 60° between basal plane vectors
     u = [1, 0, 0]
     v = [0.5, √3 / 2, 0]
     w = [0, 0, √(8 / 3)]
@@ -26,29 +27,7 @@ using MinkowskiReduction
     # hexagonal lattice in unique orientation
     g, h, i = threeDrotation([1, 0, 0], [0.5, √3 / 2, 0], [0, 0, √(8 / 3)], π / 7, π / 11, π / 3)
     @test length(pointGroup_simple(g, h, i)) == 24
-    
-    # Timing tests are not consistent on github virtual machines.
-    # Timing tests are only checked locally, see runTimingTests.jl
 
-    # Add a timing check against basic and "fast" make sure fast is fast
-    # hexagonal case
-    # slow = @belapsed pointGroup_simple($g, $h, $i)
-    # fast = @belapsed pointGroup_fast($g, $h, $i)
-    # @test isapprox(slow / fast, 154, rtol=Δ)
-    # # cubic case
-    # slow = @belapsed pointGroup_simple($d, $e, $f)
-    # fast = @belapsed pointGroup_fast($d, $e, $f)
-    # @test isapprox(slow / fast, 100, rtol=Δ)
-    # # tetragonal case
-    # d, e, f = threeDrotation([1.1, 0, 0], [0, 1, 0], [0, 0, 1], π / 3, π / 5, π / 7)
-    # slow = @belapsed pointGroup_simple($d, $e, $f)
-    # fast = @belapsed pointGroup_fast($d, $e, $f)
-    # @test isapprox(slow / fast, 350, rtol=Δ)
-    # # orthorhombic case
-    # d, e, f = threeDrotation([1.1, 0, 0], [0, 0.9, 0], [0, 0, 1], π / 3, π / 5, π / 7)
-    # slow = @belapsed pointGroup_simple($d, $e, $f)
-    # fast = @belapsed pointGroup_fast($d, $e, $f)
-    # @test isapprox(slow / fast, 20, rtol=Δ)
     # # Rhombohedral case
     u = [1, 1, 2]
     v = [1, 2, 1]
@@ -57,9 +36,9 @@ using MinkowskiReduction
     @test length(pointGroup_fast(u, v, w)) == 12
 
     # Cases of small tiny noise in input
-    ϵ = 10.0e-10; u = [1, 0, ϵ]; v = [ϵ,1,0]; w = [0,0,1]
+    ϵ = 1.0e-9; u = [1, 0, ϵ]; v = [ϵ,1,0]; w = [0,0,1]
     @test length(pointGroup_fast(u,v,w))==48
-    ϵ = 10.0e-8; u = [1, 0, ϵ]; v = [ϵ,1,0]; w = [0,0,1]
+    ϵ = 1.0e-7; u = [1, 0, ϵ]; v = [ϵ,1,0]; w = [0,0,1]
     @test length(pointGroup_fast(u,v,w))≠48
     # High aspect ratio cases
     a = 2^25; u = [1, 0, 0]; v = [0,a,0];  w = [0,0,1]
@@ -67,7 +46,7 @@ using MinkowskiReduction
     a = 2^26; u = [1, 0, 0]; v = [0,a,0];  w = [0,0,1]
     @test length(pointGroup_fast(u,v,w))≠16
 
-    # Simple cubic example of ] function, ~1% noise
+    # Simple cubic example of snap function, ~1% noise
     a1 = [1+.01,0,0]; a2 = [0.,1-.01,0]; a3 = [0,0,1-.001];
     u,v,w = minkReduce(a1,a2,a3)
     ops,_ = pointGroup_robust(u,v,w)
