@@ -196,9 +196,9 @@ vol = abs(u×v⋅w) # Volume of the parallelipiped formed by the basis vectors
 c = [A*[i,j,k] for i ∈ (-1,0,1) for j ∈ (-1,0,1) for k ∈ (-1,0,1)]
 # Now keep only those vectors that have a norm matching one of the input vectors
 # efficiency: Gather three groups, according to length. This limits the candidates even more
-c1 = c[findall([isapprox(norms[1],norm(i),atol=ε) for i ∈ c])] # All vectors with first norm
-c2 = c[findall([isapprox(norms[2],norm(i),atol=ε) for i ∈ c])] # All vectors with second norm
-c3 = c[findall([isapprox(norms[3],norm(i),atol=ε) for i ∈ c])] # All vectors with third norm
+c1 = c[findall([isapprox(norms[1],norm(i),rtol=tol) for i ∈ c])] # All vectors with first norm
+c2 = c[findall([isapprox(norms[2],norm(i),rtol=tol) for i ∈ c])] # All vectors with second norm
+c3 = c[findall([isapprox(norms[3],norm(i),rtol=tol) for i ∈ c])] # All vectors with third norm
 # Construct all candidate bases, Rc (i.e., all combinations of c vectors), skip duplicate vectors.
 A′ = [[i j k] for i ∈ c1 for j ∈ c2 if !(i≈j) for k ∈ c3 if !(i≈k) && !(j≈k)] # All candidate bases
 A′ = A′[findall([isapprox(abs(det(i)),vol,rtol=ε) for i in A′])]  # Delete candidate bases with the wrong volume
@@ -209,7 +209,8 @@ Rc = [i*Ai for i ∈ A′] # Compute the candidate rotations from the candidate 
 T = [transpose(rc)*rc for rc ∈ Rc]
 
 # Indices of candidate T's that match the identity
-idx = findall([norm(t-I(3)) < ε*vol for t ∈ T])
+idx = findall([norm(t-I(3)) < ε for t ∈ T])
+
 # Convert the transformations to integer matrices (formally they should be)
 ops = [round.(Int,Ai*i*A) for i in Rc[idx]] # Need the 'Int' so integers are returned
 # Get norms of deviation from orthogonal case

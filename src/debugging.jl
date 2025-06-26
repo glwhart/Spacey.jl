@@ -1,5 +1,7 @@
 using Revise
 using Spacey
+using Revise
+using Spacey
 using MinkowskiReduction
 using LinearAlgebra
 
@@ -102,8 +104,12 @@ begin
 maxε = 1e-6
 for ε ∈ logrange(2*maxε,1e-3,10)
 ar = 1.0
+maxε = 1e-6
+for ε ∈ logrange(2*maxε,1e-3,10)
+ar = 1.0
 aspect_ratio = [1 0 0; 0 1 0; 0 0 ar]
 A = aspect_ratio*[0.0 0.5 0.5; 0.5 0.0 0.5; 0.5 0.5 0.0]
+for i ∈ 1:50
 for i ∈ 1:50
     noise = (2*rand(3,3).-1)*ε
     Atemp = A + noise

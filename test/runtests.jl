@@ -68,7 +68,7 @@ using MinkowskiReduction
     
     # Simple orthorhombic example of snap
     println("Orthorhombic example of snap")
-    a1 = [1,0.01,-.05]; a2 = [0.001,2,-0.01]; a3 = [0.02,-0.003,1.5];
+    a1 = [1,0.01,-.005]; a2 = [0.001,2,-0.01]; a3 = [0.02,-0.003,1.5];
     u,v,w = minkReduce(a1,a2,a3)
     ops,_ = pointGroup_robust(u,v,w)
     a,b,c,ops = snapToSymmetry_SVD(u,v,w,ops)
