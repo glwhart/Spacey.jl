@@ -90,7 +90,7 @@ using Spacey
 using MinkowskiReduction
 
 A = [0.0 0.5 0.5; 0.5 0.0 0.5; 0.5 0.5 0.0]
-ε = 1e-3
+ε = 2e-3
 @time for i ∈ 1:1000
     noise = (2*rand(3,3).-1)*ε
     Atemp = A + noise
@@ -118,23 +118,40 @@ end
 println("Max ε: ", maxε)
 end
 
+p1=plot()
+for tol ∈ [1e-3,1e-2,1e-1,5e-1,1.0]
+    println("tol: ", tol)
+    A = [0.0 0.5 0.5; 0.5 0.0 0.5; 0.5 0.5 0.0]
+    a = 5e-3; Navg = 2; Nsteps = 20;
+    data = Vector{Float64}(undef,Nsteps)
+    plim = logrange(1e-3*a,1e-1*a,Nsteps)
+    for (i,ε) ∈ enumerate(plim)
+        data[i] = count([length(pointGroup_robust(minkReduce(eachcol(A*a + (2*rand(3,3).-1)*ε*a)...)[1:3]...;tol=tol)[1])==48 for _ ∈ 1:Navg])/Navg
+    end
+p1=plot!(plim[findall(data.>0)]./a,data[findall(data.>0)],yscale=:log10,xscale=:log10,xlabel="Noise level (ε/a)",ylabel="Success rate",title="FCC case",label=string(tol))
+end
+show(p1)
+# Presumably the tol setting in pointGroup_robust can be as much as 10% of the smallest lattice vector and we'll get lots of candidates an the symmetry finder will be slow but more robust.
+
 
 begin
 a = 5e-3; maxε = 0.0
-for ε ∈ logrange(1e-5,1.2e-3,10)
+for ε ∈ logrange(4e-3*a,6e-3*a,20)
     maxε = ε
     success = true
     for i ∈ 1:1000
         noise = (2*rand(3,3).-1)*ε*a
         Atemp = A*a + noise
-        @show Atemp
-        if length(pointGroup_robust(minkReduce(eachcol(Atemp)...)[1:3]...)[1])!=48
-            println("Symmetry group is not 48")
+        #@show Atemp
+        nops = length(pointGroup_robust(minkReduce(eachcol(Atemp)...)[1:3]...)[1])
+        if nops != 48
+            println("Symmetry group is not 48. ε: ", round(ε/a,digits=5), "   nops: ", nops, "    noise: ", round(ε/a,digits=5))
             success = false
             break
         end
     end 
     if !success; maxε = ε; break; end
+    println("ε/a ", round(ε/a,digits=5), " passed")
 end
 println("Max ε: ", round(maxε,digits=6))
 end
