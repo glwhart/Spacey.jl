@@ -181,7 +181,7 @@ for the Spacey package.
      ...
      ```
 """
-function pointGroup_robust(u,v,w,tol=0.1)
+function pointGroup_robust(u,v,w;tol=0.1)
 # Mink reduction can change the basis even when the basis is already reduced (degenerate cases). So don't do it here. But do check that no reduction is needed.
 if !(orthogonalityDefect(u,v,w)≈orthogonalityDefect(minkReduce(u,v,w)[1:3]...))
     error("Input basis for 'pointGroup' is not reduced. Use 'minkReduce' to pick the shortest basis vectors.")
