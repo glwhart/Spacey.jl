@@ -189,19 +189,18 @@ end
 A = [u v w] # Define a matrix with input vectors as columns
 Ai = inv(A) 
 norms=norm.([u,v,w]) # Compute the norms of the three input vectors
-ε = tol*min(norms...) # Scale factor for comparisons (unit tests must decide correct rescaling)
 vol = abs(u×v⋅w) # Volume of the parallelipiped formed by the basis vectors
 
 # A list of all possible lattice vectors in a rotated basis. These are lattice points from the vertices of the 8 cells that have a corner at the origin. There are 27 of these (==3^3)
 c = [A*[i,j,k] for i ∈ (-1,0,1) for j ∈ (-1,0,1) for k ∈ (-1,0,1)]
-# Now keep only those vectors that have a norm matching one of the input vectors
+# Now keep only those vectors that have a norm close the norm one of the input vectors
 # efficiency: Gather three groups, according to length. This limits the candidates even more
 c1 = c[findall([isapprox(norms[1],norm(i),rtol=tol) for i ∈ c])] # All vectors with first norm
 c2 = c[findall([isapprox(norms[2],norm(i),rtol=tol) for i ∈ c])] # All vectors with second norm
 c3 = c[findall([isapprox(norms[3],norm(i),rtol=tol) for i ∈ c])] # All vectors with third norm
 # Construct all candidate bases, Rc (i.e., all combinations of c vectors), skip duplicate vectors.
 A′ = [[i j k] for i ∈ c1 for j ∈ c2 if !(i≈j) for k ∈ c3 if !(i≈k) && !(j≈k)] # All candidate bases
-A′ = A′[findall([isapprox(abs(det(i)),vol,rtol=ε) for i in A′])]  # Delete candidate bases with the wrong volume
+A′ = A′[findall([isapprox(abs(det(i)),vol,rtol=tol*min(norms...)) for i in A′])]  # Delete candidate bases with the wrong volume
 Rc = [i*Ai for i ∈ A′] # Compute the candidate rotations from the candidate bases
 
 # This is the Uᵀ ̇U, where U transforms original basis to candidate basis
@@ -209,7 +208,7 @@ Rc = [i*Ai for i ∈ A′] # Compute the candidate rotations from the candidate 
 T = [transpose(rc)*rc for rc ∈ Rc]
 
 # Indices of candidate T's that match the identity
-idx = findall([norm(t-I(3)) < ε for t ∈ T])
+idx = findall([norm(t-I(3)) < tol for t ∈ T])
 
 # Convert the transformations to integer matrices (formally they should be)
 ops = [round.(Int,Ai*i*A) for i in Rc[idx]] # Need the 'Int' so integers are returned
