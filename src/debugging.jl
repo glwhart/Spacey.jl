@@ -1,6 +1,3 @@
-using Revise
-using Spacey
-using Revise
 using Spacey
 using MinkowskiReduction
 using LinearAlgebra
@@ -110,7 +107,6 @@ ar = 1.0
 aspect_ratio = [1 0 0; 0 1 0; 0 0 ar]
 A = aspect_ratio*[0.0 0.5 0.5; 0.5 0.0 0.5; 0.5 0.5 0.0]
 for i ∈ 1:50
-for i ∈ 1:50
     noise = (2*rand(3,3).-1)*ε
     Atemp = A + noise
     if length(pointGroup_robust(minkReduce(eachcol(Atemp)...)[1:3]...)[1])!=16
@@ -118,25 +114,44 @@ for i ∈ 1:50
         maxε = ε
         break
     end
-    end
     if maxε == ε; break; end
 end 
 println("Max ε: ", maxε)
 end
-
-p1=plot()
-for tol ∈ [1e-3,1e-2,1e-1,5e-1,1.0]
-    println("tol: ", tol)
-    A = [0.0 0.5 0.5; 0.5 0.0 0.5; 0.5 0.5 0.0]
-    a = 5e-3; Navg = 2; Nsteps = 20;
-    data = Vector{Float64}(undef,Nsteps)
-    plim = logrange(1e-3*a,1e-1*a,Nsteps)
-    for (i,ε) ∈ enumerate(plim)
-        data[i] = count([length(pointGroup_robust(minkReduce(eachcol(A*a + (2*rand(3,3).-1)*ε*a)...)[1:3]...;tol=tol)[1])==48 for _ ∈ 1:Navg])/Navg
-    end
-p1=plot!(plim[findall(data.>0)]./a,data[findall(data.>0)],yscale=:log10,xscale=:log10,xlabel="Noise level (ε/a)",ylabel="Success rate",title="FCC case",label=string(tol))
 end
-show(p1)
+end
+
+
+## FCT test case
+begin
+p1=plot()
+tols = logrange(5e-4,1e-1,10)        # Tolerance values to test
+#colors = distinguishable_colors(length(tols))  # Generate clearly distinct colors
+colors = palette(:viridis, length(tols))       # Use the viridis colour scheme
+for (idx,tol) ∈ enumerate(tols)
+     println("tol: ", round(tol,digits=5))
+     A = [0.0 0.5 0.5; 0.5 0.0 0.5; 0.52 0.52 0.0]
+ #    A = [0.0 0.5 0.5; 0.5 0.0 0.5; 0.5 0.5 0.0]
+     a = 5e-3; Navg =1000; Nsteps = 40;
+     data = Vector{Float64}(undef,Nsteps)
+     plim = logrange(5e-3*a,5e1*a,Nsteps)
+     for (i,ε) ∈ enumerate(plim)
+         data[i] = count([length(pointGroup_robust(minkReduce(eachcol(A*a + (2*rand(3,3).-1)*ε*a)...)[1:3]...;tol=tol)[1])==16 for _ ∈ 1:Navg])/Navg
+     end
+p1=plot!(plim[findall(data.>0)]./a,
+         data[findall(data.>0)];
+         yscale=:log10,
+         xscale=:log10,
+         xlabel="Noise level (ε/a)",
+         ylabel="Success rate",
+         title="Unscaled tol in similarity transform check",
+         label=string(round(tol,digits=5)),
+         lw=3,
+         color=colors[idx],
+         legend=:bottomleft)
+ end
+ display(p1)
+ end
 # Presumably the tol setting in pointGroup_robust can be as much as 10% of the smallest lattice vector and we'll get lots of candidates an the symmetry finder will be slow but more robust.
 
 
