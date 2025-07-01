@@ -125,35 +125,50 @@ end
 ## FCT test case
 begin
 p1=plot()
-tols = logrange(5e-4,1e-1,10)        # Tolerance values to test
+tols = logrange(5e-4,5e-1,10)        # Tolerance values to test
 #colors = distinguishable_colors(length(tols))  # Generate clearly distinct colors
 colors = palette(:viridis, length(tols))       # Use the viridis colour scheme
 for (idx,tol) ∈ enumerate(tols)
      println("tol: ", round(tol,digits=5))
      A = [0.0 0.5 0.5; 0.5 0.0 0.5; 0.52 0.52 0.0]
- #    A = [0.0 0.5 0.5; 0.5 0.0 0.5; 0.5 0.5 0.0]
-     a = 5e-3; Navg =1000; Nsteps = 40;
+    #A = [0.0 0.5 0.5; 0.5 0.0 0.5; 0.5 0.5 0.0]
+    #A =[-1.0 1.0 1.0; 1.0 -1.0 1.0; 1.0 1.0 -1.0]
+     a = 5e-30; Navg =100; Nsteps = 40;
      data = Vector{Float64}(undef,Nsteps)
-     plim = logrange(5e-3*a,5e1*a,Nsteps)
+     plim = logrange(5e-4,1e0,Nsteps)
      for (i,ε) ∈ enumerate(plim)
-         data[i] = count([length(pointGroup_robust(minkReduce(eachcol(A*a + (2*rand(3,3).-1)*ε*a)...)[1:3]...;tol=tol)[1])==16 for _ ∈ 1:Navg])/Navg
+         data[i] = count([length(pointGroup_robust(minkReduce(eachcol((A+(2*rand(3,3).-1)*ε)*a)...)[1:3]...;tol=tol)[1])==48 for _ ∈ 1:Navg])/Navg
      end
-p1=plot!(plim[findall(data.>0)]./a,
+p1=plot!(plim[findall(data.>0)],
          data[findall(data.>0)];
          yscale=:log10,
          xscale=:log10,
          xlabel="Noise level (ε/a)",
          ylabel="Success rate",
-         title="Unscaled tol in similarity transform check",
+         title="BCC case, Unscaled tol ",
          label=string(round(tol,digits=5)),
          lw=3,
          color=colors[idx],
-         legend=:bottomleft)
+         legend=:bottomleft,
+         #xticks=[.005,1e-2,1e-1,1e0,1e1,5e1],
+         )
  end
  display(p1)
  end
 # Presumably the tol setting in pointGroup_robust can be as much as 10% of the smallest lattice vector and we'll get lots of candidates an the symmetry finder will be slow but more robust.
 
+for i ∈ -30:2:30
+    for _ ∈ 1:200
+        if !all([length(pointGroup(minkReduce(A+ (2*rand(3,3).-1)*0.02)*10.0^i;tol=1e-10)[1])==48]) error("Symmetry group is not 48") end
+    end
+end
+
+
+length(pointGroup(minkReduce(A+ (2*rand(3,3).-1)*0.02)*1e-14)[1])==48
+begin
+Atest = (A+ (2*rand(3,3).-1)*0.02)*1e-15
+pointGroup(minkReduce(Atest))[1]
+end
 
 begin
 a = 5e-3; maxε = 0.0
