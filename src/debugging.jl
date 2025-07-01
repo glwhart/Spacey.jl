@@ -125,7 +125,9 @@ end
 ## FCT test case
 begin
 p1=plot()
-tols = logrange(5e-4,5e-1,10)        # Tolerance values to test
+tols = logrange(5e-5,5e-1,10)        # Tolerance values to test
+a = 1e-0; Navg =100; Nsteps = 40;
+plim = logrange(5e-6,1e1,Nsteps)
 #colors = distinguishable_colors(length(tols))  # Generate clearly distinct colors
 colors = palette(:viridis, length(tols))       # Use the viridis colour scheme
 for (idx,tol) ∈ enumerate(tols)
@@ -133,11 +135,12 @@ for (idx,tol) ∈ enumerate(tols)
      A = [0.0 0.5 0.5; 0.5 0.0 0.5; 0.52 0.52 0.0]
     #A = [0.0 0.5 0.5; 0.5 0.0 0.5; 0.5 0.5 0.0]
     #A =[-1.0 1.0 1.0; 1.0 -1.0 1.0; 1.0 1.0 -1.0]
-     a = 5e-30; Navg =100; Nsteps = 40;
+    A = [0.5 0.5 0.5; 0.5 0.0 0.5; 1.0 0.5 0.0] # unreduced fcc
+    A = [1.0  1.0 0.5; 1.1 -1.1 0.0; 0.0 0.0 0.7] # Monoclinic
+
      data = Vector{Float64}(undef,Nsteps)
-     plim = logrange(5e-4,1e0,Nsteps)
      for (i,ε) ∈ enumerate(plim)
-         data[i] = count([length(pointGroup_robust(minkReduce(eachcol((A+(2*rand(3,3).-1)*ε)*a)...)[1:3]...;tol=tol)[1])==48 for _ ∈ 1:Navg])/Navg
+         data[i] = count([length(pointGroup_robust(minkReduce(eachcol((A+(2*rand(3,3).-1)*ε)*a)...)[1:3]...;tol=tol)[1])==4 for _ ∈ 1:Navg])/Navg
      end
 p1=plot!(plim[findall(data.>0)],
          data[findall(data.>0)];
