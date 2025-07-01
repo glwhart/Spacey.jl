@@ -138,6 +138,8 @@ Ai = inv(A)
 AiAiT = Ai*transpose(Ai) # Use this for checking for orthogonality
 norms=norm.([u,v,w]) # Compute the norms of the three input vectors
 vol = abs(u×v⋅w) # Volume of the parallelipiped formed by the basis vectors
+
+
 # A list of all possible lattice vectors in a rotated basis 
 # These are lattice points from the vertices of the 8 cells with a corner at the origin)
 # There are 27 of these (==3^3)
@@ -186,6 +188,9 @@ function pointGroup_robust(u,v,w;tol=0.1)
 if !(orthogonalityDefect(u,v,w)≈orthogonalityDefect(minkReduce(u,v,w)[1:3]...))
     error("Input basis for 'pointGroup' is not reduced. Use 'minkReduce' to pick the shortest basis vectors.")
 end
+inputVol = ∛(abs(u×v⋅w)) # Rescale the basis to have a volume of 1, avoid floating point issues
+u, v, w = u ./ inputVol, v ./ inputVol, w ./ inputVol
+
 A = [u v w] # Define a matrix with input vectors as columns
 Ai = inv(A) 
 norms=norm.([u,v,w]) # Compute the norms of the three input vectors
@@ -200,7 +205,7 @@ c2 = c[findall([isapprox(norms[2],norm(i),rtol=tol) for i ∈ c])] # All vectors
 c3 = c[findall([isapprox(norms[3],norm(i),rtol=tol) for i ∈ c])] # All vectors with third norm
 # Construct all candidate bases, Rc (i.e., all combinations of c vectors), skip duplicate vectors.
 A′ = [[i j k] for i ∈ c1 for j ∈ c2 if !(i≈j) for k ∈ c3 if !(i≈k) && !(j≈k)] # All candidate bases
-A′ = A′[findall([isapprox(abs(det(i)),vol,rtol=tol*min(norms...)) for i in A′])]  # Delete candidate bases with the wrong volume
+A′ = A′[findall([isapprox(abs(det(i)),vol,rtol=tol*min(norms...)) for i in A′])] # Delete candidate bases with the wrong volume
 Rc = [i*Ai for i ∈ A′] # Compute the candidate rotations from the candidate bases
 
 # This is the Uᵀ ̇U, where U transforms original basis to candidate basis
@@ -208,8 +213,7 @@ Rc = [i*Ai for i ∈ A′] # Compute the candidate rotations from the candidate 
 T = [transpose(rc)*rc for rc ∈ Rc]
 
 # Indices of candidate T's that match the identity
-idx = findall([norm(t-I(3)) < tol for t ∈ T])
-
+idx = findall([isapprox(t,I(3),rtol=tol) for t ∈ T])
 # Convert the transformations to integer matrices (formally they should be)
 ops = [round.(Int,Ai*i*A) for i in Rc[idx]] # Need the 'Int' so integers are returned
 # Get norms of deviation from orthogonal case
@@ -289,8 +293,8 @@ end
 
 Calculate the point group of a lattice using a matrix of column vectors as the basis. The routine is a wrapper for the `pointGroup_robust` routine. See docstring for that routine for more details.
 """
-function pointGroup(A)
-     return pointGroup_robust(A[:,1],A[:,2],A[:,3])
+function pointGroup(A;tol=0.1)
+     return pointGroup_robust(A[:,1],A[:,2],A[:,3];tol=tol)
 end
 end 
 
