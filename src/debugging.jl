@@ -160,29 +160,33 @@ p1=plot!(plim[findall(data.>0)],
  end
 # Presumably the tol setting in pointGroup_robust can be as much as 10% of the smallest lattice vector and we'll get lots of candidates an the symmetry finder will be slow but more robust.
 
+testlist=Dict([("Centered monoclinic 1",     ([1.0  1.0 0.5; 1.1 -1.1 0.0; 0.0 0.0 0.7],4)),
+               ("Simple monoclinic 1",      ( [1.0  0.0 0.1; 0.0  1.1 0.0; 0.0 0.0 0.7],4)),
+               ("Base-centered monoclinic 1",([1.0  0.0 0.5; 0.0  1.1 0.0; 0.0 0.0 0.7] ,8)),
+               ("Triclinic 1",([1.0  0.1 0.2; 0.2  1.1 0.0; 0.3 0.0 0.7] ,2))])
 
-
-# Start setting up some unit tests
-begin
-    A = [1.0  1.0 0.5; 1.1 -1.1 0.0; 0.0 0.0 0.7] # Monoclinic case
-    maxtol = 1e-1  # Anything larger than 0.1 will fail. No apparent lower limit
+for (name, (A,nops)) ∈ testlist
+    println(name, ",  nOps: ", nops)
     a = 1e-0; Navg =100; Nsteps = 40;
-    tols = logrange(5e-6,maxtol,10)
+    tols = logrange(5e-12,maxtol,20)
     plim = logrange(5e-6,1e0,Nsteps) # Size of noise to test. noise bigger that 1/5 tol will get skipped
     data = Vector{Float64}(undef,Nsteps)
     for (i,tol) ∈ enumerate(tols)
         for ε ∈ plim
             if tol < 5*ε/a; break; end # Anything less than 5*ε/a will fail
             #println("tol: ", round(tol,digits=5), " ε: ", round(ε,digits=5))
-            nSuccess = count([length(pointGroup_robust(minkReduce(eachcol(A*a + (2*rand(3,3).-1)*ε*a)...)[1:3]...;tol=tol)[1])==4 for _ ∈ 1:Navg])
+            Atest =  hcat(minkReduce(eachcol(A*a + (2*rand(3,3).-1)*ε*a)...)[1:3]...)
+            nSuccess = count([length(pointGroup(Atest;tol=tol)[1])==nops for _ ∈ 1:Navg])
             if nSuccess != Navg
-                error("Symmetry group is not 4. tol: ", tol)
+                @show Atest
+                error("Symmetry group is not $nops.  tol: ", tol, "  ε: ", ε)
             end
             #println("tol: ", round(tol,digits=5), " ε: ", round(ε,digits=5), " success")
         end
     end
     println("Success")
 end
+
 
 
 for i ∈ -30:2:30
