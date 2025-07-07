@@ -124,70 +124,88 @@ end
 
 ## FCT test case
 begin
-p1=plot()
-tols = logrange(5e-5,5e-1,10)        # Tolerance values to test
+#p1=plot()
+tols = logrange(5e-5,4e-1,40)        # Tolerance values to test
 a = 1e-0; Navg =100; Nsteps = 40;
-plim = logrange(5e-6,1e1,Nsteps)
+plim = logrange(1e-5,1e-1,Nsteps)
 #colors = distinguishable_colors(length(tols))  # Generate clearly distinct colors
 colors = palette(:viridis, length(tols))       # Use the viridis colour scheme
+data = Matrix{Float64}(undef,Nsteps,length(tols))
 for (idx,tol) ∈ enumerate(tols)
      println("tol: ", round(tol,digits=5))
      A = [0.0 0.5 0.5; 0.5 0.0 0.5; 0.52 0.52 0.0]
     #A = [0.0 0.5 0.5; 0.5 0.0 0.5; 0.5 0.5 0.0]
     #A =[-1.0 1.0 1.0; 1.0 -1.0 1.0; 1.0 1.0 -1.0]
     A = [0.5 0.5 0.5; 0.5 0.0 0.5; 1.0 0.5 0.0] # unreduced fcc
-    A = [1.0  1.0 0.5; 1.1 -1.1 0.0; 0.0 0.0 0.7] # Monoclinic
-
-     data = Vector{Float64}(undef,Nsteps)
+    #A = [1.0  1.0 0.5; 1.1 -1.1 0.0; 0.0 0.0 0.7] # Monoclinic
+    A = [1.0  0.1 0.2; 0.2  1.1 0.0; 0.3 0.0 0.7] # Triclinic
+    A = [1.0  1.0 1.1; 1.0  1.1 1.0; 1.1 1.0 1.0]
+    A = [1.0 0.5 0.0; 0.0 √(.75) 0.0; 0.0 0.0 1.6] # hexagonal
+    A = [1.1 0.0 0.0; 0.0 1.9 0.0; 0.0 0.0 2.5]# simple orthorhombic
+    #A =  [1.1 1.9 0.0; -1.0 1.9 0.0; 0.0 0.0 1.3] # base-centered orthorhombic
      for (i,ε) ∈ enumerate(plim)
-         data[i] = count([length(pointGroup_robust(minkReduce(eachcol((A+(2*rand(3,3).-1)*ε)*a)...)[1:3]...;tol=tol)[1])==4 for _ ∈ 1:Navg])/Navg
+         data[i,idx] = count([length(pointGroup_robust(minkReduce(eachcol((A+(2*rand(3,3).-1)*ε)*a)...)[1:3]...;tol=tol)[1])==48 for _ ∈ 1:Navg])/Navg
      end
-p1=plot!(plim[findall(data.>0)],
-         data[findall(data.>0)];
-         yscale=:log10,
-         xscale=:log10,
-         xlabel="Noise level (ε/a)",
-         ylabel="Success rate",
-         title="BCC case, Unscaled tol ",
-         label=string(round(tol,digits=5)),
-         lw=3,
-         color=colors[idx],
-         legend=:bottomleft,
-         #xticks=[.005,1e-2,1e-1,1e0,1e1,5e1],
-         )
+#p1=plot!(plim[findall(data.>0)],
+#            data[findall(data.>0)];
+#         yscale=:log10,
+#         xscale=:log10,
+#         xlabel="Noise level (ε/a)",
+#         ylabel="Success rate",
+#         title="Monoclinic case ",
+#         label=string(round(tol,digits=5)),
+#         lw=3,
+#         color=colors[idx],
+#         legend=:bottomleft,
+#         #xticks=[.005,1e-2,1e-1,1e0,1e1,5e1],
+#         )
  end
- display(p1)
+# display(p1)
  end
+
+# Make a heatmap of the data
+ heatmap(data,
+        yticks=(1:2:length(plim),[@sprintf("%.1e", ε) for ε in plim[1:2:end]]),
+        ylabel="Noise level",
+        xticks=(1:2:length(tols),[@sprintf("%.1e", t) for t in tols[1:2:end]]),
+        xrotation=90,
+        xlabel="Tolerance",
+        title="Simple orthorhombic 1",
+        colorbar_title="Success rate (probability)",
+        margin=(bottom=5Plots.mm)) 
+
+
+
 # Presumably the tol setting in pointGroup_robust can be as much as 10% of the smallest lattice vector and we'll get lots of candidates an the symmetry finder will be slow but more robust.
 
+c = 1.6
 testlist=Dict([("Centered monoclinic 1",     ([1.0  1.0 0.5; 1.1 -1.1 0.0; 0.0 0.0 0.7],4)),
-               ("Simple monoclinic 1",      ( [1.0  0.0 0.1; 0.0  1.1 0.0; 0.0 0.0 0.7],4)),
-               ("Base-centered monoclinic 1",([1.0  0.0 0.5; 0.0  1.1 0.0; 0.0 0.0 0.7] ,8)),
-               ("Triclinic 1",([1.0  0.1 0.2; 0.2  1.1 0.0; 0.3 0.0 0.7] ,2))])
+#               ("Simple monoclinic 1",      ( [1.0  0.0 0.1; 0.0  1.1 0.0; 0.0 0.0 0.7],4)),
+#               ("Base-centered monoclinic 1",([1.0  0.0 0.5; 0.0  1.1 0.0; 0.0 0.0 0.7] ,8)),
+#               ("Triclinic 1",([1.0  0.1 0.2; 0.2  1.1 0.0; 0.3 0.0 0.7] ,2)),
+#               ("FCC unreduced 1",([0.0 0.5 1.0; 0.5 0.0 1.0; 0.5 0.5 1.0],48)),
+               ("Rhombohedral 1",([1.0  1.0 c; 1.0  c 1.0; c 1.0 1.0],12)),
+               ("hexagonal 1",([1.0 0.5 0.0; 0.0  √(.75) 0.0; 0.0 0.0 1.6],24))])
 
 for (name, (A,nops)) ∈ testlist
     println(name, ",  nOps: ", nops)
-    a = 1e-0; Navg =100; Nsteps = 40;
+    a = 1e-0; Navg =100; Nsteps = 40; maxtol = 1e-1
     tols = logrange(5e-12,maxtol,20)
     plim = logrange(5e-6,1e0,Nsteps) # Size of noise to test. noise bigger that 1/5 tol will get skipped
     data = Vector{Float64}(undef,Nsteps)
     for (i,tol) ∈ enumerate(tols)
         for ε ∈ plim
-            if tol < 5*ε/a; break; end # Anything less than 5*ε/a will fail
-            #println("tol: ", round(tol,digits=5), " ε: ", round(ε,digits=5))
+            if tol < 5*ε/a; break; end # Anything less than 5*ε/a will fail for most cases. Rhombohedral is a special case. It seem much more sensitive. Needs a bigger tol.
             Atest =  hcat(minkReduce(eachcol(A*a + (2*rand(3,3).-1)*ε*a)...)[1:3]...)
             nSuccess = count([length(pointGroup(Atest;tol=tol)[1])==nops for _ ∈ 1:Navg])
             if nSuccess != Navg
                 @show Atest
-                error("Symmetry group is not $nops.  tol: ", tol, "  ε: ", ε)
+                error("Symmetry group is not $nops.  tol: ", tol, "  ε: ", ε,"  nSuccess: ", nSuccess)
             end
-            #println("tol: ", round(tol,digits=5), " ε: ", round(ε,digits=5), " success")
         end
     end
     println("Success")
 end
-
-
 
 for i ∈ -30:2:30
     for _ ∈ 1:200
