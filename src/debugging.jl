@@ -122,7 +122,7 @@ end
 end
 
 
-## FCT test case
+## assorted test cases
 begin
 #p1=plot()
 tols = logrange(5e-5,4e-1,40)        # Tolerance values to test
@@ -133,18 +133,18 @@ colors = palette(:viridis, length(tols))       # Use the viridis colour scheme
 data = Matrix{Float64}(undef,Nsteps,length(tols))
 for (idx,tol) ∈ enumerate(tols)
      println("tol: ", round(tol,digits=5))
-     A = [0.0 0.5 0.5; 0.5 0.0 0.5; 0.52 0.52 0.0]
-    #A = [0.0 0.5 0.5; 0.5 0.0 0.5; 0.5 0.5 0.0]
-    #A =[-1.0 1.0 1.0; 1.0 -1.0 1.0; 1.0 1.0 -1.0]
-    A = [0.5 0.5 0.5; 0.5 0.0 0.5; 1.0 0.5 0.0] # unreduced fcc
+     A = [0.0 0.5 0.5; 0.5 0.0 0.5; 0.52 0.52 0.0] #fct
+    #A = [0.0 0.5 0.5; 0.5 0.0 0.5; 0.5 0.5 0.0] #fcc
+    #A =[-1.0 1.0 1.0; 1.0 -1.0 1.0; 1.0 1.0 -1.0] #BCC
+    #A = [0.5 0.5 0.5; 0.5 0.0 0.5; 1.0 0.5 0.0] # unreduced fcc
     #A = [1.0  1.0 0.5; 1.1 -1.1 0.0; 0.0 0.0 0.7] # Monoclinic
-    A = [1.0  0.1 0.2; 0.2  1.1 0.0; 0.3 0.0 0.7] # Triclinic
-    A = [1.0  1.0 1.1; 1.0  1.1 1.0; 1.1 1.0 1.0]
+    #A = [1.0  0.1 0.2; 0.2  1.1 0.0; 0.3 0.0 0.7] # Triclinic
+    #A = [1.0  1.0 1.1; 1.0  1.1 1.0; 1.1 1.0 1.0]
     A = [1.0 0.5 0.0; 0.0 √(.75) 0.0; 0.0 0.0 1.6] # hexagonal
     A = [1.1 0.0 0.0; 0.0 1.9 0.0; 0.0 0.0 2.5]# simple orthorhombic
-    #A =  [1.1 1.9 0.0; -1.0 1.9 0.0; 0.0 0.0 1.3] # base-centered orthorhombic
+    A =  [1.1 1.9 0.0; -1.1 1.9 0.0; 0.0 0.0 1.3] # base-centered orthorhombic
      for (i,ε) ∈ enumerate(plim)
-         data[i,idx] = count([length(pointGroup_robust(minkReduce(eachcol((A+(2*rand(3,3).-1)*ε)*a)...)[1:3]...;tol=tol)[1])==48 for _ ∈ 1:Navg])/Navg
+         data[i,idx] = count([length(pointGroup_robust(minkReduce(eachcol((A+(2*rand(3,3).-1)*ε)*a)...)[1:3]...;tol=tol)[1])==8 for _ ∈ 1:Navg])/Navg
      end
 #p1=plot!(plim[findall(data.>0)],
 #            data[findall(data.>0)];
@@ -170,7 +170,7 @@ for (idx,tol) ∈ enumerate(tols)
         xticks=(1:2:length(tols),[@sprintf("%.1e", t) for t in tols[1:2:end]]),
         xrotation=90,
         xlabel="Tolerance",
-        title="Simple orthorhombic 1",
+        title="Base-centered orthorhombic 1",
         colorbar_title="Success rate (probability)",
         margin=(bottom=5Plots.mm)) 
 
@@ -178,14 +178,15 @@ for (idx,tol) ∈ enumerate(tols)
 
 # Presumably the tol setting in pointGroup_robust can be as much as 10% of the smallest lattice vector and we'll get lots of candidates an the symmetry finder will be slow but more robust.
 
-c = 1.6
+c = 1.5
 testlist=Dict([("Centered monoclinic 1",     ([1.0  1.0 0.5; 1.1 -1.1 0.0; 0.0 0.0 0.7],4)),
 #               ("Simple monoclinic 1",      ( [1.0  0.0 0.1; 0.0  1.1 0.0; 0.0 0.0 0.7],4)),
 #               ("Base-centered monoclinic 1",([1.0  0.0 0.5; 0.0  1.1 0.0; 0.0 0.0 0.7] ,8)),
 #               ("Triclinic 1",([1.0  0.1 0.2; 0.2  1.1 0.0; 0.3 0.0 0.7] ,2)),
 #               ("FCC unreduced 1",([0.0 0.5 1.0; 0.5 0.0 1.0; 0.5 0.5 1.0],48)),
                ("Rhombohedral 1",([1.0  1.0 c; 1.0  c 1.0; c 1.0 1.0],12)),
-               ("hexagonal 1",([1.0 0.5 0.0; 0.0  √(.75) 0.0; 0.0 0.0 1.6],24))])
+               ("hexagonal 1",([1.0 0.5 0.0; 0.0  √(.75) 0.0; 0.0 0.0 1.6],24)),
+               ("Centered orthorhombic 1",([1.1 1.9 0.0; -1.1 1.9 0.0; 0.0 0.0 1.3],8))])
 
 for (name, (A,nops)) ∈ testlist
     println(name, ",  nOps: ", nops)
