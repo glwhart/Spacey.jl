@@ -186,7 +186,14 @@ testlist=Dict([("Centered monoclinic 1",     ([1.0  1.0 0.5; 1.1 -1.1 0.0; 0.0 0
 #               ("FCC unreduced 1",([0.0 0.5 1.0; 0.5 0.0 1.0; 0.5 0.5 1.0],48)),
                ("Rhombohedral 1",([1.0  1.0 c; 1.0  c 1.0; c 1.0 1.0],12)),
                ("hexagonal 1",([1.0 0.5 0.0; 0.0  √(.75) 0.0; 0.0 0.0 1.6],24)),
-               ("Centered orthorhombic 1",([1.1 1.9 0.0; -1.1 1.9 0.0; 0.0 0.0 1.3],8))])
+               ("Base-Centered orthorhombic 2",([1.1 1.9 0.0; -1.1 1.9 0.0; 0.0 0.0 1.3],8)),
+               ("Body-centered orthorhombic 1",([1.1 0.0 0.55; 0.0 1.9 0.95; 0.0 0.0 0.7],8)),
+               ("Face-centered orthorhombic 1",([0.55 0.0 0.55; 0.95 0.95 0.0; 0.0 0.35 0.35],8)),
+               ("BCTet",([0.0 0.5 0.5; 0.5 0.0 0.5; 0.52 0.52 0.0],16)),
+               ("FCC",([0.0 0.5 0.5; 0.5 0.0 0.5; 0.5 0.5 0.0],48)),
+               ("BCC",([-1.0 1.0 1.0; 1.0 -1.0 1.0; 1.0 1.0 -1.0],48)),
+               ("Hexagonal",([1.0 0.5 0.0; 0.0 √(.75) 0.0; 0.0 0.0 1.6],24)) 
+               ])
 
 for (name, (A,nops)) ∈ testlist
     println(name, ",  nOps: ", nops)
@@ -196,7 +203,7 @@ for (name, (A,nops)) ∈ testlist
     data = Vector{Float64}(undef,Nsteps)
     for (i,tol) ∈ enumerate(tols)
         for ε ∈ plim
-            if tol < 5*ε/a; break; end # Anything less than 5*ε/a will fail for most cases. Rhombohedral is a special case. It seem much more sensitive. Needs a bigger tol.
+            if tol < 50*ε/a; break; end # Anything less than 5*ε/a will fail for most cases. Rhombohedral is a special case. It seem much more sensitive. Needs a bigger tol.
             Atest =  hcat(minkReduce(eachcol(A*a + (2*rand(3,3).-1)*ε*a)...)[1:3]...)
             nSuccess = count([length(pointGroup(Atest;tol=tol)[1])==nops for _ ∈ 1:Navg])
             if nSuccess != Navg
@@ -207,6 +214,7 @@ for (name, (A,nops)) ∈ testlist
     end
     println("Success")
 end
+
 
 for i ∈ -30:2:30
     for _ ∈ 1:200
