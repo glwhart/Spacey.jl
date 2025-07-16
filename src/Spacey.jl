@@ -4,7 +4,7 @@ using LinearAlgebra
 using StatsBase
 export pointGroup_fast, pointGroup_simple, threeDrotation, 
        pointGroup, pointGroup_robust, snapToSymmetry_SVD, isagroup,
-       snapToSymmetry_avg
+       snapToSymmetry_avg, aspectRatio
 
 """ averageOverOps(vec,ops) 
 
@@ -296,5 +296,24 @@ Calculate the point group of a lattice using a matrix of column vectors as the b
 function pointGroup(A;tol=0.1)
      return pointGroup_robust(A[:,1],A[:,2],A[:,3];tol=tol)
 end
-end 
 
+""" aspectRatio(a1,a2,a3)
+
+Calculate the aspect ratio of a lattice.
+
+The aspect ratio is the ratio of the longest to shortest lattice vector.
+"""
+function aspectRatio(a1,a2,a3)
+     a = minkReduce(a1,a2,a3)[1:3]
+     return max(norm(a[1]),norm(a[2]),norm(a[3]))/min(norm(a[1]),norm(a[2]),norm(a[3]))
+end
+
+""" aspectRatio(A)
+
+Calculate the aspect ratio of a lattice using a matrix of column vectors as the basis. The routine is a wrapper for the `aspectRatio(a1,a2,a3)` routine.
+"""
+function aspectRatio(A)
+     return aspectRatio(A[:,1],A[:,2],A[:,3])
+end
+
+end
