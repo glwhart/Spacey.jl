@@ -180,10 +180,10 @@ for (idx,tol) ∈ enumerate(tols)
 
 c = 1.5
 testlist=Dict([("Centered monoclinic 1",     ([1.0  1.0 0.5; 1.1 -1.1 0.0; 0.0 0.0 0.7],4)),
-#               ("Simple monoclinic 1",      ( [1.0  0.0 0.1; 0.0  1.1 0.0; 0.0 0.0 0.7],4)),
-#               ("Base-centered monoclinic 1",([1.0  0.0 0.5; 0.0  1.1 0.0; 0.0 0.0 0.7] ,8)),
-#               ("Triclinic 1",([1.0  0.1 0.2; 0.2  1.1 0.0; 0.3 0.0 0.7] ,2)),
-#               ("FCC unreduced 1",([0.0 0.5 1.0; 0.5 0.0 1.0; 0.5 0.5 1.0],48)),
+               ("Simple monoclinic 1",      ( [1.0  0.0 0.1; 0.0  1.1 0.0; 0.0 0.0 0.7],4)),
+               ("Base-centered monoclinic 1",([1.0  0.0 0.5; 0.0  1.1 0.0; 0.0 0.0 0.7] ,8)),
+               ("Triclinic 1",([1.0  0.1 0.2; 0.2  1.1 0.0; 0.3 0.0 0.7] ,2)),
+               ("FCC unreduced 1",([0.0 0.5 1.0; 0.5 0.0 1.0; 0.5 0.5 1.0],48)),
                ("Rhombohedral 1",([1.0  1.0 c; 1.0  c 1.0; c 1.0 1.0],12)),
                ("hexagonal 1",([1.0 0.5 0.0; 0.0  √(.75) 0.0; 0.0 0.0 1.6],24)),
                ("Base-Centered orthorhombic 2",([1.1 1.9 0.0; -1.1 1.9 0.0; 0.0 0.0 1.3],8)),
@@ -194,7 +194,6 @@ testlist=Dict([("Centered monoclinic 1",     ([1.0  1.0 0.5; 1.1 -1.1 0.0; 0.0 0
                ("BCC",([-1.0 1.0 1.0; 1.0 -1.0 1.0; 1.0 1.0 -1.0],48)),
                ("Simple cubic",([1.0 0.0 0.0; 0.0 1.0 0.0; 0.0 0.0 1.0],48))
                ])
-
 for (name, (A,nops)) ∈ testlist
     println(name, ",  nOps: ", nops)
     a = 1e-0; Navg =100; Nsteps = 40; maxtol = 1e-1
@@ -208,12 +207,30 @@ for (name, (A,nops)) ∈ testlist
             nSuccess = count([length(pointGroup(Atest;tol=tol)[1])==nops for _ ∈ 1:Navg])
             if nSuccess != Navg
                 @show Atest
-                error("Symmetry group is not $nops.  tol: ", tol, "  ε: ", ε,"  nSuccess: ", nSuccess)
+                error("Pointgroup size is not $nops.  tol: ", tol, "  ε: ", ε,"  nSuccess: ", nSuccess)
             end
         end
     end
     println("Success")
 end
+
+
+# Aspect ratio test (this didn't work how I expected because the c axis is not along the z axis)
+[aspectRatio(A) for (name,(A,nops)) ∈ testlist]
+nops = 8
+Ntol = 20
+t = logrange(1e-12,1e-1,Ntol)
+Nar = 10
+data = Matrix{Float64}(undef,Nar,Ntol)
+for (it,tol) ∈ enumerate(t)
+    for (iar,ar) ∈ enumerate(logrange(1e-1,1e1,Nar)) 
+    Navg = 100
+    A,nops = testlist["Rhombohedral 1"] 
+    tetDist = Matrix{Float64}(I,3,3); tetDist[3,3] = ar
+    data[iar,it] = count([length(pointGroup(minkReduce(A*tetDist + (2*rand(3,3).-1)*0.01);tol=tol)[1]==nops) for _ ∈ 1:Navg])/Navg
+    end
+end
+
 
 
 for i ∈ -30:2:30
