@@ -163,6 +163,7 @@ for (idx,tol) ∈ enumerate(tols)
 # display(p1)
  end
 
+ using Printf
 # Make a heatmap of the data
  heatmap(data,
         yticks=(1:2:length(plim),[@sprintf("%.1e", ε) for ε in plim[1:2:end]]),
@@ -176,69 +177,34 @@ for (idx,tol) ∈ enumerate(tols)
 
 
 
-# Presumably the tol setting in pointGroup_robust can be as much as 10% of the smallest lattice vector and we'll get lots of candidates an the symmetry finder will be slow but more robust.
 
-c = 1.5
-testlist=Dict([("Centered monoclinic 1",     ([1.0  1.0 0.5; 1.1 -1.1 0.0; 0.0 0.0 0.7],4)),
-               ("Simple monoclinic 1",      ( [1.0  0.0 0.1; 0.0  1.1 0.0; 0.0 0.0 0.7],4)),
-               ("Base-centered monoclinic 1",([1.0  0.0 0.5; 0.0  1.1 0.0; 0.0 0.0 0.7] ,8)),
-               ("Triclinic 1",([1.0  0.1 0.2; 0.2  1.1 0.0; 0.3 0.0 0.7] ,2)),
-               ("FCC unreduced 1",([0.0 0.5 1.0; 0.5 0.0 1.0; 0.5 0.5 1.0],48)),
-               ("Rhombohedral 1",([1.0  1.0 c; 1.0  c 1.0; c 1.0 1.0],12)),
-               ("hexagonal 1",([1.0 0.5 0.0; 0.0  √(.75) 0.0; 0.0 0.0 1.6],24)),
-               ("Base-Centered orthorhombic 2",([1.1 1.9 0.0; -1.1 1.9 0.0; 0.0 0.0 1.3],8)),
-               ("Body-centered orthorhombic 1",([1.1 0.0 0.55; 0.0 1.9 0.95; 0.0 0.0 0.7],8)),
-               ("Face-centered orthorhombic 1",([0.55 0.0 0.55; 0.95 0.95 0.0; 0.0 0.35 0.35],8)),
-               ("BCTet",([0.0 0.5 0.5; 0.5 0.0 0.5; 0.54 0.54 0.0],16)),
-               ("FCC",([0.0 0.5 0.5; 0.5 0.0 0.5; 0.5 0.5 0.0],48)),
-               ("BCC",([-1.0 1.0 1.0; 1.0 -1.0 1.0; 1.0 1.0 -1.0],48)),
-               ("Simple cubic",([1.0 0.0 0.0; 0.0 1.0 0.0; 0.0 0.0 1.0],48))
-               ])
-for (name, (A,nops)) ∈ testlist
-    println(name, ",  nOps: ", nops)
-    a = 1e-0; Navg =100; Nsteps = 40; maxtol = 1e-1
-    tols = logrange(5e-12,maxtol,20)
-    plim = logrange(5e-6,1e0,Nsteps) # Size of noise to test. noise bigger that 1/5 tol will get skipped
-    data = Vector{Float64}(undef,Nsteps)
-    for (i,tol) ∈ enumerate(tols)
-        for ε ∈ plim
-            if tol < 5*ε/a; break; end # Anything less than 5*ε/a will fail for most cases. Slight tetragonal distortions from bcc/fcc will be found as cubic if tol is too big or distortion is too small.
-            Atest =  hcat(minkReduce(eachcol(A*a + (2*rand(3,3).-1)*ε*a)...)[1:3]...)
-            nSuccess = count([length(pointGroup(Atest;tol=tol)[1])==nops for _ ∈ 1:Navg])
-            if nSuccess != Navg
-                @show Atest
-                error("Pointgroup size is not $nops.  tol: ", tol, "  ε: ", ε,"  nSuccess: ", nSuccess)
-            end
-        end
-    end
-    println("Success")
+
+
+begin
+rhomb(δ) = [1.0 δ δ; δ 1.0 δ; δ δ 1.0]
+fermi(t) = 1/(exp(-t*20)+1)
+s=[fermi(x-.25)*1.5-.5 for x ∈ range(-0.5,1,length=101)]
+
+tols = logrange(5e-5,4e-1,40)        # Tolerance values to test
+a = 1e-0; Navg =100; Nsteps = 40;
+data = Matrix{Float64}(undef,Nsteps,length(tols))
+for (si,s) ∈ enumerate(s)
+for (i,ε) ∈ enumerate(plim)
+    data[i,idx] = count([length(pointGroup_robust(minkReduce(eachcol((rhomb(si)+(2*rand(3,3).-1)*ε)*a)...)[1:3]...;tol=tol)[1])==8 for _ ∈ 1:Navg])/Navg
+end
+end
+[length(pointGroup(minkReduce(rhomb(s[i]) + (2*rand(3,3).-1)*1e-10);tol=1e-3)[1]) for i ∈ 1:length(s)]
+scatter(ans)
 end
 
 
-# Aspect ratio test (this didn't work how I expected because the c axis is not along the z axis)
-[aspectRatio(A) for (name,(A,nops)) ∈ testlist]
-nops = 8
-Ntol = 20
-t = logrange(1e-12,1e-1,Ntol)
-Nar = 10
-data = Matrix{Float64}(undef,Nar,Ntol)
-for (it,tol) ∈ enumerate(t)
-    for (iar,ar) ∈ enumerate(logrange(1e-1,1e1,Nar)) 
-    Navg = 100
-    A,nops = testlist["Rhombohedral 1"] 
-    tetDist = Matrix{Float64}(I,3,3); tetDist[3,3] = ar
-    data[iar,it] = count([length(pointGroup(minkReduce(A*tetDist + (2*rand(3,3).-1)*0.01);tol=tol)[1]==nops) for _ ∈ 1:Navg])/Navg
-    end
-end
-
-
-
+using Plots
 for i ∈ -30:2:30
     for _ ∈ 1:200
         if !all([length(pointGroup(minkReduce(A+ (2*rand(3,3).-1)*0.02)*10.0^i;tol=1e-10)[1])==48]) error("Symmetry group is not 48") end
     end
 end
-
+fermi(-1)
 
 length(pointGroup(minkReduce(A+ (2*rand(3,3).-1)*0.02)*1e-14)[1])==48
 begin
