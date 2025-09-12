@@ -61,12 +61,16 @@ end
     # Simple tetragonal example of snap
     a1 = [1+.01,0,0]; a2 = [0.,1-.01,0]; a3 = [0,0,1.5];
     u,v,w = minkReduce(a1,a2,a3)
-    ops,_ = pointGroup_robust(u,v,w;tol=5e-2)
+    ops,R = pointGroup_robust(u,v,w;tol=5e-2)
     @test isagroup(ops)
+    @test isagroup(R)
     a,b,c,ops = snapToSymmetry_SVD(u,v,w,ops)
     @test length(ops)==16
     @test norm(a)≈norm(b)
     @test det([a b c])≈det([a1 a2 a3])
+    A = [a1 a2 a3]
+    Ai = inv(A)
+    @test all([Ai*lg*A==g for (lg,g) ∈ zip(ops,R)])
     
     # Simple orthorhombic example of snap
     println("Orthorhombic example of snap")
