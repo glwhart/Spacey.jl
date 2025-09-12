@@ -36,12 +36,28 @@ function makeGroup(ops)
     return ops[1:last]
 end
 
+
+bcc = [1. 1. -1.; 1. -1. 1.; -1. 1. 1.]
+fcc = [0.5 0.5 0.0; 0.5 0.0 0.5; 0.0 0.5 0.5]
+
+LGb,Gb=pointGroup(bcc)
+LGf,Gf=pointGroup(fcc)
+[inv(bcc)*g*bcc==lg for (g,lg) ∈ zip(Gb,LGb)]
+[bcc*g*inv(bcc)==lg for (g,lg) ∈ zip(Gb,LGb)]
+[inv(fcc)*g*fcc==lg for (g,lg) ∈ zip(Gf,LGf)]
+[fcc*g*inv(fcc)==lg for (g,lg) ∈ zip(Gf,LGf)]
+
 # Test case
 a1 = [1/16 - .0001, .001, .0001]
 a2 = [-0.001, 16-.0001, -.0001]
 a3 = [-.0001, .0001, 1.51]
-ops, rops = pointGroup_robust(minkReduce(a1,a2,a3)...)
+ops, rops = pointGroup_robust(minkReduce(a1,a2,a3)[1:3]...)
+pointGroup(hcat(minkReduce(a1,a2,a3)[1:3]...))
+pointGroup(hcat(a1,a2,a3))
+A = hcat(minkReduce(a1,a2,a3)[1:3]...)
+pointGroup(A)
 
+hcat(minkReduce(a1,a2,a3)[1:3]...)
 A = [u v w] # Take the lattice basis as a matrix 
 Ap = [A*k for k ∈ ops] # Apply the integer tranforms to get new basis vectors
 lengths = mean([[norm(i) for i ∈ eachcol(b)] for b ∈ Ap]) 
@@ -243,3 +259,14 @@ end
 
 
 
+end
+using Space
+bcc = [1. 1. -1.; 1. -1. 1.; -1. 1. 1.]
+fcc = [0.5 0.5 0.0; 0.5 0.0 0.5; 0.0 0.5 0.5]
+isagroup(pointGroup(fcc)[1])
+isagroup(pointGroup(fcc)[2])
+isagroup(pointGroup(bcc)[1])
+isagroup(pointGroup(bcc)[2])
+
+
+[g for g ∈ Gb]
