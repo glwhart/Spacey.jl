@@ -41,27 +41,55 @@ function snapToSymmetry_avg(M,ops)
      return [res[1] res[2] res[3]]
 end
 
-""" isagroup(members)
-Check and see if a list of operators form a valid group. 
-Assumes that the operators are integer matrices.
-     
-Checks that 1) each member is unique and 2) that the product of 
-any two members is still in the list (closure).
+""" isagroup(members::Vector{<:AbstractMatrix{<:Integer}})
+
+Determine whether `members` (matrices with *integer* elements) form a group
+under matrix multiplication using *exact* equality.
 """
-function isagroup(members)
-     # Check that each member is unique
-     if length(unique(members)) < length(members)
-     return false
-     end
-     # Check that there is closure 
-     for i ∈ members
-     for j ∈ members
-          if !(i*j ∈ members)
-               return false
-          end
-     end
-     end 
-     return true
+function isagroup(members::AbstractVector{<:AbstractMatrix{<:Integer}})
+    # 1) distinctness
+    if length(unique(members)) < length(members)
+        return false
+    end
+
+    # 2) closure
+    for A in members, B in members
+        C = A * B
+        if !(C in members)                  # relies on exact == underneath
+            return false
+        end
+    end
+
+    return true
+end
+
+
+""" isagroup(members::Vector{<:AbstractMatrix{<:AbstractFloat}}; atol = 1e-8, rtol = 1e-8)
+
+Determine whether `members` (matrices with floating-point elements) form a
+group under matrix multiplication, using `isapprox` with the provided
+tolerances to handle finite-precision errors.
+"""
+function isagroup(members::AbstractVector{<:AbstractMatrix{<:AbstractFloat}}; atol = 1e-8, rtol = 1e-8)
+    cmp(A, B) = isapprox(A, B; atol=atol, rtol=rtol)
+    in_list(M, lst) = any(cmp(M, N) for N in lst)
+
+    # 1) distinctness (approximate)
+    for (k, A) in enumerate(members), B in @view members[(k+1):end]
+        if cmp(A, B)
+            return false
+        end
+    end
+
+    # 2) closure (approximate)
+    for A in members, B in members
+        C = A * B
+        if !in_list(C, members)
+            return false
+        end
+    end
+
+    return true
 end
 
 struct Crystal
@@ -211,14 +239,15 @@ Rc = [i*Ai for i ∈ A′] # Compute the candidate rotations from the candidate 
 # This is the Uᵀ ̇U, where U transforms original basis to candidate basis
 # If Tᵢ==identity then the Rc is orthogonal and is a symmetry of the lattice
 T = [transpose(rc)*rc for rc ∈ Rc]
-
 # Indices of candidate T's that match the identity
 idx = findall([isapprox(t,I(3),rtol=tol) for t ∈ T])
-# Convert the transformations to integer matrices (formally they should be)
-ops = [round.(Int,Ai*i*A) for i in Rc[idx]] # Need the 'Int' so integers are returned
+Rc = Rc[idx]
+T = T[idx]
+# Convert the transformations to lattice coordinates representation (round to integer matrices; formally they should be)
+ops = [round.(Int,Ai*i*A) for i in Rc] # Need the 'Int' so integers are returned
 # Get norms of deviation from orthogonal case
 tn = [norm(t-I(3)) for t ∈ T]
-tp = sortperm(tn[idx]) # Sort by deviation
+tp = sortperm(tn) # Sort by deviation
 # Find the largest number of (sorted) ops that form a group.
 maxl = 48
 for il ∈ [48,24,16,12,8,4,2] # These are the only possible group sizes for a 3D lattice
@@ -228,7 +257,7 @@ for il ∈ [48,24,16,12,8,4,2] # These are the only possible group sizes for a 3
           break
      end
 end
-return ops[tp][1:maxl], Rc[idx][tp][1:maxl]
+return ops[tp][1:maxl], Rc[tp][1:maxl]
 end
 
 """ spaceGroup(a1, a2, a3, r, ele) 

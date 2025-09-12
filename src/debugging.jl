@@ -122,6 +122,8 @@ end
 end
 
 
+begin # this is a test of github
+    
 ## assorted test cases
 begin
 #p1=plot()
