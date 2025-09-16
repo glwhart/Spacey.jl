@@ -6,6 +6,36 @@ using MinkowskiReduction
 # Timing tests are not consistent on github virtual machines.
 # Timing tests are only checked locally, see runTimingTests.jl
 
+# This list is used in multiple tests. Additional lattices could be added. (At least) One instance of each of the 14 Bravais lattices is included.
+BravaisLatticeList=Dict([("Centered monoclinic 1",     ([1.0  1.0 0.5; 1.1 -1.1 0.0; 0.0 0.0 0.7],4)),
+("Simple monoclinic 1",      ( [1.0  0.0 0.1; 0.0  1.1 0.0; 0.0 0.0 0.7],4)),
+("Base-centered orthorhombic 1",([1.0  0.0 0.5; 0.0  1.1 0.0; 0.0 0.0 0.7] ,8)),
+("Triclinic 1",([1.0  0.1 0.2; 0.2  1.1 0.0; 0.3 0.0 0.7] ,2)),
+("FCC unreduced 1",([0.0 0.5 1.0; 0.5 0.0 1.0; 0.5 0.5 1.0],48)),
+("Rhombohedral 1",([1.0  1.0 .5; 1.0  .5 1.0; .5 1.0 1.0],12)),
+("hexagonal 1",([1.0 0.5 0.0; 0.0  √(.75) 0.0; 0.0 0.0 1.6],24)),
+("Base-Centered orthorhombic 2",([1.1 1.9 0.0; -1.1 1.9 0.0; 0.0 0.0 1.3],8)),
+("Body-centered orthorhombic 1",([1.1 0.0 0.55; 0.0 1.9 0.95; 0.0 0.0 0.7],8)),
+("Face-centered orthorhombic 1",([0.55 0.0 0.55; 0.95 0.95 0.0; 0.0 0.35 0.35],8)),
+("BCTet",([0.0 0.5 0.5; 0.5 0.0 0.5; 0.54 0.54 0.0],16)),
+("FCC",([0.0 0.5 0.5; 0.5 0.0 0.5; 0.5 0.5 0.0],48)),
+("BCC",([-1.0 1.0 1.0; 1.0 -1.0 1.0; 1.0 1.0 -1.0],48)),
+("Simple cubic",([1.0 0.0 0.0; 0.0 1.0 0.0; 0.0 0.0 1.0],48)),
+("Simple orthorhombic",([1.1 0.0 0.0; 0.0 1.2 0.0; 0.0 0.0 1.3],8)),
+("Simple tetragonal",([1.1 0.0 0.0; 0.0 1.1 0.0; 0.0 0.0 1.3],16))
+])
+
+@testset "LG/G tests" begin
+    for (name, (A,nops)) ∈ BravaisLatticeList
+        println(name, ",  nOps: ", nops)
+        A = minkReduce(A)
+        LG,G = pointGroup(A)
+        @test isagroup(LG)
+        @test isagroup(G)
+        @test all([norm(A*lg*inv(A)-g) for (lg,g) ∈ zip(LG,G)] .< 5e-15)
+    end
+end
+
 @testset "pointGroup_simple, random rotations" begin
     u = [1, 0, 0]
     v = [0.5, √3 / 2, 0]
@@ -70,17 +100,18 @@ end
     @test det([a b c])≈det([a1 a2 a3])
     A = [a1 a2 a3]
     Ai = inv(A)
-    @test all([Ai*lg*A==g for (lg,g) ∈ zip(ops,R)])
     
     # Simple orthorhombic example of snap
     println("Orthorhombic example of snap")
     a1 = [1,0.01,-.005]; a2 = [0.001,2,-0.01]; a3 = [0.02,-0.003,1.5];
     u,v,w = minkReduce(a1,a2,a3)
-    ops,_ = pointGroup_robust(u,v,w;tol=5e-2)
+    ops, R = pointGroup_robust(u,v,w;tol=5e-2)
     a,b,c,ops = snapToSymmetry_SVD(u,v,w,ops)
     @test length(ops)==8
     @test det([a b c])≈det([a1 a2 a3])
     @test isagroup(ops)
+    @test isagroup(R)
+
 
     println("Example of large aspect ratio: 256 (should still succeed)")
     a1 = [1/16 - .0001, .001, .0001]
@@ -120,23 +151,6 @@ end
 end
 
 @testset "Random noise, all lattices" begin
-    BravaisLatticeList=Dict([("Centered monoclinic 1",     ([1.0  1.0 0.5; 1.1 -1.1 0.0; 0.0 0.0 0.7],4)),
-               ("Simple monoclinic 1",      ( [1.0  0.0 0.1; 0.0  1.1 0.0; 0.0 0.0 0.7],4)),
-               ("Base-centered orthorhombic 1",([1.0  0.0 0.5; 0.0  1.1 0.0; 0.0 0.0 0.7] ,8)),
-               ("Triclinic 1",([1.0  0.1 0.2; 0.2  1.1 0.0; 0.3 0.0 0.7] ,2)),
-               ("FCC unreduced 1",([0.0 0.5 1.0; 0.5 0.0 1.0; 0.5 0.5 1.0],48)),
-               ("Rhombohedral 1",([1.0  1.0 .5; 1.0  .5 1.0; .5 1.0 1.0],12)),
-               ("hexagonal 1",([1.0 0.5 0.0; 0.0  √(.75) 0.0; 0.0 0.0 1.6],24)),
-               ("Base-Centered orthorhombic 2",([1.1 1.9 0.0; -1.1 1.9 0.0; 0.0 0.0 1.3],8)),
-               ("Body-centered orthorhombic 1",([1.1 0.0 0.55; 0.0 1.9 0.95; 0.0 0.0 0.7],8)),
-               ("Face-centered orthorhombic 1",([0.55 0.0 0.55; 0.95 0.95 0.0; 0.0 0.35 0.35],8)),
-               ("BCTet",([0.0 0.5 0.5; 0.5 0.0 0.5; 0.54 0.54 0.0],16)),
-               ("FCC",([0.0 0.5 0.5; 0.5 0.0 0.5; 0.5 0.5 0.0],48)),
-               ("BCC",([-1.0 1.0 1.0; 1.0 -1.0 1.0; 1.0 1.0 -1.0],48)),
-               ("Simple cubic",([1.0 0.0 0.0; 0.0 1.0 0.0; 0.0 0.0 1.0],48)),
-               ("Simple orthorhombic",([1.1 0.0 0.0; 0.0 1.2 0.0; 0.0 0.0 1.3],8)),
-               ("Simple tetragonal",([1.1 0.0 0.0; 0.0 1.1 0.0; 0.0 0.0 1.3],16))
-               ])
     for (name, (A,nops)) ∈ BravaisLatticeList
         println(name, ",  nOps: ", nops)
         a = 1e-0; Navg =100; Nsteps = 40; maxtol = 1e-1
