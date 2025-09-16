@@ -25,6 +25,13 @@ BravaisLatticeList=Dict([("Centered monoclinic 1",     ([1.0  1.0 0.5; 1.1 -1.1 
 ("Simple tetragonal",([1.1 0.0 0.0; 0.0 1.1 0.0; 0.0 0.0 1.3],16))
 ])
 
+""" LG_G_test(LG,G,A)
+    Test if the pointgroup in lattice coordinates, LG, and the pointgroup Cartesian coordinates, G, are consistent with the lattice A. That is, A is a similarity transform between the two representations.
+"""
+function LG_G_test(LG,G,A)
+    return all([norm(A*lg*inv(A)-g) for (lg,g) ∈ zip(LG,G)] .< 5e-15)
+end
+
 @testset "LG/G tests" begin
     for (name, (A,nops)) ∈ BravaisLatticeList
         println(name, ",  nOps: ", nops)
@@ -83,10 +90,12 @@ end
     u,v,w = minkReduce(a1,a2,a3)
     ops,_ = pointGroup_robust(u,v,w;tol=5e-2)
     @test isagroup(ops)
-    a,b,c,ops = snapToSymmetry_SVD(u,v,w,ops)
+    a,b,c,iops,rops = snapToSymmetry_SVD(u,v,w,ops)
     @test det([a b c])≈det([a1 a2 a3])
     @test norm(a)≈norm(b)≈norm(c)
-    @test length(ops)==48
+    @test length(iops)==48
+    @test isagroup(rops)
+    @test LG_G_test(iops,rops,[a b c])
 
     # Simple tetragonal example of snap
     a1 = [1+.01,0,0]; a2 = [0.,1-.01,0]; a3 = [0,0,1.5];
@@ -94,23 +103,26 @@ end
     ops,R = pointGroup_robust(u,v,w;tol=5e-2)
     @test isagroup(ops)
     @test isagroup(R)
-    a,b,c,ops = snapToSymmetry_SVD(u,v,w,ops)
-    @test length(ops)==16
+    a,b,c,iops,rops = snapToSymmetry_SVD(u,v,w,ops)
+    @test length(iops)==16
     @test norm(a)≈norm(b)
     @test det([a b c])≈det([a1 a2 a3])
     A = [a1 a2 a3]
     Ai = inv(A)
-    
+    @test isagroup(rops)
+    @test LG_G_test(iops,rops,[a b c])
+
     # Simple orthorhombic example of snap
     println("Orthorhombic example of snap")
     a1 = [1,0.01,-.005]; a2 = [0.001,2,-0.01]; a3 = [0.02,-0.003,1.5];
     u,v,w = minkReduce(a1,a2,a3)
     ops, R = pointGroup_robust(u,v,w;tol=5e-2)
-    a,b,c,ops = snapToSymmetry_SVD(u,v,w,ops)
-    @test length(ops)==8
+    a,b,c,iops,rops = snapToSymmetry_SVD(u,v,w,ops)
+    @test length(iops)==8
     @test det([a b c])≈det([a1 a2 a3])
-    @test isagroup(ops)
-    @test isagroup(R)
+    @test isagroup(iops)
+    @test isagroup(rops)
+    @test LG_G_test(iops,rops,[a b c])
 
 
     println("Example of large aspect ratio: 256 (should still succeed)")
