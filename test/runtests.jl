@@ -107,8 +107,7 @@ end
     @test length(iops)==16
     @test norm(a)≈norm(b)
     @test det([a b c])≈det([a1 a2 a3])
-    A = [a1 a2 a3]
-    Ai = inv(A)
+    @test isagroup(iops)
     @test isagroup(rops)
     @test LG_G_test(iops,rops,[a b c])
 

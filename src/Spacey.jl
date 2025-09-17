@@ -308,11 +308,10 @@ t = svd(T)
 rescale = cbrt(abs(det(A)/det(Anew)))
 Afinal = t.U*t.V'*Anew*rescale # use the the ortho transform of the svd to get rid of the distortion component
 u,v,w=[Afinal[:,i] for i ∈ 1:length(u)]
-iops,rops = pointGroup_robust(u,v,w)
 if det([u v w]) < 0 
      u,v,w = v,u,w
 end
-
+iops,rops = pointGroup_robust(u,v,w)
 return u,v,w,iops,rops
 end
 
