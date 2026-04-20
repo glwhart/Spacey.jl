@@ -219,9 +219,14 @@ end
 inputVol = ∛(abs(u×v⋅w)) # Rescale the basis to have a volume of 1, avoid floating point issues
 u, v, w = u ./ inputVol, v ./ inputVol, w ./ inputVol
 
-A = [u v w] # Define a matrix with input vectors as columns
-Ai = inv(A) 
 norms=norm.([u,v,w]) # Compute the norms of the three input vectors
+ar = maximum(norms) / minimum(norms)
+if ar > 100
+    @warn "Aspect ratio is $(round(ar,digits=1)). Results may be unreliable for ratios above ~500."
+end
+
+A = [u v w] # Define a matrix with input vectors as columns
+Ai = inv(A)
 vol = abs(u×v⋅w) # Volume of the parallelipiped formed by the basis vectors
 
 # A list of all possible lattice vectors in a rotated basis. These are lattice points from the vertices of the 8 cells that have a corner at the origin. There are 27 of these (==3^3)
