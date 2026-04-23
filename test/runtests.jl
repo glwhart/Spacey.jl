@@ -185,6 +185,24 @@ end
 
 @testset "Aspect ratio tests" begin
     println("Rhombohedral case")
-    
+
+end
+
+@testset "Near-boundary tetragonal" begin
+    # A = diag(1, 1, 1+ε) is genuinely tetragonal for ε > 0 (16 ops). At tol ≫ ε,
+    # pointGroup_robust over-promotes to cubic (48) because the cubic-only ops
+    # (e.g. 3-folds about body diagonals) have integer-matrix residuals of O(ε)
+    # and pass the tol filter. See research.md §2.1 and test/nearMissBoundary.jl.
+    for ε ∈ [1e-3, 1e-5, 1e-8]
+        A = [1.0 0.0 0.0; 0.0 1.0 0.0; 0.0 0.0 1.0+ε]
+        u, v, w = minkReduce(eachcol(A)...)[1:3]
+        tight_tol = ε / 100
+        loose_tol = 100 * ε
+        @test length(pointGroup_simple(u, v, w)) == 16
+        @test length(pointGroup_robust(u, v, w; tol=tight_tol)[1]) == 16
+        @test length(pointGroup_robust(u, v, w; tol=loose_tol)[1]) == 48
+        @test_logs (:warn, r"near a symmetry boundary") match_mode=:any pointGroup_robust(u, v, w; tol=loose_tol, verify_stable=true)
+        @test length(pointGroup_robust(u, v, w; tol=tight_tol, verify_stable=true)[1]) == 16
+    end
 end
 

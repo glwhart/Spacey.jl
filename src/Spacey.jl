@@ -211,7 +211,7 @@ for the Spacey package.
      ...
      ```
 """
-function pointGroup_robust(u,v,w;tol=0.01)
+function pointGroup_robust(u,v,w;tol=0.01, verify_stable::Bool=false)
 # Mink reduction can change the basis even when the basis is already reduced (degenerate cases). So don't do it here. But do check that no reduction is needed.
 if !(orthogonalityDefect(u,v,w)≈orthogonalityDefect(minkReduce(u,v,w)[1:3]...))
     error("Input basis for 'pointGroup' is not reduced. Use 'minkReduce' to pick the shortest basis vectors.")
@@ -262,10 +262,19 @@ for il ∈ [48,24,16,12,8,4,2] # These are the only possible group sizes for a 3
           break
      end
 end
-return ops[tp][1:maxl], Rc[tp][1:maxl]
+result_ops = ops[tp][1:maxl]
+result_Rc  = Rc[tp][1:maxl]
+if verify_stable
+    tight_tol = tol / 1000
+    tight_ops, _ = pointGroup_robust(u, v, w; tol=tight_tol, verify_stable=false)
+    if length(tight_ops) != length(result_ops)
+        @warn "pointGroup_robust: group size depends on tolerance — lattice is near a symmetry boundary." tol group_at_tol=length(result_ops) tight_tol group_at_tight_tol=length(tight_ops)
+    end
+end
+return result_ops, result_Rc
 end
 
-""" spaceGroup(a1, a2, a3, r, ele) 
+""" spaceGroup(a1, a2, a3, r, ele)
 
 Calculate the spacegroup of a crystal
 
