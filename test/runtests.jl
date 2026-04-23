@@ -206,3 +206,146 @@ end
     end
 end
 
+@testset "Crystal construction" begin
+    A = Matrix{Float64}(I, 3, 3)
+    r = reshape([0.0, 0.0, 0.0], 3, 1)
+
+    # Basic fractional construction
+    c = Crystal(A, r, [1]; coords=:fractional)
+    @test c.A == A
+    @test c.r == r
+    @test c.types == [1]
+    @test c isa Crystal{Int}
+
+    # Symbol types
+    c_sym = Crystal(A, r, [:Fe]; coords=:fractional)
+    @test c_sym isa Crystal{Symbol}
+    @test c_sym.types == [:Fe]
+
+    # String types
+    c_str = Crystal(A, r, ["Fe"]; coords=:fractional)
+    @test c_str isa Crystal{String}
+
+    # Cartesian input converts to fractional
+    A2 = 2.0 * Matrix{Float64}(I, 3, 3)
+    r_cart = reshape([1.0, 1.0, 1.0], 3, 1)   # Cartesian (1,1,1) in 2× cubic
+    c_cart = Crystal(A2, r_cart, [1]; coords=:cartesian)
+    @test c_cart.r ≈ reshape([0.5, 0.5, 0.5], 3, 1)
+
+    # Integer input converts to Float64
+    A_int = [1 0 0; 0 1 0; 0 0 1]
+    r_int = reshape([0, 0, 0], 3, 1)
+    c_int = Crystal(A_int, r_int, [1]; coords=:fractional)
+    @test c_int.A isa Matrix{Float64}
+    @test c_int.r isa Matrix{Float64}
+
+    # Three-vector constructor
+    c_3v = Crystal([1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0], r, [1]; coords=:fractional)
+    @test c_3v.A == A
+
+    # Validation errors
+    @test_throws Exception Crystal(A, r, [1])                             # missing coords
+    @test_throws ErrorException Crystal(A, r, [1]; coords=:oops)         # bad coords
+    @test_throws ErrorException Crystal([1.0 0.0; 0.0 1.0], r, [1]; coords=:fractional)  # A not 3×3
+    @test_throws ErrorException Crystal(A, [0.0 0.0; 0.0 0.0], [1, 2]; coords=:fractional)  # r rows
+    @test_throws ErrorException Crystal(A, r, [1, 2]; coords=:fractional) # types length mismatch
+
+    # Empty crystal rejected (no atoms)
+    empty_r = Matrix{Float64}(undef, 3, 0)
+    @test_throws ErrorException Crystal(A, empty_r, Int[]; coords=:fractional)
+
+    # Singular A rejected (coplanar basis vectors: rank 2, det = 0)
+    A_sing = [1.0 0.0 1.0; 0.0 1.0 1.0; 0.0 0.0 0.0]
+    @test_throws ErrorException Crystal(A_sing, r, [1]; coords=:fractional)
+    # Same test at a different scale — the check is scale-invariant
+    @test_throws ErrorException Crystal(1e6 .* A_sing, r, [1]; coords=:fractional)
+    @test_throws ErrorException Crystal(1e-6 .* A_sing, r, [1]; coords=:fractional)
+end
+
+@testset "fractional / cartesian / default_pos_tol" begin
+    A = [2.0 0.0 0.0; 0.0 3.0 0.0; 0.0 0.0 4.0]
+    r_frac = reshape([0.5, 0.5, 0.5], 3, 1)
+    c = Crystal(A, r_frac, [1]; coords=:fractional)
+
+    @test fractional(c) == r_frac
+    @test cartesian(c) ≈ reshape([1.0, 1.5, 2.0], 3, 1)
+
+    # default_pos_tol: V = 24, N = 1 → 0.01 · 24^(1/3)
+    @test default_pos_tol(c) ≈ 0.01 * 24^(1/3)
+
+    # Two atoms, unit cell: V = 1, N = 2 → 0.01 · (1/2)^(1/3)
+    A_unit = Matrix{Float64}(I, 3, 3)
+    r2 = [0.0 0.5; 0.0 0.5; 0.0 0.5]
+    c2 = Crystal(A_unit, r2, [1, 2]; coords=:fractional)
+    @test default_pos_tol(c2) ≈ 0.01 * (1/2)^(1/3)
+end
+
+@testset "isSpacegroupOp: Phase 1 trivial cases" begin
+    A = Matrix{Float64}(I, 3, 3)
+    r = reshape([0.0, 0.0, 0.0], 3, 1)
+    c = Crystal(A, r, [1]; coords=:fractional)
+    tol = 1e-8
+    I3 = Matrix{Int}(I, 3, 3)
+
+    # Identity op
+    @test isSpacegroupOp(I3, [0.0, 0.0, 0.0], c; tol=tol)
+
+    # Pure lattice translation (should fold to identity mod 1)
+    @test isSpacegroupOp(I3, [1.0, 0.0, 0.0], c; tol=tol)
+    @test isSpacegroupOp(I3, [-1.0, 2.0, -3.0], c; tol=tol)
+
+    # 4-fold rotation about z — preserves (0,0,0)
+    R4 = [0 -1 0; 1 0 0; 0 0 1]
+    @test isSpacegroupOp(R4, [0.0, 0.0, 0.0], c; tol=tol)
+
+    # Non-trivial translation that leaves the atom's image unmatched
+    @test !isSpacegroupOp(I3, [0.5, 0.0, 0.0], c; tol=tol)
+
+    # CsCl: Cs at (0,0,0), Cl at (½,½,½), full Pm3̄m
+    c_cscl = Crystal(A, [0.0 0.5; 0.0 0.5; 0.0 0.5], [:Cs, :Cl]; coords=:fractional)
+    @test isSpacegroupOp(I3, [0.0, 0.0, 0.0], c_cscl; tol=tol)
+    @test isSpacegroupOp(R4, [0.0, 0.0, 0.0], c_cscl; tol=tol)
+    @test isSpacegroupOp(-I3, [0.0, 0.0, 0.0], c_cscl; tol=tol)  # inversion
+
+    # Type-preservation: (I, (½,½,½)) maps Cs→Cl and Cl→Cs.
+    # Should be false because types don't match after the map.
+    @test !isSpacegroupOp(I3, [0.5, 0.5, 0.5], c_cscl; tol=tol)
+
+    # Asymmetric two-atom crystal: only identity is a symmetry
+    c_asym = Crystal(A, [0.0 0.3; 0.0 0.7; 0.0 0.2], [:A, :B]; coords=:fractional)
+    @test isSpacegroupOp(I3, [0.0, 0.0, 0.0], c_asym; tol=tol)
+    @test !isSpacegroupOp(R4, [0.0, 0.0, 0.0], c_asym; tol=tol)
+    @test !isSpacegroupOp(-I3, [0.0, 0.0, 0.0], c_asym; tol=tol)
+
+    # Default tol kwarg path (no explicit tol)
+    @test isSpacegroupOp(I3, [0.0, 0.0, 0.0], c_cscl)
+    @test !isSpacegroupOp(I3, [0.5, 0.5, 0.5], c_cscl)
+
+    # R / τ shape validation
+    @test_throws ErrorException isSpacegroupOp([1 0; 0 1], [0.0, 0.0, 0.0], c; tol=tol)
+    @test_throws ErrorException isSpacegroupOp(I3, [0.0, 0.0], c; tol=tol)
+
+    # Pure-translation symmetry (R = I but τ ≠ 0, and the result is TRUE).
+    # Two same-type atoms at (¼,0,0) and (¾,0,0) are exchanged by τ = (½,0,0).
+    # Exercises the (R=I, τ≠0, should-succeed) path and the injectivity
+    # guard in a case where claimed-skip actually matters: image of atom 1
+    # must claim atom 2, then image of atom 2 must claim atom 1 — skipping
+    # the already-claimed atom 2 en route.
+    c_halftrans = Crystal(A, [0.25 0.75; 0.0 0.0; 0.0 0.0], [:A, :A]; coords=:fractional)
+    @test isSpacegroupOp(I3, [0.5, 0.0, 0.0], c_halftrans; tol=tol)
+    @test isSpacegroupOp(I3, [-0.5, 0.0, 0.0], c_halftrans; tol=tol)
+    @test !isSpacegroupOp(I3, [0.0, 0.5, 0.0], c_halftrans; tol=tol)
+
+    # Mod-1 boundary: atom at 0, translation of (1 − 1e-12) — image sits at
+    # ≈ 0.999999999999 after the wrap. The signed-diff formula must bring
+    # |Δ| back near 0. Catches sign typos in `mod.(Δ .+ 0.5, 1.0) .- 0.5`.
+    @test isSpacegroupOp(I3, [1.0 - 1e-12, 0.0, 0.0], c; tol=1e-8)
+    @test isSpacegroupOp(I3, [-1.0 + 1e-12, 0.0, 0.0], c; tol=1e-8)
+end
+
+@testset "spacegroup stub raises" begin
+    A = Matrix{Float64}(I, 3, 3)
+    c = Crystal(A, reshape([0.0, 0.0, 0.0], 3, 1), [1]; coords=:fractional)
+    @test_throws ErrorException spacegroup(c)
+end
+

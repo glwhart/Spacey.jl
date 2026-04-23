@@ -2,9 +2,11 @@ module Spacey
 using MinkowskiReduction
 using LinearAlgebra
 using StatsBase
-export pointGroup_fast, pointGroup_simple, threeDrotation, 
+export pointGroup_fast, pointGroup_simple, threeDrotation,
        pointGroup, pointGroup_robust, snapToSymmetry_SVD, isagroup,
-       snapToSymmetry_avg, aspectRatio
+       snapToSymmetry_avg, aspectRatio,
+       Crystal, isSpacegroupOp, fractional, cartesian, default_pos_tol,
+       spacegroup
 
 """ averageOverOps(vec,ops) 
 
@@ -92,12 +94,122 @@ function isagroup(members::AbstractVector{<:AbstractMatrix{<:AbstractFloat}}; at
     return true
 end
 
-struct Crystal
-     a1
-     a2 
-     a3
-     r::Array{Float64,2}
-     a::Array{Int}
+"""
+    Crystal{T}
+
+A crystal structure: lattice vectors, atomic positions (fractional), and atom
+type labels. `T` is the user's choice for type labels — typically `Int`,
+`Symbol`, or `String`.
+
+Fields:
+- `A::Matrix{Float64}` — 3×3 lattice, columns are `a1`, `a2`, `a3`.
+- `r::Matrix{Float64}` — 3×N positions in fractional coordinates, columns = atoms.
+- `types::Vector{T}` — length N, atom type label per column of `r`.
+
+Constructors:
+
+    Crystal(A, r, types; coords)
+    Crystal(a1, a2, a3, r, types; coords)
+
+`coords` must be `:fractional` or `:cartesian` — **no default**, to prevent
+silent wrong-answer errors from misinterpreting position data. See
+`spacegroup_plan.md` §4.1. The constructor converts Cartesian input to
+fractional once at construction; internally positions are always fractional.
+
+Numeric input is accepted as any `AbstractMatrix{<:Real}` / `AbstractVector{<:Real}`
+and converted to `Float64` once at construction.
+"""
+struct Crystal{T}
+    A::Matrix{Float64}
+    r::Matrix{Float64}
+    types::Vector{T}
+    function Crystal{T}(A::AbstractMatrix{<:Real}, r::AbstractMatrix{<:Real},
+                        types::AbstractVector{T}; coords::Symbol) where T
+        size(A) == (3, 3) || error("A must be 3×3")
+        size(r, 1) == 3 || error("r must have 3 rows (one per spatial dimension)")
+        size(r, 2) == length(types) ||
+            error("r has $(size(r,2)) columns but types has length $(length(types))")
+        size(r, 2) > 0 || error("empty crystal (no atoms) is not supported")
+        coords ∈ (:fractional, :cartesian) ||
+            error("coords must be :fractional or :cartesian (got $(repr(coords)))")
+        A64 = Float64.(A)
+        # Reject (near-)singular lattices. Scale-invariant test: compare |det|
+        # to eps · ‖A‖³, i.e. the precision at which det is distinguishable
+        # from zero for a matrix of this scale.
+        abs(det(A64)) > eps(Float64) * opnorm(A64)^3 ||
+            error("A is singular or near-singular (det = $(det(A64)))")
+        r64 = coords === :cartesian ? inv(A64) * Float64.(r) : Float64.(r)
+        new{T}(A64, r64, collect(types))
+    end
+end
+
+Crystal(A::AbstractMatrix, r::AbstractMatrix, types::AbstractVector{T}; coords) where T =
+    Crystal{T}(A, r, types; coords=coords)
+
+Crystal(a1::AbstractVector, a2::AbstractVector, a3::AbstractVector,
+        r::AbstractMatrix, types::AbstractVector; coords) =
+    Crystal(hcat(a1, a2, a3), r, types; coords=coords)
+
+"""
+    fractional(c::Crystal)
+
+Return the 3×N matrix of atomic positions in fractional (lattice) coordinates.
+"""
+fractional(c::Crystal) = c.r
+
+"""
+    cartesian(c::Crystal)
+
+Return the 3×N matrix of atomic positions in Cartesian coordinates (same basis
+and units as `c.A`).
+"""
+cartesian(c::Crystal) = c.A * c.r
+
+"""
+    default_pos_tol(c::Crystal)
+
+Default position-matching tolerance for symmetry detection. Equal to
+`0.01 · (V/N)^(1/3)` where `V = |det(A)|` and `N` is the number of atoms —
+1% of the characteristic atom separation, unit-agnostic. See
+`designDiscussions.md` for the rationale behind the 1% choice.
+"""
+default_pos_tol(c::Crystal) = 0.01 * (abs(det(c.A)) / size(c.r, 2))^(1/3)
+
+"""
+    isSpacegroupOp(R, τ, c::Crystal; tol=default_pos_tol(c))
+
+Return `true` if the operation `(R, τ)` is a space-group symmetry of crystal
+`c` — that is, if applying `R` then translating by `τ` (all in fractional
+coordinates) maps the set of atomic positions to itself, preserving types,
+modulo the lattice. Returns `false` otherwise.
+
+Each original atom's image must coincide with an (injectively matched)
+original atom of the same type, with per-component distance below `tol` after
+wrapping the signed difference into `(-½, ½]` (i.e. comparing modulo the
+lattice).
+"""
+function isSpacegroupOp(R::AbstractMatrix{<:Real}, τ::AbstractVector{<:Real},
+                        c::Crystal; tol::Real=default_pos_tol(c))
+    size(R) == (3, 3) || error("R must be 3×3")
+    length(τ) == 3 || error("τ must have length 3")
+    N = size(c.r, 2)
+    r_image = mod.(R * c.r .+ τ, 1.0)
+    claimed = falses(N)
+    for i in 1:N
+        found = false
+        for j in 1:N
+            claimed[j] && continue
+            c.types[i] == c.types[j] || continue
+            Δ = mod.(r_image[:, i] .- c.r[:, j] .+ 0.5, 1.0) .- 0.5
+            if all(abs.(Δ) .< tol)
+                claimed[j] = true
+                found = true
+                break
+            end
+        end
+        found || return false
+    end
+    return true
 end
          
 """
@@ -274,22 +386,14 @@ end
 return result_ops, result_Rc
 end
 
-""" spaceGroup(a1, a2, a3, r, ele)
+"""
+    spacegroup(c::Crystal; ...)
 
-Calculate the spacegroup of a crystal
-
-Relies on the `pointgroup_robust` function for point group operations
-(need to replace the doctest)     
-     ```juliadoctest
-     julia>  u = [1,0,1e-4]; v = [.5,√3/2,-1e-5]; w = [0,1e-4,√(8/3)];
-     julia> pointGroup_robust(u,v,w)
-     24-element Array{Array{Float64,2},1}:
-     [-1.0 0.0 0.0; -1.0 1.0 0.0; 0.0 0.0 -0.9999999999999999]
-     ...
-     ```
+Find the space-group operations of crystal `c`. Scheduled for Phase 2 per
+`spacegroup_plan.md`; currently raises an error to prevent silent misuse.
 """
 function spacegroup(c::Crystal)
-     return true
+    error("spacegroup: not yet implemented — scheduled for Phase 2 (see spacegroup_plan.md)")
 end
 
 """ snapToSymmetry_SVD(u,v,w,ops)
