@@ -43,11 +43,17 @@ Lattice reduction guarantees completeness: for a Minkowski-reduced basis, the se
 
 ### 2.1 Minkowski Reduction
 
-A basis {**b₁**, **b₂**, **b₃**} is Minkowski-reduced if each **bᵢ** is the shortest vector in the lattice that can extend {**b₁**, ..., **bᵢ₋₁**} to a basis. This is the reduction used by Spacey.jl (via the `MinkowskiReduction.jl` package).
+A basis {**b₁**, **b₂**, **b₃**} is Minkowski-reduced if each basis vector is as short as possible subject to the constraint that it must complete the previous vectors to a basis. More precisely, the 12 Minkowski conditions must hold:
+
+- **b₁** is the shortest nonzero lattice vector: ‖**b₁**‖ ≤ ‖**b₂**‖ and ‖**b₂**‖ ≤ ‖**b₃**‖  
+- **b₃** is at least as short as all 12 combinations **b₃ ± b₁**, **b₃ ± b₂**, **b₃ ± b₁ ± b₂**  
+- **b₂** is at least as short as **b₂ ± b₁**
+
+These are exactly the 12 conditions checked by `isMinkReduced` in `MinkowskiReduction.jl`. The key property they guarantee is that each basis vector is shorter than any other vector that occupies the same "position" in the lattice (the same coset of the sublattice spanned by the shorter vectors). This is the reduction used by Spacey.jl (via the `MinkowskiReduction.jl` package).
 
 Key property for point-group algorithms: a Minkowski-reduced basis satisfies tight geometric bounds on the angles and length ratios. Specifically, for any two basis vectors: cos(θᵢⱼ) ≤ 1/2, meaning all angles between basis vectors lie in [60°, 120°]. This is exactly the condition needed to prove that any symmetry operation maps basis vectors to ±1 linear combinations of themselves—the 27-neighbor search is sufficient.
 
-**Computational note:** Minkowski reduction is NP-hard in general dimension but polynomial (O(n³)) in fixed dimension 3, and practical implementations (including `MinkowskiReduction.jl`) are fast. However, floating-point implementations lose precision when vector lengths span many orders of magnitude—this is the source of Spacey.jl's known failure at extreme aspect ratios (~2²⁵).
+**Computational note:** Minkowski reduction is NP-hard in `n` dimensions but polynomial (O(n³)) in fixed dimension 3, and practical implementations (including `MinkowskiReduction.jl`) are fast. However, floating-point implementations lose precision when vector lengths span many orders of magnitude—this is the source of Spacey.jl's known failure at extreme aspect ratios (~2²⁵).
 
 #### How numerical noise affects Minkowski reduction
 
@@ -55,18 +61,22 @@ Minkowski reduction is a discrete optimization problem (find the shortest lattic
 
 1. **Length-comparison instability:** The reduction algorithm must decide which of two vectors is shorter. When two candidate vectors have nearly equal lengths (differing by less than floating-point precision), the algorithm may choose arbitrarily, leading to different "reduced" bases for inputs that differ by noise below machine epsilon. This is most problematic for lattices where multiple vectors have the same length (cubic, rhombohedral).
 
-2. **Angle-bound violations:** The Minkowski bounds require angles in [60°, 120°]. When the true angle is exactly 60° or 120° (which happens for hexagonal and rhombohedral lattices), noise can push the computed angle just outside the bound, causing the reduction to perform an unnecessary swap. The swapped basis may then have a different orientation than expected, and subsequent symmetry-finding may miss operations that depended on the original ordering.
+2. **Angle-bound violations:** The Minkowski bounds require angles in [60°, 120°]. When the true angle is exactly 60° or 120° (which happens for hexagonal and rhombohedral lattices), noise can push the computed angle just outside the bound, causing the reduction to perform an unnecessary swap. The resulting basis is in a different orientation, but this alone does not cause symmetry-finding to fail — Spacey.jl's search over all 27 candidate vectors doesn't depend on any particular orientation. The real risk is that the swap produces a basis that no longer satisfies all 12 Minkowski conditions. If any condition is violated, the {-1,0,1}³ search space becomes incomplete (see point 4 below).
 
 3. **Non-idempotence:** Ideally, reducing an already-reduced basis returns the same basis. But noise can make `minkReduce(minkReduce(u,v,w))` differ from `minkReduce(u,v,w)` because the first reduction changes the basis slightly (reordering), and the second reduction sees a slightly different numerical input. This is the issue Spacey.jl guards against with the `orthogonalityDefect` check.
 
 4. **Propagation to symmetry finding:** If the reduction produces a basis that doesn't tightly satisfy the Minkowski bounds (due to any of the above), the 27-neighbor search may be incomplete. A symmetry operation that maps a basis vector to a ±2 combination (which shouldn't be possible for a truly reduced basis) would be missed.
+
+   **Concrete example:** Consider a 2D square lattice with the non-reduced basis **a₁** = [1, 0], **a₂** = [3, 1]. The true reduced basis is **a₁** = [1, 0], **a₂** = [0, 1]. The 4-fold rotation (90°) maps [1, 0] → [0, 1] in Cartesian. But in the non-reduced basis, [0, 1] = -3**a₁** + **a₂**, so the operation requires a coefficient of -3. The {-1,0,1}² search would miss it entirely. In 3D, a hexagonal lattice with a non-reduced choice of second basis vector (e.g., **a₁** + **a₂** instead of **a₂**) produces the same situation: the 6-fold rotation maps the long vector to a combination with coefficient -2, which falls outside the search window.
+
+   **This is the strongest argument for verifying that Minkowski reduction actually succeeded**, using `isMinkReduced` as a post-condition check. A unit test that deliberately supplies a nearly-reduced (but not quite reduced) basis and checks that the point-group finder either (a) gives the correct answer or (b) emits a warning, would expose this failure mode. No such test currently exists in `test/runtests.jl`.
 
 **Approaches to making reduction more robust:**
 
 - **Tolerance-aware reduction:** Treat vectors as "same length" when they differ by less than a threshold. Use a deterministic tie-breaking rule (e.g., lexicographic ordering of components) when lengths are indistinguishable. This prevents arbitrary choices driven by noise.
 - **Verify post-conditions:** After reduction, explicitly check that all angles are in [60°-δ, 120°+δ] for some small δ. If violated, the basis is at a degenerate boundary and the symmetry finder should extend its search radius (see plan.md §2.7).
 - **Canonical ordering:** Always sort the reduced basis vectors by length (then by a deterministic secondary criterion), so that the output is unique regardless of input noise.
-- **Snap-then-reduce:** For noisy inputs, run a preliminary symmetry search, snap to symmetry, then re-reduce. The snapped basis will be exactly on the Minkowski bounds, giving a cleaner reduction.
+- **Snap-then-reduce:** For noisy inputs, run a preliminary symmetry search, snap to symmetry, then re-reduce. The snapped basis will be exactly on the Minkowski bounds, giving a cleaner reduction. **However, this strategy is hazardous at symmetry boundaries.** A lattice near the cubic/tetragonal boundary (c/a ≈ 1) could be genuinely tetragonal due to physics (symmetry breaking), or it could be cubic with numerical noise making c/a depart from 1. Snapping to the tetragonal group and re-reducing would destroy the cubic symmetry in the first case — which is correct. But it would also destroy it in the second case — which is an error. The algorithm has no way to resolve this without physics input. The honest behavior is to report the ambiguity (which symmetry group is consistent, and at what tolerance) rather than silently committing to one side.
 
 ### 2.2 Niggli Reduction
 
@@ -78,7 +88,7 @@ The key advantage for symmetry work: once a Niggli cell is computed, the Bravais
 
 ### 2.3 LLL Reduction
 
-The Lenstra–Lenstra–Lovász (LLL) algorithm is a polynomial-time approximation to Minkowski reduction. It does not find the theoretically shortest basis but is significantly faster for high-dimensional lattices and has well-understood numerical behavior. For 3D crystallography, true Minkowski reduction is both tractable and preferable; LLL is primarily relevant if Spacey.jl is ever extended to higher dimensions.
+The Lenstra–Lenstra–Lovász (LLL) algorithm is a polynomial-time approximation to Minkowski reduction. It does not find the theoretically shortest basis but is significantly faster for high-dimensional lattices and has well-understood numerical behavior. For 3D crystallography, true Minkowski reduction is both tractable and preferable; LLL is only be relevant in more than four dimensions.
 
 ---
 
@@ -163,7 +173,7 @@ The AFLOW-SYM paper describes the algorithm as providing "various representation
 
 FINDSYM identifies space groups from crystal structures and transforms them to a standard setting. Unlike Spglib/AFLOW, FINDSYM provides symmetry in a standardized basis (ITA convention). Recently extended to handle **superspace groups** for modulated/quasicrystalline structures.
 
-**Key algorithmic idea:** FINDSYM uses the Niggli cell for reduction, then a table lookup for the Bravais type, then an exhaustive search over the corresponding point-group operations. The table-lookup approach is fast and deterministic, though less flexible than Spacey.jl's metric-tensor-based approach.
+**Key algorithmic idea:** FINDSYM uses the Niggli cell for reduction, then a table lookup for the Bravais type, then an exhaustive search over the corresponding point-group operations. The table-lookup approach is fast and deterministic, but relies on first classifying the Bravais type correctly (which itself requires handling near-degenerate cases). Spacey.jl's approach differs: it searches exhaustively over all possible symmetry operations without first committing to a Bravais type, making it more robust for inputs that are near a boundary between two lattice types.
 
 ### 3.4 SOFI: Point Groups by Shape Matching
 
@@ -286,7 +296,7 @@ The metric tensor **G = AᵀA** is a positive-definite 3×3 symmetric matrix. Po
 
 **Working directly with G has several advantages for certain sub-problems:**
 
-1. **Orientation independence:** G doesn't change if you rotate the entire lattice. This means algorithms based on G don't need to handle arbitrary orientations—they work in a "reduced" representation from the start.
+1. **Orientation independence:** G doesn't change if you rotate the entire lattice. Spacey.jl is also orientation-independent (after Minkowski reduction, the candidate search and group closure test don't depend on the initial orientation). The distinction is that G makes this orientation-independence *explicit*: because G has no rotational degrees of freedom at all, an algorithm based directly on G can work with a 6-parameter representation (the 6 independent entries of the symmetric matrix) rather than a 9-parameter matrix A whose 3 extra degrees of freedom correspond to rigid rotations. For the specific problem of Bravais type classification, this is a real advantage: checking which entries of G are equal is simpler than checking which angles between Cartesian basis vectors are equal.
 
 2. **Natural norm for comparison:** The Frobenius distance between two metric tensors ‖G₁ - G₂‖_F is a natural measure of "how different" two lattices are. This is used by the minimum-strain symmetrization approach (Phys. Rev. Research 2, 013077, 2021) to find the closest lattice of a given Bravais type.
 
