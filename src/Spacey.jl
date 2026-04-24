@@ -231,11 +231,42 @@ apply to a fractional position via `op(r)`, convert to Cartesian with
 struct SpacegroupOp
     R::Matrix{Int}
     τ::Vector{Float64}
-    # Canonicalise τ: round to 10 decimal places (kills floating-point drift
-    # accumulated through basis transforms / matmuls — physical τ values in
-    # ITA space groups are simple rationals like 0, ½, ⅓, ¼, ⅔, ¾, ⅙, ⅚, so
-    # 10-digit rounding preserves them exactly), then fold mod 1 into [0, 1).
-    SpacegroupOp(R, τ) = new(R, mod.(round.(τ, digits=10), 1.0))
+    # Canonicalise τ: fold mod 1 into [0, 1), then snap each component to
+    # the nearest p/q with q ≤ 12 if within 1e-6. Every τ component in an
+    # ITA space group is an exact rational with small denominator (0, ½,
+    # ⅓, ¼, ⅙, ¹/₁₂, …), so snapping preserves them exactly while killing
+    # float drift accumulated through basis transforms and composition.
+    # Earlier implementation used round(τ, digits=10), but that had a
+    # silent bug: round(1/3, digits=10) = 0.3333333333 and
+    # round(2/3, digits=10) = 0.6666666667, so 1/3 + 1/3 no longer
+    # matched 2/3, breaking closure on trigonal groups (P3₁21 etc.).
+    SpacegroupOp(R, τ) = new(R, _canonicalise_τ(τ))
+end
+
+function _canonicalise_τ(τ::AbstractVector, tol::Real=1e-6)
+    out = Vector{Float64}(undef, length(τ))
+    for i in eachindex(τ)
+        x = mod(Float64(τ[i]), 1.0)
+        snapped = x
+        for q in 1:12
+            p = round(Int, q * x)
+            # x ≈ 1 wraps to 0 in [0, 1) semantics
+            if p == q
+                if abs(q * x - q) < q * tol
+                    snapped = 0.0
+                    break
+                end
+                continue
+            end
+            cand = p / q
+            if abs(x - cand) < tol
+                snapped = cand
+                break
+            end
+        end
+        out[i] = snapped
+    end
+    return out
 end
 
 # Composition: op1 * op2 means "apply op2 first, then op1" (function-composition

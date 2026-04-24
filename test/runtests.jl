@@ -774,6 +774,94 @@ end
                          [fill(:Ca, 4); fill(:O, 12); fill(:Ti, 4)])
         check_spacegroup!(c, 8)
     end
+
+    # ─── 3-fold-screw cases (§3.13 user request) ──────────────────
+    # Space groups containing 3₁ or 3₂ screws are the simplest
+    # non-symmorphic cases with τ = 1/3 or 2/3 components. They
+    # close a coverage gap: our other tests cover glides, 2₁, 4-fold,
+    # and 6₃ screws but not the 3-fold screw specifically, and they
+    # all have inversion — these are chiral (no inversion, no mirrors,
+    # all ops proper rotations). Order 6 is also a gap: our other
+    # expected orders are 2, 4, 8, 12, 16, 24, 48, 192. Oxygens in
+    # α-Quartz are at a fully general Wyckoff position (6c), which
+    # no other test exercises.
+
+    # ── γ-Se — A_hP3_152_a ────────────────────────────────────────
+    # Simplest 3-fold-screw case. P3₁21 (#152), trigonal, 3 atoms,
+    # order 6. Chiral. Se at Wyckoff 3a with x = 0.2254.
+    let
+        A_rows = [2.18310 -3.78124 0.00000;
+                  2.18310  3.78124 0.00000;
+                  0.00000  0.00000 4.95360]
+        r = [0.00000 0.22540 0.77460;
+             0.22540 0.00000 0.77460;
+             2/3     1/3     0.00000]
+        c = make_crystal(A_rows, r, fill(:Se, 3))
+        ops = check_spacegroup!(c, 6)
+        # Signature: no inversion. All ops must be proper rotations.
+        @test all(det(op.R) == 1 for op in ops)
+        # Signature: at least one op with τ[3] ≈ 1/3 (the 3₁ screw)
+        @test any(abs(mod(op.τ[3] - 1/3, 1.0)) < 1e-8 ||
+                  abs(mod(op.τ[3] - 1/3, 1.0) - 1.0) < 1e-8 for op in ops)
+    end
+
+    # ── α-Quartz — A2B_hP9_152_c_a ────────────────────────────────
+    # THE canonical trigonal non-symmorphic. P3₁21 (#152), 9 atoms
+    # (6 O + 3 Si). Order 6. O at generic Wyckoff 6c position.
+    let
+        A_rows = [2.45700 -4.25565 0.00000;
+                  2.45700  4.25565 0.00000;
+                  0.00000  0.00000 5.40600]
+        O = [0.14620 0.26680 0.41300 0.58700 0.73320 0.85380;
+             0.73320 0.41300 0.26680 0.85380 0.14620 0.58700;
+             0.45267 0.78600 0.21400 0.11933 0.54733 0.88067]
+        Si = [0.00000 0.46990 0.53010;
+              0.46990 0.00000 0.53010;
+              2/3     1/3     0.00000]
+        c = make_crystal(A_rows, hcat(O, Si), [fill(:O, 6); fill(:Si, 3)])
+        ops = check_spacegroup!(c, 6)
+        @test all(det(op.R) == 1 for op in ops)      # chiral
+    end
+
+    # ── Cinnabar (HgS) — AB_hP6_154_a_b ───────────────────────────
+    # P3₂21 (#154), the ENANTIOMORPH of α-Quartz's P3₁21. Same order
+    # 6 but the screw direction is reversed (3₂ instead of 3₁). Tests
+    # that Spacey handles both chiralities.
+    let
+        A_rows = [2.07250 -3.58968 0.00000;
+                  2.07250  3.58968 0.00000;
+                  0.00000  0.00000 9.49600]
+        Hg = [0.00000 0.28020 0.71980;
+              0.71980 0.28020 0.00000;
+              1/3     0.00000 2/3]
+        S = [0.00000 0.48890 0.51110;
+             0.48890 0.00000 0.51110;
+             5/6     1/6     1/2]
+        c = make_crystal(A_rows, hcat(Hg, S), [fill(:Hg, 3); fill(:S, 3)])
+        ops = check_spacegroup!(c, 6)
+        @test all(det(op.R) == 1 for op in ops)
+    end
+
+    # ── CrCl₃ — A3B_hP24_151_3c_2a ────────────────────────────────
+    # P3₁12 (#151), trigonal, 24 atoms. Different 2-fold placement
+    # than #152 — in #151 the 2-fold axes lie along [100]/[010] type
+    # directions, in #152 along [110] type. Same order (6) and same
+    # screw-type, but a valuable distinguishing test. Chiral.
+    let
+        A_rows = [3.00850 -5.21087 0.00000;
+                  3.00850  5.21087 0.00000;
+                  0.00000  0.00000 17.30000]
+        Cl = [0.22220 0.22220 0.88890 0.88890 0.88890 0.88890 0.55560 0.55560 0.55560 0.55560 0.88880 0.88880 0.22220 0.22220 0.22222 0.22222 0.55558 0.55558;
+              0.11110 0.11110 0.11110 0.11110 0.77780 0.77780 0.11120 0.11120 0.44440 0.44440 0.44440 0.44440 0.44442 0.77778 0.44442 0.77780 0.77778 0.77780;
+              0.26023 0.73977 0.07310 0.59357 -0.07310 0.40643 -0.07310 0.40643 0.07310 0.59357 0.26023 0.73977 -0.07310 0.07310 0.40643 0.59357 0.26023 0.73977]
+        Cr = [0.22220 0.88890 0.88890 0.55560 0.55560 0.88880;
+              0.11110 0.11110 0.77780 0.11120 0.44440 0.44440;
+              0.00000 1/3     2/3     2/3     1/3     0.00000]
+        c = make_crystal(A_rows, hcat(Cl, Cr),
+                         [fill(:Cl, 18); fill(:Cr, 6)])
+        ops = check_spacegroup!(c, 6)
+        @test all(det(op.R) == 1 for op in ops)
+    end
 end
 
 @testset "spacegroup: Phase 4 near-boundary crystal (verify_stable)" begin
