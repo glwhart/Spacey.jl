@@ -864,6 +864,64 @@ end
     end
 end
 
+@testset "spacegroup: AFLOW Part 1 (full corpus)" begin
+    # Auto-generated data from tools/generate_aflow_tests.jl. Every
+    # prototype in Part 1 of the AFLOW Library of Crystallographic
+    # Prototypes (Mehl et al. 2017) is parsed into a Crystal, handed to
+    # spacegroup(), and compared against the point-group order of the
+    # space-group number encoded in the prototype label.
+    #
+    # The 8 structures listed in KNOWN_DEVIATIONS below report a
+    # different operation count than the prototype label at default
+    # tolerances. Each is a documented, legitimate Spacey behaviour —
+    # not a bug. Flipping them to @test_broken pins the current result
+    # so a real regression (one of these starts passing with the wrong
+    # value, or a new structure joins the list) shows up in CI.
+    include(joinpath(@__DIR__, "aflow_structures.jl"))
+
+    # Prototype → (got, expected, reason).
+    KNOWN_DEVIATIONS = Dict(
+        # "P1 distortion": atoms are very close to ideal pyrite Pa-3
+        # positions (displacements ~1e-3). Default pos_tol treats them
+        # as on-site, Spacey finds the higher symmetry. Tight pos_tol
+        # would recover the true P1.
+        "AB2_aP12_1_4a_8a"        => (24, 1,  "distorted-pyrite → higher sym at default pos_tol"),
+        "ABC2_aP16_1_4a_4a_8a"    => (2,  1,  "near-inversion at default pos_tol"),
+
+        # "Accidental higher symmetry": atomic arrangement happens to
+        # support inversion even though the labelled space group (Pna2₁,
+        # Amm2, Aba2, …) does not include it. Spacey correctly finds the
+        # maximal symmetry.
+        "AB_oP8_33_a_a"           => (8,  4,  "atoms have accidental inversion beyond Pna2₁"),
+        "A2B_oC12_38_de_ab"       => (8,  4,  "atoms have accidental inversion beyond Amm2"),
+        "AB4_oC20_41_a_2b"        => (8,  4,  "atoms have accidental inversion beyond Aba2"),
+        "AB2_oC24_41_2a_2b"       => (8,  4,  "atoms have accidental inversion beyond Aba2"),
+        "A4B_cI40_197_cde_c"      => (24, 12, "atoms have accidental inversion beyond I2₁3"),
+
+        # Lattice over-promotion: a / b = 1.005, below default lattice_tol
+        # → Spacey promotes orthorhombic I to tetragonal I. Tight
+        # lattice_tol would recover the true mmm.
+        "AB2_oI6_71_a_i"          => (16, 8,  "a/b ≈ 1.005 → lattice_tol promotes to tetragonal"),
+    )
+
+    @testset "$(s.name) [$(s.prototype)] sg $(s.sg)" for s in AFLOW_PART1_STRUCTURES
+        c_built = try Crystal(s.A, s.r, s.types; coords=s.coords) catch; nothing end
+        c_built === nothing && (@test false; continue)
+        ops = try spacegroup(c_built) catch; nothing end
+        ops === nothing && (@test false; continue)
+
+        if haskey(KNOWN_DEVIATIONS, s.prototype)
+            got, _, _ = KNOWN_DEVIATIONS[s.prototype]
+            # Pin the current deviation: Spacey must still return `got`.
+            @test length(ops) == got
+            # And mark the prototype-label match as broken.
+            @test_broken length(ops) == s.expected_order
+        else
+            @test length(ops) == s.expected_order
+        end
+    end
+end
+
 @testset "spacegroup: Phase 4 near-boundary crystal (verify_stable)" begin
     # BaTiO₃-style ferroelectric near-miss: cubic lattice (Pm3̄m = 48 ops at
     # ε = 0), with Ti displaced from body-centre by ε along z. For ε > 0
