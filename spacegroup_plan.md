@@ -90,6 +90,8 @@ Add `@testset "Space group"` with, at minimum:
 
 - **Exit criterion:** all return the expected operation count.
 
+**Status (2026-04-23):** simple cubic, CsCl, NaCl, diamond, and HCP landed in the Phase 2 + Phase 3 commits — all 192/192/24 pass on first run, along with structural sub-checks (FCC centering translations in NaCl, glide-style τ values in diamond, c/2 screw translations in HCP, closure spot checks, `isSpacegroupOp` cross-checks, identity at index 1). α-Quartz deferred — its Wyckoff-position specification requires more hand-coding detail and is orthogonal to the core validation achieved by the other five crystals. Revisit if Phase 4 needs a low-symmetry non-symmorphic stress case, or rolled into §3.13 (AFLOW validation corpus) in `plan.md`.
+
 ### Phase 4 — Robustness
 - Position-matching tolerance distinct from lattice tolerance.
 - Noise sweep: random position noise, verify operation count is stable.

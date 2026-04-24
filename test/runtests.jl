@@ -476,3 +476,96 @@ end
     end
 end
 
+@testset "spacegroup: Phase 3 known crystals" begin
+    I3 = Matrix{Int}(I, 3, 3)
+
+    # 1) NaCl, conventional cubic cell (Fm3̄m = #225, order 192).
+    # Lattice is simple-cubic (A = I), but the atomic basis has FCC
+    # centering: 4 Na at (0,0,0), (½,½,0), (½,0,½), (0,½,½) and 4 Cl at
+    # those + (½,½,½). The space group picks up 4× centering translations
+    # on top of the 48 cubic rotations: 48 · 4 = 192.
+    A_cubic = Matrix{Float64}(I, 3, 3)
+    Na_pos = [0.0 0.5 0.5 0.0;
+              0.0 0.5 0.0 0.5;
+              0.0 0.0 0.5 0.5]
+    Cl_pos = Na_pos .+ [0.5, 0.5, 0.5]
+    c_nacl = Crystal(A_cubic, hcat(Na_pos, Cl_pos),
+                     [fill(:Na, 4); fill(:Cl, 4)]; coords=:fractional)
+    ops_nacl = spacegroup(c_nacl)
+    @test length(ops_nacl) == 192
+    @test ops_nacl[1] == one(SpacegroupOp)
+    # Closure (spot check)
+    for _ in 1:10
+        a, b = rand(ops_nacl), rand(ops_nacl)
+        @test (a * b) ∈ ops_nacl
+    end
+    # Every op must be a valid symmetry
+    for op in ops_nacl
+        @test isSpacegroupOp(op.R, op.τ, c_nacl)
+    end
+    # NaCl's 4 pure-translation ops (R = I, τ = FCC centering) must be
+    # present with R = I.
+    identity_R_ops = filter(op -> op.R == I3, ops_nacl)
+    @test length(identity_R_ops) == 4
+    # Among them, τ ∈ {(0,0,0), (½,½,0), (½,0,½), (0,½,½)} — verify
+    # each of the three non-zero centering translations appears.
+    τs_sorted = sort([op.τ for op in identity_R_ops]; by=v -> (v[1], v[2], v[3]))
+    @test τs_sorted[1] ≈ [0.0, 0.0, 0.0]
+    @test any(τ -> τ ≈ [0.5, 0.5, 0.0], τs_sorted)
+    @test any(τ -> τ ≈ [0.5, 0.0, 0.5], τs_sorted)
+    @test any(τ -> τ ≈ [0.0, 0.5, 0.5], τs_sorted)
+
+    # 2) Diamond, conventional cubic cell (Fd3̄m = #227, order 192).
+    # Same cubic lattice and FCC-centred arrangement, but the 2-atom
+    # primitive basis is (0,0,0) and (¼,¼,¼). Non-symmorphic: glide
+    # planes appear as ops with non-zero τ at non-lattice-centring values.
+    fcc_pos = [0.0 0.5 0.5 0.0;
+               0.0 0.5 0.0 0.5;
+               0.0 0.0 0.5 0.5]
+    fcc_shifted = fcc_pos .+ [0.25, 0.25, 0.25]
+    c_diamond = Crystal(A_cubic, hcat(fcc_pos, fcc_shifted), fill(:C, 8);
+                        coords=:fractional)
+    ops_diamond = spacegroup(c_diamond)
+    @test length(ops_diamond) == 192
+    @test ops_diamond[1] == one(SpacegroupOp)
+    for op in ops_diamond
+        @test isSpacegroupOp(op.R, op.τ, c_diamond)
+    end
+    # Non-symmorphic signature: some ops have τ ≉ any FCC centering.
+    # FCC centerings are (0,0,0), (½,½,0), (½,0,½), (0,½,½).
+    function is_fcc_centering(τ, atol=1e-8)
+        centerings = ([0.0,0.0,0.0], [0.5,0.5,0.0], [0.5,0.0,0.5], [0.0,0.5,0.5])
+        any(c -> all(abs.(mod.(τ .- c .+ 0.5, 1.0) .- 0.5) .< atol), centerings)
+    end
+    # At least one op must have a glide-style τ (not a pure FCC centering)
+    @test any(!is_fcc_centering(op.τ) for op in ops_diamond)
+
+    # 3) Hexagonal close-packed (P6₃/mmc = #194, order 24). Non-symmorphic
+    # — the 6₃ screw axis.
+    # Ideal HCP: c/a = √(8/3). Lattice a1=(a,0,0), a2=(-a/2, a√3/2, 0),
+    # a3=(0,0,c). Two atoms at Wyckoff 2c: (⅓, ⅔, ¼) and (⅔, ⅓, ¾).
+    a_hcp = 1.0
+    c_hcp = sqrt(8/3)
+    A_hcp = [a_hcp  -a_hcp/2       0.0;
+             0.0    a_hcp*√3/2     0.0;
+             0.0    0.0            c_hcp]
+    r_hcp = [1/3 2/3;
+             2/3 1/3;
+             1/4 3/4]
+    c_hcp_crystal = Crystal(A_hcp, r_hcp, [:X, :X]; coords=:fractional)
+    ops_hcp = spacegroup(c_hcp_crystal)
+    @test length(ops_hcp) == 24
+    @test ops_hcp[1] == one(SpacegroupOp)
+    for op in ops_hcp
+        @test isSpacegroupOp(op.R, op.τ, c_hcp_crystal)
+    end
+    # Non-symmorphic signature: at least one op has τ with a ½ in the c
+    # direction (the 6₃ screw translates by c/2 along c).
+    @test any(abs(op.τ[3] - 0.5) < 1e-8 for op in ops_hcp)
+    # Group closure (spot check)
+    for _ in 1:10
+        a, b = rand(ops_hcp), rand(ops_hcp)
+        @test (a * b) ∈ ops_hcp
+    end
+end
+
