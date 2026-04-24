@@ -478,6 +478,31 @@ Currently only tested for cubic/tetragonal/orthorhombic. Extend to all 14 lattic
 end
 ```
 
+### 3.13 AFLOW structure-library prototypes as validation targets
+
+**Status:** Propose.
+
+Use structures from the AFLOW crystallographic prototype library (aflowlib.org/CrystalDatabase) as a corpus of real-world validation tests. Each prototype comes with (a) a published crystal structure (lattice + atomic basis in fractional coords) and (b) an authoritative space-group label — so we can compare Spacey's returned operation count against the expected order and flag any mismatches.
+
+**Why this is valuable:**
+- Much broader coverage than the handful of hand-built test crystals (CsCl, NaCl, diamond, HCP, quartz, …) currently envisioned in `spacegroup_plan.md` Phase 3.
+- AFLOW prototypes span all 230 space groups, many with non-trivial Wyckoff positions, non-symmorphic ops (screw axes, glide planes), and mixed atom types.
+- Real published data → exposes the floating-point / unit-cell-convention edge cases that synthetic hand-built inputs skip over.
+- Independent source → any Spacey bug that matches the AFLOW reference is almost certainly a real bug, not a test-construction error.
+
+**Candidate workflow:**
+1. Select a representative subset (e.g., one prototype per space group, or stratified by symmetry order) to keep the test suite bounded.
+2. Write an importer: parse AFLOW structure files (CIF or their native format) into `Crystal{T}` instances.
+3. For each imported prototype, call `spacegroup(c)` and compare the returned operation count against the AFLOW-published space-group order. Log any mismatch with enough detail to reproduce.
+4. Run as a separate long-running CI job (not part of `runtests.jl`), analogous to how `runTimingTests.jl` is excluded from CI.
+
+**Open questions / considerations before implementing:**
+- **Licensing:** AFLOW data is published under CC-BY; need to check compatibility with Spacey's license and whether we can redistribute a subset or must fetch at test time.
+- **Dependency:** reading CIF requires a parser. `CrystalInfoFramework.jl` exists in the Julia ecosystem; alternatively we write a minimal fractional-coord extractor for just the fields we need.
+- **Ground-truth confidence:** AFLOW labels are authoritative but not infallible for weird edge cases (disordered structures, incommensurate modulations, magnetic structures). Expect a small number of discrepancies that turn out to be AFLOW classification quirks rather than Spacey bugs — worth a human review step in the workflow.
+- **Tolerance strategy:** AFLOW positions are published to 4–6 significant figures. A 1% `pos_tol` default (from `default_pos_tol`) should suffice, but edge cases near Wyckoff-position boundaries may warrant a tolerance sweep.
+- **Scope interaction with `spacegroup_plan.md` Phase 3 / Phase 5:** Phase 3 is a handful of hand-built canonical crystals; this AFLOW-driven work is broader validation, likely belongs in Phase 4 (robustness) or as its own Phase 3.5. Does not require the Phase 5 230-group classification to be useful — op-count comparison is sufficient.
+
 ---
 
 ## 4. Architectural Observations
