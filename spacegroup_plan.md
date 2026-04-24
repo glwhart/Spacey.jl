@@ -99,6 +99,8 @@ Add `@testset "Space group"` with, at minimum:
 - `verify_stable`-analog for space groups (re-run at tighter `pos_tol`, warn on disagreement).
 - **Exit criterion:** new test panel mirroring the near-boundary point-group tests (`test/nearMissBoundary.jl`-style diagnostic).
 
+**Status (2026-04-24):** `verify_stable` kwarg added to `spacegroup` (re-runs at `pos_tol / 1000`, warns if op count differs). `test/nearMissBoundaryCrystal.jl` diagnostic built, showing a (ε, pos_tol) heatmap for BaTiO₃-style ferroelectric Ti displacement — confirms the over-promotion structure is the same shape as the point-group near-boundary case (crossover at `pos_tol ≈ ε`, `verify_stable` catches ~3 orders of magnitude). `@testset "spacegroup: Phase 4 near-boundary crystal (verify_stable)"` pins the behaviour: tight `pos_tol` finds the true tetragonal group (8 ops), loose `pos_tol` over-promotes to cubic (48), `verify_stable=true` fires the warning in the loose case and stays silent at tight or exact-cubic (ε = 0). Random-position-noise sweep and more exotic near-boundary cases deferred — the core `verify_stable` machinery and one canonical ferroelectric-style case are in, which meets the exit criterion.
+
 ### Phase 5 *(deferred, out of current scope)*
 Classification into 230 ITA types, standard-setting transforms, space-group symbols, Wyckoff position analysis.
 

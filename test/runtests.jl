@@ -776,3 +776,48 @@ end
     end
 end
 
+@testset "spacegroup: Phase 4 near-boundary crystal (verify_stable)" begin
+    # BaTiO₃-style ferroelectric near-miss: cubic lattice (Pm3̄m = 48 ops at
+    # ε = 0), with Ti displaced from body-centre by ε along z. For ε > 0
+    # the true space group is P4mm (8 ops). At pos_tol ≫ ε, Spacey sees
+    # the Ti as effectively on-centre and reports the parent cubic 48 ops
+    # — silent over-promotion. See test/nearMissBoundaryCrystal.jl for
+    # the full (ε, pos_tol) heatmap.
+    function batio3_like(ε)
+        A = 4.0 * Matrix{Float64}(I, 3, 3)
+        r = zeros(3, 5)
+        r[:, 1] = [0.0, 0.0, 0.0]          # Ba
+        r[:, 2] = [0.5, 0.5, 0.5 - ε]      # Ti displaced
+        r[:, 3] = [0.5, 0.5, 0.0]          # O faces
+        r[:, 4] = [0.5, 0.0, 0.5]
+        r[:, 5] = [0.0, 0.5, 0.5]
+        Crystal(A, r, [:Ba, :Ti, :O, :O, :O]; coords=:fractional)
+    end
+
+    for ε ∈ [1e-3, 1e-4, 1e-5]
+        c = batio3_like(ε)
+        tight_pos_tol = ε / 100
+        loose_pos_tol = 100 * ε
+
+        # Exact arithmetic at tight pos_tol finds the true tetragonal group
+        @test length(spacegroup(c; pos_tol=tight_pos_tol)) == 8
+        # At loose pos_tol, over-promotion to cubic (pins current behaviour)
+        @test length(spacegroup(c; pos_tol=loose_pos_tol)) == 48
+
+        # verify_stable emits a warning when the answer flips across the
+        # tight-tol / loose-tol boundary
+        @test_logs (:warn, r"near a position-symmetry boundary") match_mode=:any begin
+            spacegroup(c; pos_tol=loose_pos_tol, verify_stable=true)
+        end
+
+        # verify_stable at tight pos_tol: correct group and no false alarm
+        @test length(spacegroup(c; pos_tol=tight_pos_tol, verify_stable=true)) == 8
+    end
+
+    # Sanity: perfect cubic (ε = 0) is stable across all pos_tol — no
+    # warning expected from verify_stable because the group doesn't change.
+    let c_cubic = batio3_like(0.0)
+        @test length(spacegroup(c_cubic; verify_stable=true)) == 48
+    end
+end
+

@@ -463,11 +463,18 @@ return result_ops, result_Rc
 end
 
 """
-    spacegroup(c::Crystal; lattice_tol=0.01, pos_tol=default_pos_tol(c))
+    spacegroup(c::Crystal; lattice_tol=0.01, pos_tol=default_pos_tol(c),
+                           verify_stable=false)
 
 Find all space-group operations `(R, τ)` of crystal `c`. Returns a
 `Vector{SpacegroupOp}` in the user's original basis. The identity op is
 guaranteed to be at index 1; the remaining order is unspecified.
+
+`verify_stable=true` opts into an additional consistency check: the
+computation is re-run at `pos_tol / 1000` and a warning is issued if the
+operation count changes between the two tolerances (i.e. the crystal is
+near a position-symmetry boundary and the returned group depends on how
+permissive `pos_tol` is set).
 
 Algorithm: Minkowski-reduce the lattice, find the lattice point group
 (`pointGroup_robust`) in the reduced basis, enumerate candidate τ per R
@@ -479,7 +486,8 @@ See `spacegroup_plan.md` for design notes and `phase2_plan.md` for
 derivations.
 """
 function spacegroup(c::Crystal; lattice_tol::Real=0.01,
-                                pos_tol::Real=default_pos_tol(c))
+                                pos_tol::Real=default_pos_tol(c),
+                                verify_stable::Bool=false)
     # 1. Minkowski-reduce the lattice
     A_red = minkReduce(c.A)
     u_red, v_red, w_red = eachcol(A_red)
@@ -539,6 +547,21 @@ function spacegroup(c::Crystal; lattice_tol::Real=0.01,
     if id_idx != 1
         ops_out[1], ops_out[id_idx] = ops_out[id_idx], ops_out[1]
     end
+
+    # 9. Opt-in stability check: re-run at tighter pos_tol and warn if the
+    # operation count changes. Mirrors `pointGroup_robust`'s verify_stable.
+    # Catches "near-miss" crystal cases — e.g. a ferroelectric where a
+    # small atom displacement below pos_tol causes silent over-promotion
+    # to the parent high-symmetry structure.
+    if verify_stable
+        tight_pos_tol = pos_tol / 1000
+        tight_ops = spacegroup(c; lattice_tol, pos_tol=tight_pos_tol,
+                                   verify_stable=false)
+        if length(tight_ops) != length(ops_out)
+            @warn "spacegroup: operation count depends on pos_tol — crystal is near a position-symmetry boundary." pos_tol ops_at_pos_tol=length(ops_out) tight_pos_tol ops_at_tight_pos_tol=length(tight_ops)
+        end
+    end
+
     return ops_out
 end
 
