@@ -343,9 +343,136 @@ end
     @test isSpacegroupOp(I3, [-1.0 + 1e-12, 0.0, 0.0], c; tol=1e-8)
 end
 
-@testset "spacegroup stub raises" begin
-    A = Matrix{Float64}(I, 3, 3)
-    c = Crystal(A, reshape([0.0, 0.0, 0.0], 3, 1), [1]; coords=:fractional)
-    @test_throws ErrorException spacegroup(c)
+@testset "SpacegroupOp methods" begin
+    I3 = Matrix{Int}(I, 3, 3)
+
+    # Identity
+    e = one(SpacegroupOp)
+    @test e.R == I3
+    @test e.τ == zeros(3)
+
+    # Canonicalization of τ at construction
+    op_a = SpacegroupOp(I3, [0.0, 0.0, 0.0])
+    op_b = SpacegroupOp(I3, [1.0, 0.0, 0.0])         # folds to [0,0,0]
+    op_c = SpacegroupOp(I3, [2.5, -0.5, 1.25])       # folds to [0.5, 0.5, 0.25]
+    @test op_a.τ == zeros(3)
+    @test op_b.τ == zeros(3)
+    @test op_c.τ ≈ [0.5, 0.5, 0.25]
+    @test op_a == op_b                                # default == works
+    @test hash(op_a) == hash(op_b)                    # hash consistent with ==
+
+    # Composition: op1 * op2 means "apply op2 first, then op1"
+    R1 = [0 -1 0; 1 0 0; 0 0 1]    # 4-fold about z
+    op1 = SpacegroupOp(R1, [0.5, 0.0, 0.0])
+    op2 = SpacegroupOp(R1, [0.0, 0.5, 0.0])
+    op12 = op1 * op2
+    @test op12.R == R1 * R1
+    @test op12.τ ≈ mod.(R1 * [0.0, 0.5, 0.0] + [0.5, 0.0, 0.0], 1.0)
+
+    # Composition is associative
+    op3 = SpacegroupOp(R1, [0.25, 0.0, 0.0])
+    @test ((op1 * op2) * op3) == (op1 * (op2 * op3))
+
+    # Identity composition
+    @test (e * op1) == op1
+    @test (op1 * e) == op1
+
+    # Inverse: op * inv(op) == e, mod 1
+    op = SpacegroupOp(R1, [0.25, 0.0, 0.0])
+    @test (op * inv(op)) == e
+    @test (inv(op) * op) == e
+    @test inv(inv(op)) == op
+
+    # Callable: op(r) applies the op to position r
+    r = [0.1, 0.2, 0.3]
+    @test op(r) ≈ mod.(R1 * r + op.τ, 1.0)
+
+    # Equality mod-1
+    @test SpacegroupOp(I3, [0.0, 0.0, 0.0]) == SpacegroupOp(I3, [1.0, 0.0, 0.0])
+    @test SpacegroupOp(I3, [0.0, 0.0, 0.0]) != SpacegroupOp(I3, [0.5, 0.0, 0.0])
+    @test SpacegroupOp(R1, [0.0, 0.0, 0.0]) != SpacegroupOp(I3, [0.0, 0.0, 0.0])
+
+    # toCartesian on identity through a non-diagonal A
+    A = [1.0 0.3 0.0; 0.0 1.1 0.0; 0.0 0.0 1.5]
+    Rc, τc = toCartesian(one(SpacegroupOp), A)
+    @test Rc ≈ Matrix{Float64}(I, 3, 3)
+    @test τc ≈ zeros(3)
+
+    # toCartesian on a non-trivial op: the Cartesian R must equal the
+    # rotation "A applied to lattice coords then A⁻¹ back".
+    Rc2, τc2 = toCartesian(SpacegroupOp(R1, [0.5, 0.0, 0.0]), A)
+    @test Rc2 ≈ A * R1 * inv(A)
+    @test τc2 ≈ A * [0.5, 0.0, 0.0]
+
+    # inv validation: a non-unimodular R should error
+    @test_throws ErrorException inv(SpacegroupOp([2 0 0; 0 1 0; 0 0 1], zeros(3)))
+end
+
+@testset "spacegroup: Phase 2 core cases" begin
+    I3 = Matrix{Int}(I, 3, 3)
+
+    # 4.2.1 Exit criterion: simple cubic, 1 atom at origin → 48 ops, τ=0 all
+    A_cubic = Matrix{Float64}(I, 3, 3)
+    c_sc = Crystal(A_cubic, reshape([0.0, 0.0, 0.0], 3, 1), [:X]; coords=:fractional)
+    ops = spacegroup(c_sc)
+    @test length(ops) == 48
+    @test all(op.τ ≈ zeros(3) for op in ops)
+    @test all(abs(det(op.R)) == 1 for op in ops)
+
+    # 4.2.2 Simple cubic shifted to body-centre: still 48 ops
+    c_sc_shift = Crystal(A_cubic, reshape([0.5, 0.5, 0.5], 3, 1), [:X]; coords=:fractional)
+    @test length(spacegroup(c_sc_shift)) == 48
+
+    # 4.2.3 Simple tetragonal (c ≠ a), 1 atom at origin → 16 ops
+    A_tet = [1.0 0.0 0.0; 0.0 1.0 0.0; 0.0 0.0 1.5]
+    c_tet = Crystal(A_tet, reshape([0.0, 0.0, 0.0], 3, 1), [:X]; coords=:fractional)
+    @test length(spacegroup(c_tet)) == 16
+
+    # 4.2.4 Simple orthorhombic, 1 atom → 8 ops
+    A_ortho = [1.0 0.0 0.0; 0.0 1.2 0.0; 0.0 0.0 1.5]
+    c_ortho = Crystal(A_ortho, reshape([0.0, 0.0, 0.0], 3, 1), [:X]; coords=:fractional)
+    @test length(spacegroup(c_ortho)) == 8
+
+    # 4.2.5 Triclinic, 1 atom → 2 ops (E and inversion-with-compensating-τ)
+    A_tri = [1.0 0.3 0.2; 0.0 1.1 0.4; 0.0 0.0 0.9]
+    c_tri = Crystal(A_tri, reshape([0.0, 0.0, 0.0], 3, 1), [:X]; coords=:fractional)
+    @test length(spacegroup(c_tri)) == 2
+
+    # 4.2.6 CsCl: Cs at (0,0,0), Cl at (½,½,½), Pm3̄m → 48 ops, τ=0 all
+    c_cscl = Crystal(A_cubic, [0.0 0.5; 0.0 0.5; 0.0 0.5], [:Cs, :Cl];
+                     coords=:fractional)
+    ops_cscl = spacegroup(c_cscl)
+    @test length(ops_cscl) == 48
+    @test all(op.τ ≈ zeros(3) for op in ops_cscl)
+
+    # 4.2.7 Every returned op passes isSpacegroupOp (cross-check)
+    for op in ops
+        @test isSpacegroupOp(op.R, op.τ, c_sc)
+    end
+    for op in ops_cscl
+        @test isSpacegroupOp(op.R, op.τ, c_cscl)
+    end
+
+    # 4.2.8 Group closure: op1 * op2 ∈ ops (spot check)
+    for _ in 1:10
+        a, b = rand(ops), rand(ops)
+        @test (a * b) ∈ ops
+    end
+    for _ in 1:10
+        a, b = rand(ops_cscl), rand(ops_cscl)
+        @test (a * b) ∈ ops_cscl
+    end
+
+    # 4.2.9 Identity is at index 1
+    @test ops[1] == one(SpacegroupOp)
+    @test ops_cscl[1] == one(SpacegroupOp)
+    @test spacegroup(c_tri)[1] == one(SpacegroupOp)
+    @test spacegroup(c_tet)[1] == one(SpacegroupOp)
+    @test spacegroup(c_ortho)[1] == one(SpacegroupOp)
+
+    # 4.2.10 Inverse of every op is also in the group
+    for op in ops
+        @test inv(op) ∈ ops
+    end
 end
 

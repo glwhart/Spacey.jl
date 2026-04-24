@@ -6,7 +6,7 @@ export pointGroup_fast, pointGroup_simple, threeDrotation,
        pointGroup, pointGroup_robust, snapToSymmetry_SVD, isagroup,
        snapToSymmetry_avg, aspectRatio,
        Crystal, isSpacegroupOp, fractional, cartesian, default_pos_tol,
-       spacegroup
+       SpacegroupOp, toCartesian, spacegroup
 
 """ averageOverOps(vec,ops) 
 
@@ -211,7 +211,79 @@ function isSpacegroupOp(R::AbstractMatrix{<:Real}, τ::AbstractVector{<:Real},
     end
     return true
 end
-         
+
+"""
+    SpacegroupOp
+
+A single space-group operation `r ↦ R·r + τ`, expressed in lattice (fractional)
+coordinates: integer rotation `R`, fractional translation `τ`.
+
+`τ` is canonicalised to `[0, 1)` at construction via `mod.(τ, 1.0)`, so
+`SpacegroupOp(I, [0,0,0])`, `SpacegroupOp(I, [1,0,0])`, and
+`SpacegroupOp(I, [2.5, 0, 0])` all produce the same stored representation.
+This makes Julia's default field-by-field `==` and `hash` consistent with
+the periodic-boundary semantics a user expects.
+
+Returned by `spacegroup(c::Crystal)`. Compose with `*`, invert with `inv`,
+apply to a fractional position via `op(r)`, convert to Cartesian with
+`toCartesian(op, A)`.
+"""
+struct SpacegroupOp
+    R::Matrix{Int}
+    τ::Vector{Float64}
+    SpacegroupOp(R, τ) = new(R, mod.(τ, 1.0))
+end
+
+# Composition: op1 * op2 means "apply op2 first, then op1" (function-composition
+# semantics). Derivation:
+#   op2: r ↦ R2·r + τ2
+#   op1 applied to that: R1·(R2·r + τ2) + τ1 = R1·R2·r + R1·τ2 + τ1
+Base.:*(a::SpacegroupOp, b::SpacegroupOp) =
+    SpacegroupOp(a.R * b.R, a.R * b.τ + a.τ)
+
+# Inverse: (R, τ)⁻¹ = (R⁻¹, -R⁻¹·τ). R⁻¹ is integer because |det R| = 1 for
+# any lattice rotation. The rounding + sanity check guards against misuse
+# with a non-lattice R.
+function Base.inv(op::SpacegroupOp)
+    Rinv_f = inv(Float64.(op.R))
+    Rinv = round.(Int, Rinv_f)
+    maximum(abs, Rinv_f .- Rinv) < 1e-8 ||
+        error("inv(SpacegroupOp): R⁻¹ is not integer (det(R) ≠ ±1?)")
+    SpacegroupOp(Rinv, -Rinv * op.τ)
+end
+
+# Apply to a fractional position vector (callable struct)
+(op::SpacegroupOp)(r::AbstractVector) = mod.(op.R * r + op.τ, 1.0)
+
+# Identity op
+Base.one(::Type{SpacegroupOp}) = SpacegroupOp(Matrix{Int}(I, 3, 3), zeros(3))
+
+# Equality and hash. Julia's default `==` for a struct with Vector/Matrix
+# fields falls back to `===` (object identity), which would say two ops
+# with identical content are unequal. We override with explicit field-by-
+# field `==` (element-wise for R and τ). Because τ is canonicalised to
+# [0, 1) at construction, this correctly treats ops with τ=[0,0,0] and
+# τ=[1,0,0] as equal (both stored as [0,0,0]). The matching `hash` method
+# keeps Set{SpacegroupOp} and Dict{SpacegroupOp,_} consistent with `==`.
+Base.:(==)(a::SpacegroupOp, b::SpacegroupOp) = a.R == b.R && a.τ == b.τ
+Base.hash(op::SpacegroupOp, h::UInt) = hash(op.τ, hash(op.R, hash(:SpacegroupOp, h)))
+
+# Pretty printing (Julia calls this automatically for REPL, println, etc.)
+Base.show(io::IO, op::SpacegroupOp) =
+    print(io, "SpacegroupOp(R = ", op.R, ", τ = ", op.τ, ")")
+
+"""
+    toCartesian(op::SpacegroupOp, A::AbstractMatrix)
+
+Convert a lattice-coords space-group operation to its Cartesian form.
+Returns `(R_cart, τ_cart) = (A·R·A⁻¹, A·τ)` where `A` is the lattice matrix
+(columns = basis vectors). Result is a `Tuple`, not a `SpacegroupOp`,
+because the Cartesian R is `Matrix{Float64}` while `SpacegroupOp.R` must be
+`Matrix{Int}`.
+"""
+toCartesian(op::SpacegroupOp, A::AbstractMatrix) =
+    (A * op.R * inv(A), A * op.τ)
+
 """
 threeDrotation(u,v,w,α,β,γ)
 
@@ -387,13 +459,83 @@ return result_ops, result_Rc
 end
 
 """
-    spacegroup(c::Crystal; ...)
+    spacegroup(c::Crystal; lattice_tol=0.01, pos_tol=default_pos_tol(c))
 
-Find the space-group operations of crystal `c`. Scheduled for Phase 2 per
-`spacegroup_plan.md`; currently raises an error to prevent silent misuse.
+Find all space-group operations `(R, τ)` of crystal `c`. Returns a
+`Vector{SpacegroupOp}` in the user's original basis. The identity op is
+guaranteed to be at index 1; the remaining order is unspecified.
+
+Algorithm: Minkowski-reduce the lattice, find the lattice point group
+(`pointGroup_robust`) in the reduced basis, enumerate candidate τ per R
+via probe-atom differences, verify with `isSpacegroupOp`, then transform
+surviving ops back to the user's basis via the integer change-of-basis
+matrix.
+
+See `spacegroup_plan.md` for design notes and `phase2_plan.md` for
+derivations.
 """
-function spacegroup(c::Crystal)
-    error("spacegroup: not yet implemented — scheduled for Phase 2 (see spacegroup_plan.md)")
+function spacegroup(c::Crystal; lattice_tol::Real=0.01,
+                                pos_tol::Real=default_pos_tol(c))
+    # 1. Minkowski-reduce the lattice
+    A_red = minkReduce(c.A)
+    u_red, v_red, w_red = eachcol(A_red)
+
+    # 2. Change-of-basis integer matrices.
+    #   c.A · U_ro = A_red   (U_ro: reduced-coord → original-coord)
+    #   A_red · U_or = c.A   (U_or: original-coord → reduced-coord; inv(U_ro))
+    U_ro = round.(Int, inv(c.A) * A_red)
+    U_or = round.(Int, inv(A_red) * c.A)
+    abs(det(U_ro)) == 1 ||
+        error("change-of-basis not unimodular: det(U_ro) = $(det(U_ro))")
+    U_ro * U_or == Matrix{Int}(I, 3, 3) ||
+        error("change-of-basis round-trip failed")
+    norm(c.A * U_ro - A_red) < 1e-8 * opnorm(c.A) ||
+        error("reduced basis does not agree with integer transform of original")
+
+    # 3. Transform atomic positions to the reduced basis and build a Crystal
+    #    on that basis. `Crystal` constructor folds positions mod 1.
+    r_red = U_or * c.r
+    c_red = Crystal(A_red, r_red, c.types; coords=:fractional)
+
+    # 4. Point group of the reduced lattice
+    LG_red, _ = pointGroup_robust(u_red, v_red, w_red; tol=lattice_tol)
+
+    # 5. Choose the probe atom type — the one with the fewest atoms, so the
+    #    per-R candidate-τ set is as small as possible. Ties broken by
+    #    first-appearance.
+    types_unique = unique(c.types)
+    counts = [count(==(t), c.types) for t in types_unique]
+    probe_type = types_unique[argmin(counts)]
+    probe_indices = findall(==(probe_type), c.types)
+    i0 = probe_indices[1]
+
+    # 6. For each R_red, enumerate candidate τ_red via probe-atom differences,
+    #    test each with `isSpacegroupOp`, collect surviving (R_red, τ_red).
+    ops_red = Tuple{Matrix{Int}, Vector{Float64}}[]
+    for R in LG_red
+        image_i0 = R * c_red.r[:, i0]
+        for j in probe_indices
+            τ = mod.(c_red.r[:, j] .- image_i0, 1.0)
+            if isSpacegroupOp(R, τ, c_red; tol=pos_tol)
+                push!(ops_red, (Matrix{Int}(R), τ))
+            end
+        end
+    end
+
+    # 7. Transform ops back to the user's basis. SpacegroupOp constructor
+    #    canonicalises τ to [0, 1).
+    ops_out = [SpacegroupOp(U_ro * R_red * U_or, U_ro * τ_red)
+               for (R_red, τ_red) in ops_red]
+
+    # 8. Sort identity to the front (per §6.3 decision).
+    e = one(SpacegroupOp)
+    id_idx = findfirst(==(e), ops_out)
+    id_idx === nothing &&
+        error("identity operation missing from computed space group — bug")
+    if id_idx != 1
+        ops_out[1], ops_out[id_idx] = ops_out[id_idx], ops_out[1]
+    end
+    return ops_out
 end
 
 """ snapToSymmetry_SVD(u,v,w,ops)

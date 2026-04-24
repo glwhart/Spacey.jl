@@ -47,8 +47,16 @@ All package code lives in the single file `src/Spacey.jl`. There is no code spli
 | `aspectRatio(a1, a2, a3)` | Compute lattice aspect ratio |
 | `isagroup(members)` | Verify a set of matrices forms a group |
 | `threeDrotation(...)` | Generate rotated test lattices |
+| `Crystal(A, r, types; coords)` | Construct a crystal (required `coords` kwarg: `:fractional` or `:cartesian`) |
+| `spacegroup(c; lattice_tol=0.01, pos_tol=default_pos_tol(c))` | Find all `(R, τ)` space-group operations |
+| `isSpacegroupOp(R, τ, c; tol)` | Check if `(R, τ)` is a symmetry of crystal `c` |
+| `fractional(c)`, `cartesian(c)` | Atomic positions in the respective basis |
+| `default_pos_tol(c)` | Default position tolerance: `0.01·(V/N)^(1/3)` |
+| `toCartesian(op, A)` | Convert a `SpacegroupOp` to Cartesian `(R, τ)` tuple |
 
 `pointGroup_robust` returns a tuple `(LG, G)` where `LG` contains operations in lattice coordinates and `G` contains Cartesian rotations. These are related by `A * LG[i] * inv(A) == G[i]`.
+
+`spacegroup(c)` returns a `Vector{SpacegroupOp}` with `R::Matrix{Int}` and `τ::Vector{Float64}`, both in the user's original basis. Identity is guaranteed at index 1; remaining order is unspecified. The struct supports composition (`*`), inversion (`inv`), application to a fractional position (`op(r)`), and mod-1 equality (via canonicalised `τ`).
 
 ### Core Algorithm (pointGroup_robust)
 
@@ -82,8 +90,6 @@ Tests verify all three agree on exact (non-noisy) inputs for all 14 Bravais latt
 
 ### Known Stubs
 
-- `spacegroup(A)` returns `true` — not implemented, reserved for future work
-- `Crystal` struct is defined but unused
 - `debugging.jl` in `src/` contains exploratory/interactive code, not part of the module
 
 ## CI
