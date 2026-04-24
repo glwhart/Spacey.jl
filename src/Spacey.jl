@@ -231,7 +231,11 @@ apply to a fractional position via `op(r)`, convert to Cartesian with
 struct SpacegroupOp
     R::Matrix{Int}
     τ::Vector{Float64}
-    SpacegroupOp(R, τ) = new(R, mod.(τ, 1.0))
+    # Canonicalise τ: round to 10 decimal places (kills floating-point drift
+    # accumulated through basis transforms / matmuls — physical τ values in
+    # ITA space groups are simple rationals like 0, ½, ⅓, ¼, ⅔, ¾, ⅙, ⅚, so
+    # 10-digit rounding preserves them exactly), then fold mod 1 into [0, 1).
+    SpacegroupOp(R, τ) = new(R, mod.(round.(τ, digits=10), 1.0))
 end
 
 # Composition: op1 * op2 means "apply op2 first, then op1" (function-composition

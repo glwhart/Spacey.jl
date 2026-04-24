@@ -611,5 +611,168 @@ end
             @test (a * b) ∈ ops
         end
     end
+
+    # Helper: build a Crystal from a POSCAR-style transcription.
+    # `A_rows` is a 3×3 matrix whose ROWS are the lattice vectors (as the
+    # paper prints them); we transpose so that the Crystal's `A` has them
+    # as columns, matching Spacey's convention.
+    make_crystal(A_rows, r_cols, types) =
+        Crystal(collect(transpose(A_rows)), r_cols, types; coords=:fractional)
+
+    # Common spot-check: length matches, identity at index 1, every op
+    # passes isSpacegroupOp, closure spot check.
+    function check_spacegroup!(c::Crystal, expected_order::Int)
+        ops = spacegroup(c)
+        @test length(ops) == expected_order
+        @test ops[1] == one(SpacegroupOp)
+        for op in ops
+            @test isSpacegroupOp(op.R, op.τ, c)
+        end
+        for _ in 1:5
+            a, b = rand(ops), rand(ops)
+            @test (a * b) ∈ ops
+        end
+        return ops
+    end
+
+    # ── Cf — A_aP4_2_aci ───────────────────────────────────────────
+    # Space group P-1 (#2), triclinic primitive, 4 atoms. Order 2.
+    # Symmorphic (only E and inversion-with-compensating-τ).
+    let
+        A_rows = [3.30700  0.00000  0.00000;
+                  0.55574  7.39114  0.00000;
+                  0.23614  0.02819  2.78286]
+        r = [0.00000 0.00000 0.42800 0.57200;
+             0.00000 0.50000 0.74100 0.25900;
+             0.00000 0.00000 0.56700 0.43300]
+        c = make_crystal(A_rows, r, fill(:Cf, 4))
+        check_spacegroup!(c, 2)
+    end
+
+    # ── High-pressure Te — A_mP4_4_2a ──────────────────────────────
+    # P2₁ (#4), monoclinic primitive, 4 atoms. Order 2. Non-symmorphic
+    # (2₁ screw axis).
+    let
+        A_rows = [ 3.10400  0.00000  0.00000;
+                   0.00000  7.51300  0.00000;
+                  -0.22506  0.00000  4.75468]
+        r = [0.25000 0.75000 0.48000 0.52000;
+             0.23000 0.73000 0.00000 0.50000;
+             0.48000 0.52000 0.02000 -0.02000]
+        c = make_crystal(A_rows, r, fill(:Te, 4))
+        check_spacegroup!(c, 2)
+    end
+
+    # ── NiTi — AB_mP4_11_e_e ───────────────────────────────────────
+    # P2₁/m (#11), monoclinic primitive, 2 Ni + 2 Ti = 4 atoms. Order 4.
+    # Non-symmorphic (2₁ screw + m perpendicular).
+    let
+        A_rows = [2.88370 0.00000 0.00000;
+                  0.00000 4.10620 0.00000;
+                  0.64457 0.00000 4.62268]
+        r = [0.03870 0.96130 0.41130 0.58870;
+             0.25000 0.75000 0.75000 0.25000;
+             0.82520 0.17480 0.28160 0.71840]
+        c = make_crystal(A_rows, r, [:Ni, :Ni, :Ti, :Ti])
+        check_spacegroup!(c, 4)
+    end
+
+    # ── α-O — A_mC4_12_i ───────────────────────────────────────────
+    # C2/m (#12), C-centred monoclinic. POSCAR gives the PRIMITIVE cell
+    # (2 atoms), so Spacey sees 4 ops (point-group order = 4; the
+    # C-centring translation is absorbed into the primitive basis).
+    let
+        A_rows = [ 2.70150 -1.71650  0.00000;
+                   2.70150  1.71650  0.00000;
+                  -3.41954  0.00000  3.75539]
+        r = [0.10600 0.89400;
+             0.10600 0.89400;
+             0.17300 0.82700]
+        c = make_crystal(A_rows, r, [:O, :O])
+        check_spacegroup!(c, 4)
+    end
+
+    # ── High-pressure CdTe — AB_oP2_25_b_a ─────────────────────────
+    # Pmm2 (#25), orthorhombic primitive, 2 atoms. Order 4. Symmorphic.
+    let
+        A_rows = [2.81020 0.00000 0.00000;
+                  0.00000 5.25800 0.00000;
+                  0.00000 0.00000 3.02650]
+        r = [0.00000 0.00000;
+             0.50000 0.00000;
+             0.25000 0.00000]
+        c = make_crystal(A_rows, r, [:Cd, :Te])
+        check_spacegroup!(c, 4)
+    end
+
+    # ── High-pressure GaAs — AB_oI4_44_a_b ─────────────────────────
+    # Imm2 (#44), I-centred orthorhombic. POSCAR gives the primitive
+    # cell (2 atoms), so Spacey sees 4 ops.
+    let
+        A_rows = [-2.46000  2.39500  1.31750;
+                   2.46000 -2.39500  1.31750;
+                   2.46000  2.39500 -1.31750]
+        r = [0.00000 0.92500;
+             0.00000 0.42500;
+             0.00000 0.50000]
+        c = make_crystal(A_rows, r, [:As, :Ga])
+        check_spacegroup!(c, 4)
+    end
+
+    # ── Naumannite Ag₂Se — A2B_oP12_19_2a_a ────────────────────────
+    # P2₁2₁2₁ (#19), orthorhombic primitive, 8 Ag + 4 Se = 12 atoms.
+    # Order 4. Non-symmorphic (three 2₁ screw axes).
+    let
+        A_rows = [7.76400 0.00000 0.00000;
+                  0.00000 7.06200 0.00000;
+                  0.00000 0.00000 4.33300]
+        Ag = [0.185 0.315 0.685 0.815 -0.055 0.055 0.445 0.555;
+              0.070 -0.070 0.430 0.570 0.265 0.765 0.235 0.735;
+              0.465 -0.035 0.535 0.035 0.508 -0.008 0.492 0.008]
+        Se = [0.116 0.384 0.616 0.884;
+              0.489 0.511 0.011 -0.011;
+              0.109 0.609 0.891 0.391]
+        c = make_crystal(A_rows, hcat(Ag, Se),
+                         [fill(:Ag, 8); fill(:Se, 4)])
+        check_spacegroup!(c, 4)
+    end
+
+    # ── α-U — A_oC4_63_c ───────────────────────────────────────────
+    # Cmcm (#63), C-centred orthorhombic. POSCAR gives the primitive
+    # cell (2 atoms), so Spacey sees 8 ops (point-group mmm; centring
+    # absorbed).
+    let
+        A_rows = [1.42220 -2.93445 0.00000;
+                  1.42220  2.93445 0.00000;
+                  0.00000  0.00000 4.93160]
+        r = [0.10228 0.89772;
+             0.89772 0.10228;
+             0.75000 0.25000]
+        c = make_crystal(A_rows, r, [:U, :U])
+        check_spacegroup!(c, 8)
+    end
+
+    # ── CaTiO₃ Pnma perovskite — AB3C_oP20_62_c_cd_a ───────────────
+    # Pnma (#62), orthorhombic primitive, 4 Ca + 12 O + 4 Ti = 20 atoms.
+    # Order 8. Non-symmorphic (glide planes and screw axes).
+    # Canonical perovskite distortion — the "20-atom" diagnostic case
+    # requested for §3.13 coverage.
+    let
+        A_rows = [5.42240 0.00000 0.00000;
+                  0.00000 7.65100 0.00000;
+                  0.00000 0.00000 5.40430]
+        Ca = [-0.0123  0.0123  0.4877  0.5123;
+               0.2500  0.7500  0.2500  0.7500;
+               0.5084  0.4916 -0.0084  0.0084]
+        O = [ 0.0313 -0.0313  0.4687  0.5313  0.2120  0.2120  0.2880  0.2880  0.7120  0.7120  0.7880  0.7880;
+              0.2500  0.7500  0.7500  0.2500  0.0370  0.4630  0.5370  0.9630  0.0370  0.4630 -0.0370  0.5370;
+              0.0586 -0.0586  0.5586  0.4414  0.7130  0.7130  0.2130  0.2130  0.7870  0.7870  0.2870  0.2870]
+        Ti = [0.0  0.0  0.5  0.5;
+              0.0  0.5  0.0  0.5;
+              0.0  0.0  0.5  0.5]
+        c = make_crystal(A_rows, hcat(Ca, O, Ti),
+                         [fill(:Ca, 4); fill(:O, 12); fill(:Ti, 4)])
+        check_spacegroup!(c, 8)
+    end
 end
 
