@@ -6,7 +6,7 @@ export pointGroup_fast, pointGroup_simple, threeDrotation,
        pointGroup, pointGroup_robust, snapToSymmetry_SVD, isagroup,
        snapToSymmetry_avg, aspectRatio,
        Crystal, isSpacegroupOp, fractional, cartesian, default_pos_tol,
-       SpacegroupOp, toCartesian, spacegroup
+       crystal_system, SpacegroupOp, toCartesian, spacegroup
 
 """ averageOverOps(vec,ops) 
 
@@ -174,6 +174,50 @@ Default position-matching tolerance for symmetry detection. Equal to
 `designDiscussions.md` for the rationale behind the 1% choice.
 """
 default_pos_tol(c::Crystal) = 0.01 * (abs(det(c.A)) / size(c.r, 2))^(1/3)
+
+"""
+    crystal_system(A; lattice_tol=0.01)
+    crystal_system(c::Crystal; lattice_tol=0.01)
+
+Return the Bravais-system symbol of the lattice `A` — one of
+`:triclinic`, `:monoclinic`, `:orthorhombic`, `:tetragonal`, `:trigonal`,
+`:hexagonal`, `:cubic`.
+
+Identified via the order of the lattice's point group (its holohedry),
+which uniquely determines the system:
+
+    order →  system            holohedry
+    ─────    ───────────       ─────────
+      2      :triclinic        C_i   (-1)
+      4      :monoclinic       C_2h  (2/m)
+      8      :orthorhombic     D_2h  (mmm)
+     12      :trigonal         D_3d  (-3m)
+     16      :tetragonal       D_4h  (4/mmm)
+     24      :hexagonal        D_6h  (6/mmm)
+     48      :cubic            O_h   (m-3m)
+
+Note: this reports the actual symmetry of the *lattice* Spacey sees.
+If lattice parameters coincidentally match a higher-symmetry relation
+(e.g. a ≈ b in an orthorhombic cell at default `lattice_tol`), the
+returned system may be higher than the nominal one — same behaviour as
+`pointGroup_robust`.
+"""
+function crystal_system(A::AbstractMatrix{<:Real}; lattice_tol::Real=0.01)
+    A_red = minkReduce(Float64.(A))
+    u, v, w = eachcol(A_red)
+    LG, _ = pointGroup_robust(u, v, w; tol=lattice_tol)
+    order = length(LG)
+    order == 2  && return :triclinic
+    order == 4  && return :monoclinic
+    order == 8  && return :orthorhombic
+    order == 12 && return :trigonal
+    order == 16 && return :tetragonal
+    order == 24 && return :hexagonal
+    order == 48 && return :cubic
+    error("unexpected lattice point-group order $order (should be 2, 4, 8, 12, 16, 24, or 48)")
+end
+
+crystal_system(c::Crystal; kwargs...) = crystal_system(c.A; kwargs...)
 
 """
     isSpacegroupOp(R, τ, c::Crystal; tol=default_pos_tol(c))

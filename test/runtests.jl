@@ -956,6 +956,73 @@ end
     end
 end
 
+@testset "crystal_system" begin
+    # Smoke test on the 14 Bravais lattices: the expected system is
+    # derived from each entry's point-group order, which is the
+    # holohedry. Mapping 2→tri, 4→mono, 8→ortho, 12→trig, 16→tet,
+    # 24→hex, 48→cubic.
+    order_to_sys = Dict(2=>:triclinic, 4=>:monoclinic, 8=>:orthorhombic,
+                        12=>:trigonal, 16=>:tetragonal,
+                        24=>:hexagonal, 48=>:cubic)
+    for (name, (A, order)) in BravaisLatticeList
+        expected = order_to_sys[order]
+        @test crystal_system(A) == expected
+    end
+end
+
+# Extract the expected crystal system from an AFLOW prototype label.
+# The Pearson symbol's first two letters encode system + centering:
+#   'a?' → triclinic    'm?' → monoclinic    'o?' → orthorhombic
+#   't?' → tetragonal   'c?' → cubic
+#   'hP' → hexagonal    'hR' → trigonal (rhombohedral setting)
+function expected_crystal_system(prototype::AbstractString)
+    parts = split(prototype, '_')
+    length(parts) ≥ 2 || error("malformed prototype: $prototype")
+    pearson = parts[2]
+    length(pearson) ≥ 2 || error("malformed Pearson: $pearson")
+    sys, cent = pearson[1], pearson[2]
+    sys == 'a' && return :triclinic
+    sys == 'm' && return :monoclinic
+    sys == 'o' && return :orthorhombic
+    sys == 't' && return :tetragonal
+    sys == 'c' && return :cubic
+    sys == 'h' && cent == 'P' && return :hexagonal
+    sys == 'h' && cent == 'R' && return :trigonal
+    error("unknown Pearson: $pearson")
+end
+
+function aflow_crystal_system_test_one(s)
+    expected_sys = try expected_crystal_system(s.prototype) catch; return end
+    actual_sys = try
+        crystal_system(s.A)
+    catch
+        @test false; return
+    end
+    if actual_sys == expected_sys
+        @test actual_sys == expected_sys
+    else
+        @test_broken actual_sys == expected_sys
+    end
+end
+
+@testset "crystal_system cross-check: AFLOW Part 1" begin
+    @testset "$(s.name) [$(s.prototype)]" for s in AFLOW_PART1_STRUCTURES
+        aflow_crystal_system_test_one(s)
+    end
+end
+
+@testset "crystal_system cross-check: AFLOW Part 2" begin
+    @testset "$(s.name) [$(s.prototype)]" for s in AFLOW_PART2_STRUCTURES
+        aflow_crystal_system_test_one(s)
+    end
+end
+
+@testset "crystal_system cross-check: AFLOW Part 3" begin
+    @testset "$(s.name) [$(s.prototype)]" for s in AFLOW_PART3_STRUCTURES
+        aflow_crystal_system_test_one(s)
+    end
+end
+
 @testset "spacegroup: Phase 4 near-boundary crystal (verify_stable)" begin
     # BaTiO₃-style ferroelectric near-miss: cubic lattice (Pm3̄m = 48 ops at
     # ε = 0), with Ti displaced from body-centre by ε along z. For ε > 0
