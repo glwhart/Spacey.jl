@@ -8,9 +8,14 @@ export pointGroup_fast, pointGroup_simple, threeDrotation,
        Crystal, isSpacegroupOp, fractional, cartesian, default_pos_tol,
        crystal_system, SpacegroupOp, toCartesian, spacegroup
 
-""" averageOverOps(vec,ops) 
+"""
+    avgVecOverOps(vec, ops)
 
-Apply each operator in the list to the input vector. Take the average over the vectors that are approximately invariant
+Apply each operator in `ops` to `vec` and return the average over those images
+that lie within 10% of the input's norm. Used internally by
+[`snapToSymmetry_avg`](@ref).
+
+This is an internal helper; not exported.
 """
 function avgVecOverOps(vec,ops)
      cands = [iop*vec for iop ∈ ops]
@@ -19,11 +24,18 @@ function avgVecOverOps(vec,ops)
      return avgVec
 end
 
-""" snapToSymmetry_avg(v1,v2,v3,ops)
+"""
+    snapToSymmetry_avg(v1, v2, v3, ops)
 
-Average three basis vectors over the operators
+Snap three basis vectors `v1, v2, v3` to a higher-symmetry triple by averaging
+each vector over the images produced by `ops` (a vector of 3×3 lattice
+operations). For each input vector, only images within 10% of its norm
+contribute to the average — this filters the operations whose action
+should fix that vector.
 
-(The average is only over the resultant vectors that are ≈ to the original.)
+Compare to [`snapToSymmetry_SVD`](@ref), which uses singular value
+decomposition of the metric tensor and is generally more robust.
+Returns a tuple `(w1, w2, w3)`.
 """
 function snapToSymmetry_avg(v1,v2,v3,ops)
      w1 = avgVecOverOps(v1,ops)
@@ -32,21 +44,42 @@ function snapToSymmetry_avg(v1,v2,v3,ops)
      return w1,w2,w3
 end
 
-""" snapToSymmetry_avg(M,ops) 
+"""
+    snapToSymmetry_avg(M, ops)
 
-Average three basis vectors (columns of M) over the operators.
-
-(The average is only over the resultant vectors that are ≈ to the original.)
+Matrix-form of [`snapToSymmetry_avg`](@ref): treats the columns of `M` as the
+three basis vectors and returns the snapped vectors as a 3×3 matrix.
 """
 function snapToSymmetry_avg(M,ops)
      res = snapToSymmetry_avg(M[:,1],M[:,2],M[:,3],ops)
      return [res[1] res[2] res[3]]
 end
 
-""" isagroup(members::Vector{<:AbstractMatrix{<:Integer}})
+"""
+    isagroup(members)
 
-Determine whether `members` (matrices with *integer* elements) form a group
-under matrix multiplication using *exact* equality.
+Return `true` if `members` (a vector of square matrices) is closed under matrix
+multiplication and contains no duplicates — i.e. forms a group.
+
+Two methods are provided:
+- For integer matrices, equality is exact.
+- For floating-point matrices, equality uses `isapprox` with `atol`/`rtol`
+  keyword arguments (default `1e-8` each).
+
+Identity and inverses are not separately checked — they're implied by
+finite closure of distinct elements (Cayley's theorem applied to the
+finite case).
+
+# Examples
+```jldoctest
+julia> using LinearAlgebra
+
+julia> isagroup([Matrix{Int}(I, 2, 2), -Matrix{Int}(I, 2, 2)])
+true
+
+julia> isagroup([[0 1; 1 0]])         # not closed: M·M = I, which isn't in the set
+false
+```
 """
 function isagroup(members::AbstractVector{<:AbstractMatrix{<:Integer}})
     # 1) distinctness
@@ -66,11 +99,13 @@ function isagroup(members::AbstractVector{<:AbstractMatrix{<:Integer}})
 end
 
 
-""" isagroup(members::Vector{<:AbstractMatrix{<:AbstractFloat}}; atol = 1e-8, rtol = 1e-8)
+"""
+    isagroup(members::AbstractVector{<:AbstractMatrix{<:AbstractFloat}};
+             atol=1e-8, rtol=1e-8)
 
-Determine whether `members` (matrices with floating-point elements) form a
-group under matrix multiplication, using `isapprox` with the provided
-tolerances to handle finite-precision errors.
+Floating-point variant of [`isagroup`](@ref): uses `isapprox(...; atol, rtol)`
+for distinctness and closure checks. See the integer-matrix method for the
+overall contract.
 """
 function isagroup(members::AbstractVector{<:AbstractMatrix{<:AbstractFloat}}; atol = 1e-8, rtol = 1e-8)
     cmp(A, B) = isapprox(A, B; atol=atol, rtol=rtol)
@@ -118,6 +153,20 @@ fractional once at construction; internally positions are always fractional.
 
 Numeric input is accepted as any `AbstractMatrix{<:Real}` / `AbstractVector{<:Real}`
 and converted to `Float64` once at construction.
+
+# Examples
+```jldoctest
+julia> using LinearAlgebra
+
+julia> A = Matrix{Float64}(I, 3, 3);   # cubic lattice, side 1
+
+julia> r = [0.0 0.5; 0.0 0.5; 0.0 0.5];   # CsCl: Cs at origin, Cl at body centre
+
+julia> c = Crystal(A, r, [:Cs, :Cl]; coords=:fractional);
+
+julia> length(spacegroup(c))
+48
+```
 """
 struct Crystal{T}
     A::Matrix{Float64}
@@ -154,6 +203,25 @@ Crystal(a1::AbstractVector, a2::AbstractVector, a3::AbstractVector,
     fractional(c::Crystal)
 
 Return the 3×N matrix of atomic positions in fractional (lattice) coordinates.
+This is the canonical internal representation; see also [`cartesian`](@ref) for
+the Cartesian view.
+
+# Examples
+```jldoctest
+julia> using LinearAlgebra
+
+julia> A = Matrix{Float64}(2I, 3, 3);
+
+julia> r = reshape([0.5, 0.5, 0.5], 3, 1);
+
+julia> c = Crystal(A, r, [:X]; coords=:fractional);
+
+julia> fractional(c)
+3×1 Matrix{Float64}:
+ 0.5
+ 0.5
+ 0.5
+```
 """
 fractional(c::Crystal) = c.r
 
@@ -161,17 +229,53 @@ fractional(c::Crystal) = c.r
     cartesian(c::Crystal)
 
 Return the 3×N matrix of atomic positions in Cartesian coordinates (same basis
-and units as `c.A`).
+and units as `c.A`). Each call recomputes from the stored fractional positions:
+`A * r`. See also [`fractional`](@ref).
+
+# Examples
+```jldoctest
+julia> using LinearAlgebra
+
+julia> A = Matrix{Float64}(2I, 3, 3);
+
+julia> r = reshape([0.5, 0.5, 0.5], 3, 1);
+
+julia> c = Crystal(A, r, [:X]; coords=:fractional);
+
+julia> cartesian(c)
+3×1 Matrix{Float64}:
+ 1.0
+ 1.0
+ 1.0
+```
 """
 cartesian(c::Crystal) = c.A * c.r
 
 """
     default_pos_tol(c::Crystal)
 
-Default position-matching tolerance for symmetry detection. Equal to
-`0.01 · (V/N)^(1/3)` where `V = |det(A)|` and `N` is the number of atoms —
-1% of the characteristic atom separation, unit-agnostic. See
-`designDiscussions.md` for the rationale behind the 1% choice.
+Default position-matching tolerance used by [`isSpacegroupOp`](@ref) and
+[`spacegroup`](@ref). Equal to `0.01 · (V/N)^(1/3)` where `V = |det(A)|` and
+`N` is the number of atoms — 1% of the characteristic atom separation,
+expressed in the same units as `c.A`. The formula is unit-agnostic, so it
+returns a sensible default whether your lattice is in Ångström, Bohr, or
+arbitrary units.
+
+See `designDiscussions.md` for the rationale behind the 1% factor and the
+class of structures it correctly classifies vs. the boundary cases it
+silently over-promotes.
+
+# Examples
+```jldoctest
+julia> using LinearAlgebra
+
+julia> A = Matrix{Float64}(I, 3, 3);
+
+julia> c = Crystal(A, reshape([0.0, 0.0, 0.0], 3, 1), [:X]; coords=:fractional);
+
+julia> default_pos_tol(c)
+0.01
+```
 """
 default_pos_tol(c::Crystal) = 0.01 * (abs(det(c.A)) / size(c.r, 2))^(1/3)
 
@@ -201,6 +305,20 @@ If lattice parameters coincidentally match a higher-symmetry relation
 (e.g. a ≈ b in an orthorhombic cell at default `lattice_tol`), the
 returned system may be higher than the nominal one — same behaviour as
 `pointGroup_robust`.
+
+# Examples
+```jldoctest
+julia> using LinearAlgebra
+
+julia> crystal_system(Matrix{Float64}(I, 3, 3))
+:cubic
+
+julia> crystal_system([1.0 0 0; 0 1 0; 0 0 1.5])
+:tetragonal
+
+julia> crystal_system([1.0 0 0; 0 1.2 0; 0 0 1.5])
+:orthorhombic
+```
 """
 function crystal_system(A::AbstractMatrix{<:Real}; lattice_tol::Real=0.01)
     A_red = minkReduce(Float64.(A))
@@ -231,6 +349,23 @@ Each original atom's image must coincide with an (injectively matched)
 original atom of the same type, with per-component distance below `tol` after
 wrapping the signed difference into `(-½, ½]` (i.e. comparing modulo the
 lattice).
+
+# Examples
+```jldoctest
+julia> using LinearAlgebra
+
+julia> A = Matrix{Float64}(I, 3, 3);
+
+julia> c = Crystal(A, reshape([0.0, 0.0, 0.0], 3, 1), [:X]; coords=:fractional);
+
+julia> I3 = Matrix{Int}(I, 3, 3);
+
+julia> isSpacegroupOp(I3, [0.0, 0.0, 0.0], c; tol=1e-8)
+true
+
+julia> isSpacegroupOp(I3, [0.5, 0.0, 0.0], c; tol=1e-8)
+false
+```
 """
 function isSpacegroupOp(R::AbstractMatrix{<:Real}, τ::AbstractVector{<:Real},
                         c::Crystal; tol::Real=default_pos_tol(c))
@@ -271,6 +406,26 @@ the periodic-boundary semantics a user expects.
 Returned by `spacegroup(c::Crystal)`. Compose with `*`, invert with `inv`,
 apply to a fractional position via `op(r)`, convert to Cartesian with
 `toCartesian(op, A)`.
+
+# Examples
+```jldoctest
+julia> using LinearAlgebra
+
+julia> e = one(SpacegroupOp);   # identity
+
+julia> R = [0 -1 0; 1 0 0; 0 0 1];   # 4-fold rotation about z (in lattice coords)
+
+julia> op = SpacegroupOp(R, [0.5, 0.0, 0.0]);
+
+julia> op([0.0, 0.0, 0.0])
+3-element Vector{Float64}:
+ 0.5
+ 0.0
+ 0.0
+
+julia> (op * inv(op)) == e
+true
+```
 """
 struct SpacegroupOp
     R::Matrix{Int}
@@ -354,20 +509,61 @@ Base.show(io::IO, op::SpacegroupOp) =
 """
     toCartesian(op::SpacegroupOp, A::AbstractMatrix)
 
-Convert a lattice-coords space-group operation to its Cartesian form.
-Returns `(R_cart, τ_cart) = (A·R·A⁻¹, A·τ)` where `A` is the lattice matrix
-(columns = basis vectors). Result is a `Tuple`, not a `SpacegroupOp`,
-because the Cartesian R is `Matrix{Float64}` while `SpacegroupOp.R` must be
-`Matrix{Int}`.
+Convert a lattice-coordinate space-group operation to its Cartesian form.
+Returns the tuple `(R_cart, τ_cart) = (A·R·A⁻¹, A·τ)` where `A` is the lattice
+matrix whose columns are the basis vectors.
+
+The result is a `Tuple{Matrix{Float64},Vector{Float64}}` rather than a
+`SpacegroupOp`, because the Cartesian rotation is in general not integer-
+valued while [`SpacegroupOp`](@ref)'s `R` field must be `Matrix{Int}`.
+
+# Examples
+```jldoctest
+julia> using LinearAlgebra
+
+julia> A = Matrix{Float64}(I, 3, 3);
+
+julia> R_cart, τ_cart = toCartesian(one(SpacegroupOp), A);
+
+julia> R_cart
+3×3 Matrix{Float64}:
+ 1.0  0.0  0.0
+ 0.0  1.0  0.0
+ 0.0  0.0  1.0
+
+julia> τ_cart
+3-element Vector{Float64}:
+ 0.0
+ 0.0
+ 0.0
+```
 """
 toCartesian(op::SpacegroupOp, A::AbstractMatrix) =
     (A * op.R * inv(A), A * op.τ)
 
 """
-threeDrotation(u,v,w,α,β,γ)
+    threeDrotation(u, v, w, α, β, γ)
 
-Rotate a basis by three angles to any orientation. Useful for building robust unit tests. 
+Rotate the basis vectors `u, v, w` by Euler angles `α, β, γ` (the
+yaw–pitch–roll convention used in test scaffolding). Returns the rotated
+triple `(u', v', w')` as a tuple of three vectors. Useful for verifying
+that symmetry-finding routines are invariant under arbitrary lattice
+orientation.
 
+The rotation matrix is built from successive rotations about the z, y, and
+z axes (matching the order in the formula). For zero angles the identity
+is returned.
+
+# Examples
+```jldoctest
+julia> u, v, w = threeDrotation([1.0,0,0], [0,1.0,0], [0,0,1.0], 0.0, 0.0, 0.0);
+
+julia> u
+3-element Vector{Float64}:
+ 1.0
+ 0.0
+ 0.0
+```
 """
 function threeDrotation(u,v,w,α,β,γ)
 A = [u v w]
@@ -379,15 +575,27 @@ return A[:,1],A[:,2],A[:,3]
 end
 
 """
-Generate the symmetry operations of a lattice, defined by three 3-vectors
-(This function is _very_ simple but not efficient. Used to test more efficient algorithms.)
+    pointGroup_simple(a1, a2, a3, debug=false)
 
-```juliadoctest
-julia> u = [1,0,0]; v = [.5,√3/2,0]; w = [0,0,√(8/3)];
-julia> pointGroup_basic(u,v,w)
-24-element Array{Array{Float64,2},1}:
-[-1.0 0.0 0.0; -1.0 1.0 0.0; 0.0 0.0 -0.9999999999999999]
-...
+Brute-force enumeration of the point group of a 3D lattice. Iterates over
+every 3×3 candidate matrix with entries in `{-1, 0, 1}` (3⁹ = 19683
+matrices), retains those whose action on the basis preserves the metric
+tensor, and returns the survivors as Cartesian rotations.
+
+This is the simplest correct implementation — used to validate the more
+efficient [`pointGroup_fast`](@ref) and [`pointGroup_robust`](@ref). It
+performs strict (`isapprox` with default tolerance) equality checks, so it
+is most reliable on noiseless / synthetic input.
+
+If `debug=true`, returns the candidate `T = UᵀU` matrices instead of the
+filtered ops, for use when diagnosing failures.
+
+# Examples
+```jldoctest
+julia> u = [1.0, 0, 0]; v = [0.5, √3/2, 0]; w = [0.0, 0, √(8/3)];
+
+julia> length(pointGroup_simple(u, v, w))
+24
 ```
 """
 function pointGroup_simple(a1,a2,a3,debug=false)
@@ -411,18 +619,27 @@ end
 
 
 """
-Generate the symmetry operations of a lattice, defined by three 3-vectors.
-This function aims to be more efficient than `pointGroup_basic` and so is more complex
+    pointGroup_fast(a1, a2, a3)
 
-```juliadoctest
-julia> u = [1,0,0]; v = [.5,√3/2,0]; w = [0,0,√(8/3)];
-julia> pointGroup(u,v,w)
-24-element Array{Array{Float64,2},1}:
-[-1 -1 0; 0 1 0; 0 0 -1]
-...
+Production-speed point-group finder for an exact / noiseless 3D lattice.
+Faster than [`pointGroup_simple`](@ref) by filtering candidate basis
+combinations by length and volume before checking orthogonality, but uses
+strict `isapprox` tolerance and so is best suited to clean inputs.
+
+For real-world (noisy) input use [`pointGroup_robust`](@ref), which exposes
+a tolerance keyword.
+
+Returns operations as integer matrices in lattice coordinates.
+
+# Examples
+```jldoctest
+julia> u = [1.0, 0, 0]; v = [0.5, √3/2, 0]; w = [0.0, 0, √(8/3)];
+
+julia> length(pointGroup_fast(u, v, w))
+24
 ```
 """
-function pointGroup_fast(a1,a2,a3) 
+function pointGroup_fast(a1,a2,a3)
 u,v,w = minkReduce(a1,a2,a3) # Always do this first, algorithm assumes reduced basis
 A = [u v w] # Define a matrix with input vectors as columns
 Ai = inv(A) 
@@ -456,23 +673,43 @@ ops = [round.(Int,Ai*R[i]) for i in idx]
 return ops
 end
 
-""" pointgroup_robust(a1, a2, a3)
+"""
+    pointGroup_robust(u, v, w; tol=0.01, verify_stable=false)
 
-Calculate the pointGroup using an epsilon based on input lattice 
+Find the point group of the 3D lattice spanned by `u, v, w` using a
+tolerance scaled to the input — designed for real-world noisy input.
 
-The routine works in a similar fashion to the pointGroup_fast routine but
-finite precision comparisons use an epsilon scaled to the input. The 
-epsilon is quite large, 10% (may change) of the smallest scale of the 
-input. With sufficient testing, this routine may become the defacto standard
-for the Spacey package.
+Returns the tuple `(LG, G)` where:
+- `LG::Vector{Matrix{Int}}` — operations in lattice coordinates (integer
+  matrices satisfying `A · LG[i] · inv(A) ≈ G[i]`).
+- `G::Vector{Matrix{Float64}}` — Cartesian-coordinate rotations.
 
-     ```juliadoctest
-     julia>  u = [1,0,1e-4]; v = [.5,√3/2,-1e-5]; w = [0,1e-4,√(8/3)];
-     julia> pointGroup_robust(u,v,w)
-     24-element Array{Array{Float64,2},1}:
-     [-1.0 0.0 0.0; -1.0 1.0 0.0; 0.0 0.0 -0.9999999999999999]
-     ...
-     ```
+# Keyword arguments
+- `tol::Real=0.01` — relative tolerance applied to the (volume-normalised)
+  lattice. Tighter values reject more spurious candidates; looser values
+  tolerate more input noise but risk over-promotion to higher symmetry.
+- `verify_stable::Bool=false` — opt-in stability check. When `true`, the
+  algorithm re-runs at `tol/1000` and emits a `@warn` if the operation
+  count differs between the two runs (i.e. the lattice is near a
+  symmetry boundary). The returned group is unchanged.
+
+Algorithm: Minkowski-reduce input (the matrix wrapper is required to be
+already-reduced, so this is verified at entry), enumerate candidate basis
+permutations from the {-1,0,1}³ neighbour set, filter by norm match →
+volume conservation → orthogonality, then keep the largest subset that
+closes under multiplication.
+
+A `@warn` fires automatically when the input aspect ratio exceeds 100 —
+results may be unreliable for ratios above ~500 due to floating-point
+precision in the candidate-detection step.
+
+# Examples
+```jldoctest
+julia> u = [1.0, 0, 0]; v = [0, 1.0, 0]; w = [0, 0, 1.0];
+
+julia> length(pointGroup_robust(u, v, w)[1])
+48
+```
 """
 function pointGroup_robust(u,v,w;tol=0.01, verify_stable::Bool=false)
 # Mink reduction can change the basis even when the basis is already reduced (degenerate cases). So don't do it here. But do check that no reduction is needed.
@@ -559,6 +796,21 @@ matrix.
 
 See `spacegroup_plan.md` for design notes and `phase2_plan.md` for
 derivations.
+
+# Examples
+```jldoctest
+julia> using LinearAlgebra
+
+julia> A = Matrix{Float64}(I, 3, 3);
+
+julia> c = Crystal(A, reshape([0.0, 0.0, 0.0], 3, 1), [:X]; coords=:fractional);
+
+julia> length(spacegroup(c))
+48
+
+julia> spacegroup(c)[1] == one(SpacegroupOp)
+true
+```
 """
 function spacegroup(c::Crystal; lattice_tol::Real=0.01,
                                 pos_tol::Real=default_pos_tol(c),
@@ -640,11 +892,37 @@ function spacegroup(c::Crystal; lattice_tol::Real=0.01,
     return ops_out
 end
 
-""" snapToSymmetry_SVD(u,v,w,ops)
+"""
+    snapToSymmetry_SVD(u, v, w, ops)
 
-    Adjust input vectors and atomic basis to be an exact match to symmetry found. Adjust symmetries to be exact orthonormal transforms (to machine precision)
+Snap a noisy lattice to its exact-symmetry form via singular value
+decomposition of the symmetry-averaged metric tensor. Given basis vectors
+`u, v, w` and lattice operations `ops` returned by [`pointGroup_robust`](@ref)
+(in lattice / integer-matrix form), produces:
 
-     In most applications, where robustness/accuracy is the most important consideration (rather than speed), one should probably always call the "robust" pointGroup finder and then follow up with a call to this routine. If the input is trustworthy (highly accurate), then calling this routine would be unnecessary.
+    (a, b, c, iops, rops)
+
+where:
+- `a, b, c::Vector{Float64}` — the snapped basis vectors. Lengths and
+  inter-vector angles are the symmetry-averaged values; volume is preserved.
+- `iops::Vector{Matrix{Int}}` — the integer-matrix lattice operations of
+  the snapped lattice (recomputed via `pointGroup_robust` on the snapped
+  basis).
+- `rops::Vector{Matrix{Float64}}` — Cartesian rotations of the snapped lattice.
+
+After snapping, the integer ops should satisfy `A · iops[i] · inv(A) == rops[i]`
+to machine precision. Compare to the lighter [`snapToSymmetry_avg`](@ref),
+which averages each basis vector independently and is faster but less
+robust at high distortion.
+
+For accuracy-critical work — extracting symmetry operations from
+experimental refinements, post-processing DFT-relaxed structures, etc. —
+`pointGroup_robust(...; tol)` followed by `snapToSymmetry_SVD(..., ops)`
+gives lattice vectors and rotations that are as exact as possible while
+remaining consistent with the input.
+
+For trusted/clean input (purely synthetic or already-snapped), this routine
+is unnecessary.
 """
 function snapToSymmetry_SVD(u,v,w,ops)
 A = [u v w] # Take the lattice basis as a matrix 
@@ -677,28 +955,52 @@ iops,rops = pointGroup_robust(u,v,w)
 return u,v,w,iops,rops
 end
 
-""" pointGroup(basisMatrix)
+"""
+    pointGroup(A; tol=0.1)
 
-Calculate the point group of a lattice using a matrix of column vectors as the basis. The routine is a wrapper for the `pointGroup_robust` routine. See docstring for that routine for more details.
+Matrix-form wrapper around [`pointGroup_robust`](@ref). Treats the columns
+of `A` as the three basis vectors and returns the same `(LG, G)` tuple.
+
+Note the looser default `tol=0.1` (vs `0.01` for the vector form) — the
+matrix wrapper is most often used with already-clean lattices where the
+larger tolerance is harmless.
+
+# Examples
+```jldoctest
+julia> using LinearAlgebra
+
+julia> length(pointGroup(Matrix{Float64}(I, 3, 3))[1])
+48
+```
 """
 function pointGroup(A;tol=0.1)
      return pointGroup_robust(A[:,1],A[:,2],A[:,3];tol=tol)
 end
 
-""" aspectRatio(a1,a2,a3)
+"""
+    aspectRatio(a1, a2, a3)
 
-Calculate the aspect ratio of a lattice.
+Return the lattice aspect ratio: longest / shortest basis vector after
+Minkowski reduction. A useful diagnostic — high aspect ratios degrade the
+numerical reliability of [`pointGroup_robust`](@ref) and `pointGroup_robust`
+emits a `@warn` when the ratio exceeds 100.
 
-The aspect ratio is the ratio of the longest to shortest lattice vector.
+# Examples
+```jldoctest
+julia> aspectRatio([1.0, 0, 0], [0, 1.0, 0], [0, 0, 2.0])
+2.0
+```
 """
 function aspectRatio(a1,a2,a3)
      a = minkReduce(a1,a2,a3)[1:3]
      return max(norm(a[1]),norm(a[2]),norm(a[3]))/min(norm(a[1]),norm(a[2]),norm(a[3]))
 end
 
-""" aspectRatio(A)
+"""
+    aspectRatio(A)
 
-Calculate the aspect ratio of a lattice using a matrix of column vectors as the basis. The routine is a wrapper for the `aspectRatio(a1,a2,a3)` routine.
+Matrix-form wrapper around [`aspectRatio(a1,a2,a3)`](@ref): treats the
+columns of `A` as the three basis vectors.
 """
 function aspectRatio(A)
      return aspectRatio(A[:,1],A[:,2],A[:,3])
