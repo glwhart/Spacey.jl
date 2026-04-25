@@ -2,11 +2,14 @@ module Spacey
 using MinkowskiReduction
 using LinearAlgebra
 using StatsBase
-export pointGroup_fast, pointGroup_simple, threeDrotation,
+export pointGroup_fast, pointGroup_simple,
        pointGroup, pointGroup_robust, snapToSymmetry_SVD, isagroup,
-       snapToSymmetry_avg, aspectRatio,
+       snapToSymmetry_avg,
        Crystal, isSpacegroupOp, fractional, cartesian, default_pos_tol,
        crystal_system, SpacegroupOp, toCartesian, spacegroup
+# `threeDrotation` and `aspectRatio` are intentionally NOT exported — they
+# are internal helpers used in tests and diagnostics. Reach them via
+# `Spacey.threeDrotation` / `Spacey.aspectRatio` if needed externally.
 
 """
     avgVecOverOps(vec, ops)
@@ -542,13 +545,15 @@ toCartesian(op::SpacegroupOp, A::AbstractMatrix) =
     (A * op.R * inv(A), A * op.τ)
 
 """
-    threeDrotation(u, v, w, α, β, γ)
+    Spacey.threeDrotation(u, v, w, α, β, γ)
 
 Rotate the basis vectors `u, v, w` by Euler angles `α, β, γ` (the
 yaw–pitch–roll convention used in test scaffolding). Returns the rotated
-triple `(u', v', w')` as a tuple of three vectors. Useful for verifying
-that symmetry-finding routines are invariant under arbitrary lattice
-orientation.
+triple `(u', v', w')` as a tuple of three vectors.
+
+Internal helper — not exported. Used by tests to verify that
+symmetry-finding routines are invariant under arbitrary lattice
+orientation. Reach as `Spacey.threeDrotation(...)`.
 
 The rotation matrix is built from successive rotations about the z, y, and
 z axes (matching the order in the formula). For zero angles the identity
@@ -556,7 +561,7 @@ is returned.
 
 # Examples
 ```jldoctest
-julia> u, v, w = threeDrotation([1.0,0,0], [0,1.0,0], [0,0,1.0], 0.0, 0.0, 0.0);
+julia> u, v, w = Spacey.threeDrotation([1.0,0,0], [0,1.0,0], [0,0,1.0], 0.0, 0.0, 0.0);
 
 julia> u
 3-element Vector{Float64}:
@@ -978,16 +983,18 @@ function pointGroup(A;tol=0.1)
 end
 
 """
-    aspectRatio(a1, a2, a3)
+    Spacey.aspectRatio(a1, a2, a3)
 
 Return the lattice aspect ratio: longest / shortest basis vector after
 Minkowski reduction. A useful diagnostic — high aspect ratios degrade the
 numerical reliability of [`pointGroup_robust`](@ref) and `pointGroup_robust`
 emits a `@warn` when the ratio exceeds 100.
 
+Internal helper — not exported. Reach as `Spacey.aspectRatio(...)`.
+
 # Examples
 ```jldoctest
-julia> aspectRatio([1.0, 0, 0], [0, 1.0, 0], [0, 0, 2.0])
+julia> Spacey.aspectRatio([1.0, 0, 0], [0, 1.0, 0], [0, 0, 2.0])
 2.0
 ```
 """
@@ -997,10 +1004,10 @@ function aspectRatio(a1,a2,a3)
 end
 
 """
-    aspectRatio(A)
+    Spacey.aspectRatio(A)
 
-Matrix-form wrapper around [`aspectRatio(a1,a2,a3)`](@ref): treats the
-columns of `A` as the three basis vectors.
+Matrix-form wrapper around `Spacey.aspectRatio(a1, a2, a3)`: treats the
+columns of `A` as the three basis vectors. Internal helper — not exported.
 """
 function aspectRatio(A)
      return aspectRatio(A[:,1],A[:,2],A[:,3])

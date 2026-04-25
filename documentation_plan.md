@@ -162,7 +162,7 @@ These are the most valuable pages for a research library — they're the differe
 
 | Explanation page              | Lifts from                          | What it covers                                                                                                |
 |---                            |---                                  |---                                                                                                            |
-| Why Minkowski reduction       | `research.md` §2.1                  | The 27-neighbour completeness theorem; intuition for *why* a Minkowski-reduced basis is sufficient            |
+| Why Minkowski reduction       | `research.md` §2.1, Hart-Jorgensen-Morgan-Forcade 2019 §A.1 | The 27-neighbour completeness theorem; intuition for *why* a Minkowski-reduced basis is sufficient            |
 | Tolerances                    | `research.md` §2.1, `designDiscussions.md` pos_tol section | The two-tolerance model; physical meaning; how to translate experimental noise to tolerance values |
 | Over-promotion                | `research.md` near-boundary, `test/nearMissBoundary*.jl` heatmaps | The classic failure mode; how `verify_stable` flags it; the diagonal `tol ≈ ε` crossover |
 | Canonicalising τ              | `designDiscussions.md` τ section    | Why τ snaps to rationals with q ≤ 12; the round-vs-snap episode and what it teaches about FP rationals       |
@@ -335,21 +335,83 @@ Don't write everything at once. Phased rollout:
 
 Things to resolve before Phase D1 begins:
 
-1. **Public API boundary.** Does `isagroup` belong in the public reference, or is it an internal helper? Same question for `aspectRatio`, `threeDrotation`. Ideally the export list shrinks before the docs bake the current set in.
-2. **Doctest tolerance.** Some existing doctest examples in source comments use floating-point output that's machine-dependent. Decide on `jldoctest`'s `output =` block usage or refactor examples to be exact-output (e.g. integer matrices).
-3. **Whether to publish the AFLOW corpus stats** — explicitly the 1095 / 56-deviation breakdown — in user-facing docs. Probably yes (in Explanation / Validation), with the disclaimer that the broken-pinned set is a known-quirk catalog, not a bug list.
-4. **Who's the target reader?** First-year-grad student in computational materials? Methodologist who'd be interested in the algorithmic pieces? We're implicitly targeting "scientist who knows enough crystallography to read Mehl et al." — if that's wrong, tutorials and how-tos need different vocabulary.
-5. **Versioning policy.** Documenter supports versioned docs. Decide whether we maintain `dev` + `stable` + per-tag versions (the typical setup) or simpler `stable`-only.
+1. **Public API boundary.** ~~Does `isagroup` belong in the public reference, or is it an internal helper? Same question for `aspectRatio`, `threeDrotation`.~~ **Resolved (2026-04-22):** `isagroup` stays exported (some users may find it useful as a sanity check on a custom op set). `aspectRatio` and `threeDrotation` are internal helpers — un-exported, docstrings re-headed as `Spacey.aspectRatio(...)` / `Spacey.threeDrotation(...)`, callers in `test/runtests.jl` updated, CLAUDE.md API table trimmed. Reference quadrant will document only the public set; the two internal helpers can still appear under `## Internals` on `reference/helpers.md` for those who want to reach for them via the qualified name.
 
+2. **Doctest output style.** ~~Some existing doctest examples used floating-point output that's machine-dependent.~~ **Resolved (2026-04-22):** all 16 jldoctests now use exact, machine-independent output (integer matrices, structurally-zero comparisons, or values that are exactly representable in Float64). No `output =` blocks needed. Where exactness would have made an example "miss the point" (e.g. illustrating that a near-orthogonal basis has aspect ratio close to but not exactly 1), the example was rewritten with an obviously-exact input instead.
+
+3. **Whether to publish the AFLOW corpus stats** — explicitly the 1095 / 56-deviation breakdown — in user-facing docs. Probably yes (in Explanation / Validation), with the disclaimer that the broken-pinned set is a known-quirk catalog, not a bug list.
+
+4. **Who's the target reader?** ~~First-year-grad student in computational materials? Methodologist who'd be interested in the algorithmic pieces?~~ **Resolved (2026-04-22):** target reader is "scientist who knows enough crystallography to read Mehl et al." — i.e. someone comfortable with conventional vs primitive cells, point/space groups, the 14 Bravais types, and Wyckoff notation, but who doesn't necessarily think about finite-precision algorithm design daily. Tutorials should not teach crystallography; how-to guides assume working vocabulary; explanation pages can pull in algorithmic depth without apologising.
+
+5. **Versioning policy.** ~~Decide whether we maintain `dev` + `stable` + per-tag versions or simpler `stable`-only.~~ **Resolved (2026-04-22):** `stable`-only. Documenter's `versions = ["stable" => "v^"]` setting publishes a single tracked version that follows the highest tag. Simpler to reason about and matches the size of the project.
 ---
 
 ## 8. Out of scope for this doc plan
 
-- Generated visual diagrams (cell drawings, op visualisations). Nice to have eventually; not blocking initial publication.
 - Interactive in-browser examples (e.g. via JuliaHub's Pluto or similar). Beyond the typical Documenter-on-GitHub-Pages baseline.
 - Full localisation. English-only.
 - Reference cross-linking with MinkowskiReduction.jl's docs. Could add `inventory` or external-references later; not in initial scope.
-- Migration of MinkowskiReduction.jl's docs to a similar structure. Mentioned only because it's the most-related sibling library; that's their owners' call.
+- Migration of MinkowskiReduction.jl's docs to a similar structure. See §8.2 below for what that would entail; ultimately it's a separate decision for that package.
+
+### 8.1 Visual diagrams — candidates for inclusion (was: out of scope)
+
+The user's note on §8 asked for a list of candidate diagrams. The recommendation now is: pick a small subset (3–5) for the initial publication, defer the rest. Each candidate is rated for **value** (how much it clarifies for a reader) and **cost** (effort to produce + maintain).
+
+**Diagrams sourced from existing publications (low cost — just embed):**
+
+1. **Hart-Jorgensen-Morgan-Forcade 2019, Figure A1** — 2D illustration that every point on the boundary of `U_R` (union of basis cells around origin) has an interior cousin closer to the origin when the basis is Minkowski-reduced. **Value: high** — directly motivates *why* a bounded search space suffices. **Cost: low** — paper is open access (CC-BY 3.0), so a clean reproduction or a re-drawn close analogue is straightforward. **Place in docs:** `explanation/why-minkowski.md`.
+
+2. **Hart-Jorgensen-Morgan-Forcade 2019, Figure A2** — the 3D version of A1: planes through the origin, showing the proof structure. **Value: medium-high** — useful for readers who want to follow the proof step into 3D. **Cost: low** — same open-access source. **Place:** same page as A1, as a "see also in 3D" supplement.
+
+3. **Hart-Jorgensen-Morgan-Forcade 2019, Figure 8** — the 2D "closest cousin" guarantee: Brillouin zone (blue) is contained in the union of 4 basis cells (red) when the basis is Minkowski-reduced; if not, regions can spill into a green cell outside the union. **Value: high** — the single most intuitive picture of what Minkowski reduction *buys* you. **Cost: low**. **Place:** `explanation/why-minkowski.md`, leading figure.
+
+   **(Note for MinkowskiReduction.jl):** Figures 8, A1, and A2 would be at least as valuable in MinkowskiReduction.jl's docs as in Spacey's. Currently that library's docs are a single `@autodocs` page with no explanation of the *purpose* of Minkowski reduction. A "Why Minkowski reduction" page there, anchored on Figure 8 plus A1, would close that gap. This is a recommendation for a sibling-package PR, not part of the Spacey docs build.
+
+**Diagrams to generate from Julia tooling (medium cost):**
+
+4. **27-cell {-1, 0, 1}³ search space.** A 3D wireframe of 27 unit cells around a central origin cell, with the candidate vectors (the {-1,0,1} integer combinations of basis vectors) drawn as arrows from the origin. Highlight the at-most-26 non-zero candidates Spacey actually checks. **Value: high** — the central algorithmic claim made concrete. **Cost: medium** — ~30 lines of GLMakie. **Place:** `explanation/algorithm-overview.md`.
+
+5. **Pipeline flowchart.** Boxes-and-arrows: `input A` → `minkReduce` → `27-candidate generation` → `norm filter` → `volume check` → `integer-matrix check` → `group-closure search` → `(LG, G)`. Annotated with the tolerance that gates each step. **Value: high** — gives a reader who's read the docstrings a single mental model. **Cost: low** — Mermaid (Documenter has built-in support). **Place:** `explanation/algorithm-overview.md`.
+
+6. **Crystal-system decision tree.** Holohedry order → crystal system: 2 → triclinic, 4 → monoclinic, 8 → orthorhombic, 12 → trigonal, 16 → tetragonal, 24 → hexagonal, 48 → cubic. **Value: medium** — a small concept, but the table form may be enough; a Mermaid flowchart adds clarity for first-time readers. **Cost: low** — Mermaid. **Place:** `explanation/crystal-system-vs-bravais.md` and/or `how-to/classify-bravais.md`.
+
+7. **Over-promotion heatmap.** The `(tol, ε)` 2D scan (already produced by `test/nearMissBoundary*.jl`): x-axis tolerance, y-axis perturbation magnitude, cell colour = group order found. Diagonal failure region is visually striking. **Value: high** — turns a subtle numerical claim into a picture. **Cost: medium** — figures already exist as test artefacts; need cleanup pass to publication quality. **Place:** `explanation/over-promotion.md`.
+
+**Diagrams that would be nice but probably not worth the cost for initial publication:**
+
+8. **All 14 Bravais lattices, 3D rendered.** Useful pedagogy, but redundant with Wikipedia and standard textbooks. Skip in favour of linking out (e.g. to Wikipedia or DoITPoMS) until/unless we ship Layer 2 Bravais classification.
+
+9. **Brillouin-zone visualisations.** [Brillouin.jl](https://thchr.github.io/Brillouin.jl/stable/) (by Thomas Christensen) constructs and plots Wigner-Seitz cells for arbitrary lattices using PlotlyJS or GLMakie. Useful only if Spacey grows a reciprocal-space story (which it currently doesn't). Defer.
+
+10. **SpacegroupOp action visualisation.** Animated rotation/translation of an atom under successive `(R, τ)` ops. **Value: medium** for the right reader, **cost: high** (requires animation, substantial Makie work). Defer.
+
+11. **Crystal-with-atoms 3D rendering.** [LatPhysPlottingMakie.jl](https://github.com/ffreyer/LatPhysPlottingMakie.jl) provides Makie plot recipes for lattices with sites and bonds; useful for tutorial NaCl/diamond examples. **Cost: medium** (requires adding a docs-only dep). Reasonable to fold in during Phase D4 (Tutorials) if a reader-facing picture would clarify the `Crystal` constructor.
+
+**Tooling notes:**
+
+- **Mermaid** (flowcharts, decision trees) — supported natively by Documenter; lowest-friction option.
+- **GLMakie/CairoMakie** (3D and publication-quality 2D plots) — Julia ecosystem standard. CairoMakie produces SVG/PDF suitable for static docs; GLMakie for interactive screenshots.
+- **PGFPlotsX / TikzPictures** — high-quality, slow; overkill unless we want LaTeX-grade typography.
+- **Existing figures (Figs 8, A1, A2 from kpointFolding paper)** — re-use under CC-BY 3.0 with attribution. Cleaner than re-drawing if we can get the originals from the corresponding author (the project owner).
+
+**Recommended initial set for publication:** items 1, 3, 4, 5, 7. This covers the four highest-value pictures (the two boundary-cousin proofs, the 27-cell search space, the algorithm pipeline, the over-promotion heatmap) with a mix of low and medium cost. Items 2, 6 are low-cost additions if time allows.
+
+### 8.2 What "migrating MinkowskiReduction.jl docs to a similar structure" would mean
+
+Mentioned in passing earlier and worth being explicit about. MinkowskiReduction.jl currently has a single docs page (`docs/src/index.md`) that uses one `@autodocs` block to list all exported symbols. That gives reference coverage but provides:
+
+- no tutorial (a new user has to read the source to learn how to call `minkReduce`),
+- no how-to guide (no recipe for "I have a noisy basis and want to verify it's reduced"),
+- no explanation (no answer to "why Minkowski reduction over Niggli or LLL?", "what does `orthogonalityDefect` mean physically?", or "when does the 15-iteration limit get hit?").
+
+Migrating to a Diátaxis structure would mean splitting that one page into the same four-quadrant tree we're proposing here for Spacey, with content drawn from:
+- the existing docstrings (already lift directly to reference),
+- the 2019 Hart-Jorgensen-Morgan-Forcade paper §A.1 + Figures 8/A1/A2 (explanation page on "why Minkowski reduction"),
+- a couple of small worked examples for the tutorial (one on `minkReduce`, one on verifying with `isMinkReduced`).
+
+It's a smaller package than Spacey, so the Diátaxis tree would be lighter (probably ~6–8 pages vs 17). The argument for doing it is that Spacey's "why Minkowski reduction" explanation page logically belongs in MinkowskiReduction.jl's docs and Spacey would link to it. The argument against is that it's a separate package owned by the same author, so it's effectively a parallel project rather than a dependency of this one.
+
+**Recommendation:** treat the MinkowskiReduction.jl migration as a separate, lower-priority follow-up. Spacey ships its own self-contained explanation pages first; if/when MinkowskiReduction.jl gets the same treatment, Spacey's docs swap their inline explanation for a cross-link.
 
 ---
 

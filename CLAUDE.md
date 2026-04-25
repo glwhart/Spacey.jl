@@ -44,9 +44,7 @@ All package code lives in the single file `src/Spacey.jl`. There is no code spli
 | `pointGroup_simple(a1, a2, a3)` | Naive brute-force, used only for validation |
 | `snapToSymmetry_SVD(u, v, w, ops)` | Snap noisy lattice to exact symmetry via SVD |
 | `snapToSymmetry_avg(v1, v2, v3, ops)` | Snap via averaging over group operations |
-| `aspectRatio(a1, a2, a3)` | Compute lattice aspect ratio |
 | `isagroup(members)` | Verify a set of matrices forms a group |
-| `threeDrotation(...)` | Generate rotated test lattices |
 | `Crystal(A, r, types; coords)` | Construct a crystal (required `coords` kwarg: `:fractional` or `:cartesian`) |
 | `spacegroup(c; lattice_tol=0.01, pos_tol=default_pos_tol(c), verify_stable=false)` | Find all `(R, τ)` space-group operations; opt-in stability check |
 | `isSpacegroupOp(R, τ, c; tol)` | Check if `(R, τ)` is a symmetry of crystal `c` |
@@ -136,11 +134,16 @@ The vector form always returns 4 values. The matrix form drops the iteration cou
 | Function | Purpose |
 |---|---|
 | `isMinkReduced(U,V,W)` or `isMinkReduced(M)` | Verify a basis is fully reduced (useful for assertions) |
-| `orthogonalityDefect(a,b,c)` | `∏‖vᵢ‖ / |det(A)|` — measures deviation from orthogonality; analogous to Spacey's `aspectRatio` |
+| `orthogonalityDefect(a,b,c)` | `∏‖vᵢ‖ / |det(A)|` — ≥ 1, equality iff the basis is orthogonal. Distinct from Spacey's internal `aspectRatio`: see note below. |
 | `DeviousMat(n)` | Generate an adversarial unimodular 3×3 matrix requiring many reduction steps; useful for stress-testing |
 | `RandUnimodMat3(k=10)` | Random unimodular 3×3 matrix; use to generate random-but-valid lattice transformations in tests |
 | `RandUnimodMat2(n)` | Same for 2×2 |
 | `isPermutationMatrix(M)` | Check if M is a signed permutation of the identity |
 | `GaussReduce(U,V)` | 2D Gauss reduction (used internally by `minkReduce`) |
 
-**Relationship between `orthogonalityDefect` and `aspectRatio`:** Both measure how "skew" a lattice is. `orthogonalityDefect` is ≥ 1 with equality only for orthogonal bases. Spacey.jl's `aspectRatio` is the ratio of longest to shortest basis vector. High values of either signal cases where the algorithm may need a larger tolerance `tol`.
+**`orthogonalityDefect` vs `aspectRatio` — these are NOT analogous.** They measure different things and a basis can score badly on one while scoring perfectly on the other:
+
+- `orthogonalityDefect = ∏‖vᵢ‖ / |det(A)|` measures **angular** non-orthogonality. Equal to 1 (the minimum) iff the basis vectors are mutually perpendicular, regardless of their lengths.
+- `aspectRatio = max‖vᵢ‖ / min‖vᵢ‖` (after Minkowski reduction) measures **length disparity** between basis vectors, regardless of the angles between them.
+
+Counter-example: the basis `(1,0,0), (0,1,0), (0,0,1000)` has `orthogonalityDefect = 1` (perfectly orthogonal) but `aspectRatio = 1000` (extremely elongated). Conversely, three equal-length but skewed vectors can have `aspectRatio = 1` and a large `orthogonalityDefect`. Both can independently signal cases where `pointGroup_robust` may need a looser `tol`, but for different reasons — a high aspect ratio compresses the integer-grid filter's discriminative power; high orthogonality defect amplifies floating-point error in the `inv(A)*B` integer test.

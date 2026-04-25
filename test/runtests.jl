@@ -59,10 +59,10 @@ end
     c = w
     @test length(pointGroup_simple(a, b, c)) == 24
     # simple cubic lattice in unique orientation
-    d, e, f = threeDrotation([1, 0, 0], [0, 1, 0], [0, 0, 1], π / 3, π / 5, π / 7)
+    d, e, f = Spacey.threeDrotation([1, 0, 0], [0, 1, 0], [0, 0, 1], π / 3, π / 5, π / 7)
     @test length(pointGroup_simple(d, e, f)) == 48
     # hexagonal lattice in unique orientation
-    g, h, i = threeDrotation([1, 0, 0], [0.5, √3 / 2, 0], [0, 0, √(8 / 3)], π / 7, π / 11, π / 3)
+    g, h, i = Spacey.threeDrotation([1, 0, 0], [0.5, √3 / 2, 0], [0, 0, √(8 / 3)], π / 7, π / 11, π / 3)
     @test length(pointGroup_simple(g, h, i)) == 24
 end
 
@@ -71,7 +71,7 @@ end
     u = [1, 1, 2]
     v = [1, 2, 1]
     w = [2, 1, 1]
-    u, v, w = threeDrotation(u, v, w, π / 3, π / 5, π / 7)
+    u, v, w = Spacey.threeDrotation(u, v, w, π / 3, π / 5, π / 7)
     @test length(pointGroup_fast(u, v, w)) == 12
 
     # Cases of small tiny noise in input
