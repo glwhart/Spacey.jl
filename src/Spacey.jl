@@ -202,6 +202,7 @@ Crystal(a1::AbstractVector, a2::AbstractVector, a3::AbstractVector,
         r::AbstractMatrix, types::AbstractVector; coords) =
     Crystal(hcat(a1, a2, a3), r, types; coords=coords)
 
+
 """
     fractional(c::Crystal)
 
@@ -210,16 +211,20 @@ This is the canonical internal representation; see also [`cartesian`](@ref) for
 the Cartesian view.
 
 # Examples
+
+When the crystal is built from Cartesian positions, `fractional` returns the
+positions the constructor converted to and stored:
+
 ```jldoctest
 julia> using LinearAlgebra
 
-julia> A = Matrix{Float64}(2I, 3, 3);
+julia> A = Matrix{Float64}(2I, 3, 3);   # cubic lattice, edge length 2
 
-julia> r = reshape([0.5, 0.5, 0.5], 3, 1);
+julia> r_cart = reshape([1.0, 1.0, 1.0], 3, 1);   # atom at Cartesian (1, 1, 1)
 
-julia> c = Crystal(A, r, [:X]; coords=:fractional);
+julia> c = Crystal(A, r_cart, [:X]; coords=:cartesian);
 
-julia> fractional(c)
+julia> fractional(c)   # halfway along each basis vector
 3×1 Matrix{Float64}:
  0.5
  0.5

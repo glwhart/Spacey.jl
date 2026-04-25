@@ -13,10 +13,11 @@ makedocs(
         assets     = String[],
     ),
     modules  = [Spacey],
-    # Phase D1 skeleton: reference pages are placeholders. Once Phase D2 lands
-    # `@docs`/`@autodocs` blocks for every public symbol, drop this line so the
-    # missing-docs check returns to its default `:error` severity.
-    warnonly = [:missing_docs],
+    # Only enforce that *exported* symbols appear in @docs/@autodocs blocks.
+    # Spacey has a handful of internal helpers with docstrings (e.g. avgVecOverOps)
+    # that we don't want to surface in the user-facing API; checkdocs=:exports
+    # lets them keep their docstrings without forcing them into the reference.
+    checkdocs = :exports,
     pages = [
         "Home" => "index.md",
         "Tutorials" => [
