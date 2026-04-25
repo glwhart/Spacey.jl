@@ -5,8 +5,8 @@ Complete API reference, organised by topic. Every docstring is lifted from the s
 - [Crystals](crystals.md) — `Crystal`, `fractional`, `cartesian`, `default_pos_tol`, `crystal_system`
 - [Point groups](point-groups.md) — `pointGroup_robust`, `pointGroup`, `pointGroup_fast`, `pointGroup_simple`
 - [Space groups](space-groups.md) — `spacegroup`, `isSpacegroupOp`, `SpacegroupOp`, `toCartesian`
-- [Snapping to symmetry](snap.md) — `snapToSymmetry_SVD`, `snapToSymmetry_avg`
-- [Helpers](helpers.md) — `isagroup`, plus internal helpers `Spacey.aspectRatio` and `Spacey.threeDrotation`
+- [Snapping to symmetry](snap.md) — `snapToSymmetry_SVD`
+- [Helpers](helpers.md) — `isagroup`, plus internal helpers `Spacey.aspectRatio`, `Spacey.threeDrotation`, `Spacey.snapToSymmetry_avg`
 
 ## Full alphabetical index
 

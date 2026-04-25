@@ -1,11 +1,12 @@
 # Snapping to symmetry
 
-Two routines that take a noisy lattice (and the symmetry operations found by [`pointGroup_robust`](@ref)) and produce a snapped basis whose symmetry is exact.
+Take a noisy lattice (and the symmetry operations found by [`pointGroup_robust`](@ref)) and produce a snapped basis whose symmetry is exact.
 
 ```@docs
 snapToSymmetry_SVD
-snapToSymmetry_avg
 ```
+
+`snapToSymmetry_SVD` is the recommended path. A faster but less-robust alternative, `Spacey.snapToSymmetry_avg`, is documented under [Helpers → Internals](helpers.md#Internals).
 
 ## Index
 

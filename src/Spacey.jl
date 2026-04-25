@@ -4,12 +4,13 @@ using LinearAlgebra
 using StatsBase
 export pointGroup_fast, pointGroup_simple,
        pointGroup, pointGroup_robust, snapToSymmetry_SVD, isagroup,
-       snapToSymmetry_avg,
        Crystal, isSpacegroupOp, fractional, cartesian, default_pos_tol,
        crystal_system, SpacegroupOp, toCartesian, spacegroup
-# `threeDrotation` and `aspectRatio` are intentionally NOT exported — they
-# are internal helpers used in tests and diagnostics. Reach them via
-# `Spacey.threeDrotation` / `Spacey.aspectRatio` if needed externally.
+# `threeDrotation`, `aspectRatio`, and `snapToSymmetry_avg` are intentionally
+# NOT exported — they are internal helpers (test scaffolding / a
+# less-robust alternative to `snapToSymmetry_SVD`). Reach them via
+# `Spacey.threeDrotation` / `Spacey.aspectRatio` / `Spacey.snapToSymmetry_avg`
+# if needed externally.
 
 """
     avgVecOverOps(vec, ops)
@@ -28,7 +29,7 @@ function avgVecOverOps(vec,ops)
 end
 
 """
-    snapToSymmetry_avg(v1, v2, v3, ops)
+    Spacey.snapToSymmetry_avg(v1, v2, v3, ops)
 
 Snap three basis vectors `v1, v2, v3` to a higher-symmetry triple by averaging
 each vector over the images produced by `ops` (a vector of 3×3 lattice
@@ -36,8 +37,10 @@ operations). For each input vector, only images within 10% of its norm
 contribute to the average — this filters the operations whose action
 should fix that vector.
 
-Compare to [`snapToSymmetry_SVD`](@ref), which uses singular value
-decomposition of the metric tensor and is generally more robust.
+Internal helper — not exported. Prefer [`snapToSymmetry_SVD`](@ref), which
+uses singular value decomposition of the metric tensor and is generally
+more robust at high distortion. `snapToSymmetry_avg` is kept as a faster
+but less-robust alternative; reach it as `Spacey.snapToSymmetry_avg(...)`.
 Returns a tuple `(w1, w2, w3)`.
 """
 function snapToSymmetry_avg(v1,v2,v3,ops)
@@ -48,10 +51,11 @@ function snapToSymmetry_avg(v1,v2,v3,ops)
 end
 
 """
-    snapToSymmetry_avg(M, ops)
+    Spacey.snapToSymmetry_avg(M, ops)
 
-Matrix-form of [`snapToSymmetry_avg`](@ref): treats the columns of `M` as the
-three basis vectors and returns the snapped vectors as a 3×3 matrix.
+Matrix-form wrapper around `Spacey.snapToSymmetry_avg(v1, v2, v3, ops)`:
+treats the columns of `M` as the three basis vectors and returns the
+snapped vectors as a 3×3 matrix. Internal helper — not exported.
 """
 function snapToSymmetry_avg(M,ops)
      res = snapToSymmetry_avg(M[:,1],M[:,2],M[:,3],ops)
