@@ -101,6 +101,20 @@ Add `@testset "Space group"` with, at minimum:
 
 **Status (2026-04-24):** `verify_stable` kwarg added to `spacegroup` (re-runs at `pos_tol / 1000`, warns if op count differs). `test/nearMissBoundaryCrystal.jl` diagnostic built, showing a (ε, pos_tol) heatmap for BaTiO₃-style ferroelectric Ti displacement — confirms the over-promotion structure is the same shape as the point-group near-boundary case (crossover at `pos_tol ≈ ε`, `verify_stable` catches ~3 orders of magnitude). `@testset "spacegroup: Phase 4 near-boundary crystal (verify_stable)"` pins the behaviour: tight `pos_tol` finds the true tetragonal group (8 ops), loose `pos_tol` over-promotes to cubic (48), `verify_stable=true` fires the warning in the loose case and stays silent at tight or exact-cubic (ε = 0). Random-position-noise sweep and more exotic near-boundary cases deferred — the core `verify_stable` machinery and one canonical ferroelectric-style case are in, which meets the exit criterion.
 
+### Phase 3.5 — Full AFLOW Library validation (added 2026-04-24)
+
+Spun up out of `plan.md` §3.13 once Phases 3 and 4 were in. A parser-based pipeline (`tools/generate_aflow_tests.jl`) ingests the POSCAR appendix of all three published AFLOW Library papers (Mehl et al. 2017 Part 1, Hicks et al. 2019 Part 2, Hicks et al. 2021 Part 3) via `pdftotext -raw` and writes Julia data files (`test/aflow_structures_part{1,2,3}.jl`) holding every prototype's lattice + atomic basis + atom types + expected order. Tests in `test/runtests.jl` iterate every entry.
+
+**Status (2026-04-24):** **1095 prototypes** (286 + 299 + 510) in CI, covering all 230 space groups. Op-count match rate ~94%; the remaining 56 deviations are pinned with `@test_broken` and fall into known classes (tolerance-boundary distortions, lattice over-promotion at `a/b ≈ 1`, accidental higher symmetry from atomic positions). Commits: `bb59f62` (Part 1 corpus), `b4c46bf` (Parts 2 + 3).
+
+### Phase 4.5 — Bravais-system cross-check (added 2026-04-24)
+
+Layer 1 of the user's Bravais-identification suggestion: a `crystal_system(A)` / `crystal_system(c::Crystal)` function that returns one of `:triclinic`, `:monoclinic`, `:orthorhombic`, `:tetragonal`, `:trigonal`, `:hexagonal`, `:cubic`. Implementation is a thin wrapper over `pointGroup_robust` — the lattice point-group order (the holohedry) maps uniquely to crystal system (2/4/8/12/16/24/48 → tri/mono/ortho/trig/tet/hex/cubic).
+
+Tests cross-check `crystal_system(c.A)` against the system encoded in the AFLOW prototype label's Pearson symbol (a/m/o/t/h/c plus P/R for trigonal-vs-hexagonal) on every prototype in all three Parts. The new test is independent of the op-count test and catches a different subset of deviations — together they form a stronger validation than either alone.
+
+**Status (2026-04-24):** Landed in commit `d8d1fbc`. Layer 2 (full Bravais classification with centering inference) is not implemented and is deferred until / unless evidence motivates it.
+
 ### Phase 5 *(deferred, out of current scope)*
 Classification into 230 ITA types, standard-setting transforms, space-group symbols, Wyckoff position analysis.
 
@@ -294,3 +308,7 @@ Current `spacegroup(c::Crystal)` returns `true` unconditionally.
 ## 6. Next step
 
 Resolve the open design choices in §4 (each marked _pending_), then begin Phase 1.
+
+## 7. Make documentation
+
+Make documentation_plan.md Prepare to make documentation. First read the website https://diataxis.fr/. Find other sites that have similar claims---philosophies of documentation---even if their approach is different. List other sites that you find. Describe different approaches that we should consider. Also read the documentation for MinkowskiReduction.jl that you helped create. Propose documentation for Spacey.jl. Read all of the source code, especially comments. Make sure that all relevant pieces find their way from the code into the documentation. Relevant theory pieces from the research and plan files should also be included if they might be useful to users.

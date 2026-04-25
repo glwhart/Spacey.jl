@@ -480,7 +480,15 @@ end
 
 ### 3.13 AFLOW structure-library prototypes as validation targets
 
-**Status:** Propose.
+**Status:** Landed (2026-04-24). All three published AFLOW papers (Mehl et al. 2017 Part 1, Hicks et al. 2019 Part 2, Hicks et al. 2021 Part 3) parsed in full — **1095 prototypes in CI**, covering all 230 space groups. ~94% of structures match the prototype label's space-group order at default tolerances; the rest are pinned with `@test_broken` (small, classified deviation set: tolerance-boundary distortions, lattice over-promotion at `a/b ≈ 1`, and accidental higher symmetry). A second invariant — `crystal_system(c.A)` matching the Pearson-symbol-derived system — was added on top, catching different deviations than the op-count test (commit `d8d1fbc`).
+
+Implementation: `tools/generate_aflow_tests.jl` parses the POSCAR appendix from a `pdftotext -raw` extraction of each paper, writes `test/aflow_structures_part{1,2,3}.jl` (auto-generated, checked in). Tests in `test/runtests.jl` iterate every entry. Open questions resolved during the work:
+
+- **Licensing:** moot — we transcribe published numerical values into a Julia data file rather than redistributing AFLOW database files. Each test data file links back to the source paper.
+- **CIF parser dependency:** avoided. Parser reads the POSCAR text format directly from the appendix, no external CIF library needed.
+- **Tolerance strategy:** the 56 deviations across all three parts confirm that default tolerances are appropriate for ~94% of real structures. The small deviation set is a faithful map of where Spacey's tolerance-driven decisions diverge from the AFLOW labels.
+
+The original §3.13 proposal text below is kept as the historical record of the design discussion that led here.
 
 Use structures from the AFLOW crystallographic prototype library (aflowlib.org/CrystalDatabase) as a corpus of real-world validation tests. Each prototype comes with (a) a published crystal structure (lattice + atomic basis in fractional coords) and (b) an authoritative space-group label — so we can compare Spacey's returned operation count against the expected order and flag any mismatches.
 

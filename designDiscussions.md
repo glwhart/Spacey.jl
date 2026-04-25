@@ -187,3 +187,110 @@ Standard pattern in crystallographic libraries:
 ### Decision
 
 **C.** The composition / inverse / application methods will be needed in the test suite almost immediately (verify closure, verify inverses are in the group, apply each op to probe positions). Having them as first-class overloads on a typed op pays off in every subsequent file that touches space-group ops. The ~30-line cost is negligible and invested once.
+
+---
+
+## Canonicalising `τ` in `SpacegroupOp` — round-to-digits vs snap-to-rational
+
+**Context (2026-04-24):** Followed §4.1/§4.4 once we started running the full AFLOW corpus and ran into Test failures on trigonal (P3₁21) structures. The issue surfaced as closure tests (`a * b ∈ ops`) failing for the 3-fold-screw structures (γ-Se, α-Quartz, Cinnabar, CrCl₃) even though the operation set was clearly correct.
+
+### What broke
+
+Original implementation:
+```julia
+SpacegroupOp(R, τ) = new(R, mod.(round.(τ, digits=10), 1.0))
+```
+
+The intent was to kill floating-point drift accumulated through basis transforms and op composition: `mod` folds `τ` into `[0, 1)` and `round(…, digits=10)` clamps drift below the 10⁻¹⁰ scale. This worked for τ values like `0`, `½`, `¼` — round-trip-stable as 10-digit decimals.
+
+It silently broke for thirds:
+- `round(1/3, digits=10) = 0.3333333333` (10 threes)
+- `round(2/3, digits=10) = 0.6666666667` (rounded *up*: 6,6,...,6,7)
+- But `0.3333333333 + 0.3333333333 = 0.6666666666` (ten 6s, no carry)
+
+Composing two ops with `τ_a = τ_b = 1/3` produced `τ_result = 0.6666666666` after rounding, which doesn't match the canonical 10-digit form of 2/3 (`0.6666666667`). So `(a * b)` wasn't strictly `==` to the op in the group with τ = 2/3, even though both represented the same physical translation. `∈` returned `false`. Closure failed.
+
+This was completely silent on cubic / tetragonal / orthorhombic / hexagonal corpus prototypes — none of those have ⅓ τ-components.
+
+### The fix
+
+Replace the round-to-digits with a snap-to-rational with small denominator:
+
+```julia
+function _canonicalise_τ(τ; tol=1e-6)
+    out = similar(τ, Float64)
+    for i in eachindex(τ)
+        x = mod(Float64(τ[i]), 1.0)
+        snapped = x
+        for q in 1:12
+            p = round(Int, q * x)
+            cand = (p == q) ? 0.0 : p / q
+            if abs(x - cand) < tol
+                snapped = cand
+                break
+            end
+        end
+        out[i] = snapped
+    end
+    return out
+end
+```
+
+Every τ component in an ITA space group is an exact rational with denominator ≤ 12 (½, ⅓, ¼, ⅙, 1/12, …). Snapping to the nearest such value within 1e-6 catches every standard τ exactly while still tolerating accumulated floating-point drift up to 1e-6 — which is well above the worst case observed in practice.
+
+### Why `tol = 1e-6` and `q ≤ 12`
+
+The ITA standard τ denominators top out at 12 (P6₃ has c/2, P6₅ has c/6, etc.). Going higher (q ≤ 24, say) would catch nothing more in the AFLOW corpus and would risk falsely snapping a generic τ to a nearby rational accident. 1e-6 is generous enough for any drift accumulated through `O(20)` matrix multiplications at Float64 precision (machine eps × 10⁵ ≈ 2 × 10⁻¹¹) but tight enough to never confuse a "real" non-rational τ with a rational one.
+
+### Decision and rollout
+
+Replaced `round(…, digits=10)` with snap-to-rational in commit `c2ac9bf` (AFLOW 3-fold-screw cases). Every existing test continued to pass, all four trigonal-screw structures now pass closure tests, and the full AFLOW corpus run uses the same canonicalisation. No exposed knob — `tol` is hardcoded to 1e-6 inside `_canonicalise_τ`. Could be made a kwarg later if needed.
+
+---
+
+## Crystal-system identification — Layer 1 only (holohedry from point-group order)
+
+**Context (2026-04-24):** User suggested that adding a Bravais-lattice identification would strengthen the AFLOW corpus tests by providing a second invariant alongside the operation count. Distinct lattices can collide on op-count alone (e.g. simple cubic / FCC / BCC primitive cells all give 48). A Bravais-or-system check would catch lattice mis-identification that the op-count test misses.
+
+### Two layers considered
+
+| Layer | Output | Cost | Coverage |
+|---|---|---|---|
+| 1 | Crystal **system** (7 classes: tri / mono / ortho / tet / trig / hex / cubic) | Trivial — wrapper over `pointGroup_robust` | Catches lattice over-promotion (`a/b ≈ 1`) and lattice mis-identification within a system |
+| 2 | Full **Bravais lattice** (14 classes: P / C / I / F variants of each system) | Non-trivial — needs Niggli or metric-tensor classification with edge cases | Catches centering mis-identification on top of Layer 1 |
+
+### Why Layer 1 alone is enough for now
+
+Each crystal system's holohedry has a unique point-group order:
+
+```
+order  →  system          holohedry
+  2       triclinic       C_i
+  4       monoclinic      C_2h
+  8       orthorhombic    D_2h
+ 12       trigonal        D_3d
+ 16       tetragonal      D_4h
+ 24       hexagonal       D_6h
+ 48       cubic           O_h
+```
+
+So `crystal_system(A)` is just: run `pointGroup_robust` on `minkReduce(A)` and look up the order. ~10 lines of code, trivially correct.
+
+The AFLOW prototype label's Pearson symbol encodes the expected system directly:
+```
+a*  →  triclinic    m*  →  monoclinic   o*  →  orthorhombic
+t*  →  tetragonal   c*  →  cubic
+hP  →  hexagonal    hR  →  trigonal
+```
+
+Cross-checking these two on the full AFLOW corpus (1095 prototypes) yields a different deviation set than the op-count test — exactly the value the user predicted. Some structures pass op-count but fail crystal-system (lattice over-promotion in Spacey but the atom count happens to come out right), and some pass crystal-system but fail op-count (atomic over-promotion or accidental symmetry, but lattice geometry matches the label). Together they catch more.
+
+### Why Layer 2 is deferred
+
+Going from "crystal system" (7 classes) to "full Bravais lattice" (14 classes) requires distinguishing P / C / I / F primitive cells *within* a system. For primitive cells (which AFLOW POSCARs use), the centering is reflected in the geometric pattern of the basis vectors — e.g. BCC primitive has equal-length vectors with arccos(1/3) inter-vector angles. The decision tree is roughly 30 branches over the metric tensor `G = AᵀA`, with a few subtle cases at boundaries (a hexagonal lattice with c/a coincidentally matching FCC's primitive ratio, etc.).
+
+That's an afternoon of careful work, useful but not yet motivated. The Layer-1 cross-check has empirically caught a useful fraction of deviations; if more granularity is needed, Layer 2 can be added without breaking the existing API (just a new function `bravais(A)`).
+
+### Decision
+
+Layer 1 only, landed in commit `d8d1fbc`. Layer 2 deferred indefinitely.
