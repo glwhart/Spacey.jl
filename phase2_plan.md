@@ -3,9 +3,8 @@
 Working plan for Phase 2 of the space-group extension (per `spacegroup_plan.md`). Scope: implement `spacegroup(c::Crystal; ...)` returning a `Vector{SpacegroupOp}` of the symmetry operations of crystal `c`, plus the `SpacegroupOp` struct with its core method overloads.
 
 **Phase 2 exit criterion (per `spacegroup_plan.md`):** simple cubic, one atom at origin returns 48 ops, all with `τ = 0`.
-GH: What do you mean by this? Be more verbose
 
-**Expanded:** a simple cubic lattice (`A = I`) with a single atom at the origin is the minimum-complexity crystal that exercises every part of the algorithm. Its space group is **Pm3̄m (type #221), order 48** — the maximum 3D point group (cubic Oh, 48 rotations) combined with one atom at the origin. Every rotation preserves the atom, so `τ = 0` for all 48 ops. Passing this single test confirms four things simultaneously: (a) the loop over point-group candidates reaches all 48; (b) the minkReduce + basis-transform round-trip leaves an already-reduced lattice unchanged without drift; (c) `isSpacegroupOp` correctly validates every candidate; (d) we don't duplicate or miss ops. A bug in any of the four would show up as a wrong count or wrong τ-vector.
+**What this single test exercises.** A simple cubic lattice (`A = I`) with a single atom at the origin is the minimum-complexity crystal that touches every part of the algorithm. Its space group is **Pm3̄m (type #221), order 48** — the maximum 3D point group (cubic Oh, 48 rotations) combined with one atom at the origin. Every rotation preserves the atom, so `τ = 0` for all 48 ops. Passing this confirms four things simultaneously: (a) the loop over point-group candidates reaches all 48; (b) the `minkReduce` + basis-transform round-trip leaves an already-reduced lattice unchanged without drift; (c) `isSpacegroupOp` correctly validates every candidate; (d) we don't duplicate or miss ops. A bug in any of the four would show up as a wrong count or wrong τ-vector.
 
 **This is a 4-eye-check document.** Add comments inline (prefixed `> GWH:` or similar) and I'll revise before touching code. Questions for you are marked **❓**.
 
@@ -58,8 +57,6 @@ end
 # Hence (op1 ∘ op2) = (R1·R2, R1·τ2 + τ1).
 Base.:*(a::SpacegroupOp, b::SpacegroupOp) =
     SpacegroupOp(a.R * b.R, a.R * b.τ + a.τ)
-GH: I believe this is correct, but walk me through the logic. Why is this the right way to compose two spacegroup ops?
-[Answered inline in the comment block above.]
 
 # Inverse: (R, τ)⁻¹ = (R⁻¹, -R⁻¹·τ)
 # |det R| = 1 for any valid lattice rotation, so R⁻¹ is integer
@@ -85,13 +82,12 @@ Base.one(::Type{SpacegroupOp}) = SpacegroupOp(Matrix{Int}(I, 3, 3), zeros(3))
 # exact), so this is acceptable. If a downstream need arises, add a
 # tolerance-based `≈`/`isapprox` method alongside `==`.
 
-# REPL printing — Julia calls this automatically whenever it needs to
-# display a SpacegroupOp (REPL echo, println, string interpolation,
-# elements of a vector). User never calls show directly.
+# REPL printing — never called directly by user code. Julia invokes it
+# automatically whenever it needs to display a SpacegroupOp: REPL echo,
+# println, string interpolation, vector printing, etc. Defining `show`
+# is the standard Julia way to control how a custom struct appears.
 Base.show(io::IO, op::SpacegroupOp) =
     print(io, "SpacegroupOp(R = ", op.R, ", τ = ", op.τ, ")")
-GH: how do I call this?
-[Answered inline: you don't — Julia calls it automatically in REPL, println, etc.]
 
 # Cartesian conversion (returns a tuple, not a SpacegroupOp)
 toCartesian(op::SpacegroupOp, A::AbstractMatrix) =
@@ -398,30 +394,25 @@ Alternatives:
 
 **Lean:** A. It's what §4.5 resolved. `toCartesian` handles the rare need for Cartesian form. But I want to flag that `pointGroup_robust`'s two-return style is a minor inconsistency in the package API — worth a note.
 
-❓ **Stick with A, or revisit §4.5?** GH: Stick with A, but should we think about changing pointgroup_robust to only have one return type and a helper function to go to cartesian?
-
 **Decision (2026-04-23):** Stick with **A** for Phase 2. `spacegroup` returns `Vector{SpacegroupOp}` (fractional only); `toCartesian` is the escape hatch.
+
+**Follow-up question raised by GH:** *should `pointGroup_robust` itself be changed to return one type plus a Cartesian helper, mirroring this style?* Resolution: yes in the long run, but not in Phase 2 — see "Future cleanup" below.
 
 **Future cleanup (deferred, not Phase 2):** refactor `pointGroup_robust` to return only `LG` (integer-matrix form in lattice coords) with a `toCartesian`-style helper for the `G` case. This is a breaking API change that touches every existing call site (internal Spacey, `runtests.jl`, `nearMissBoundary.jl`, any user code). The right place for it is a future "API consistency" pass (v0.8 or similar) bundled with the other small cleanups from `plan.md` §2.1–2.6. Noted here so it doesn't get lost.
 
-### 6.3 ❓ What does `spacegroup` do when the crystal has *no* symmetry beyond the identity?
+### 6.3 ❓ What does `spacegroup` do when the crystal has minimal symmetry, and what order should the returned ops be in?
 
-~~For a perfectly asymmetric crystal (e.g., a triclinic lattice with one atom at a generic position), the space group is just `{E}` — a single op with R=I, τ=0.~~
-GH: It would be good to put the identity in the first position. But I don't know that I agree with your claim. A triclinic cell with one atom at a general position will still have inversion symmetry too, no?
-
-**GH is correct; my prose was wrong.** Every Bravais lattice (including triclinic) has inversion as a point-group symmetry. A triclinic crystal with one atom at a generic position `r` has 2 space-group ops:
+**Minimum symmetry of a Bravais lattice.** Every Bravais lattice — including triclinic — has inversion as a point-group symmetry. So a triclinic crystal with one atom at a generic position `r` has **2** space-group ops, not 1:
 - `(I, 0)`
-- `(-I, 2r mod 1)` — pure inversion about the origin maps `r → -r`, but `(-I, τ)` with `τ = 2r mod 1` maps `r → -r + 2r = r`, so it IS a symmetry.
+- `(-I, 2r mod 1)` — pure inversion about the origin maps `r → -r`, but `(-I, τ)` with `τ = 2r mod 1` maps `r → -r + 2r = r`, so it is a symmetry.
 
-So the triclinic-1-atom test correctly expects 2 ops. The §4.2.5 test count stands; only the explanatory prose was wrong.
+This is what the §4.2.5 test expects (`@test length(spacegroup(c_tri)) == 2`). For a crystal with truly **point group 1 (only identity)**, you need a chiral/asymmetric atomic arrangement that destroys inversion — e.g. multiple different-type atoms at generic positions with no inversion-related pairs. The algorithm handles this naturally: only `R = I` passes, only `τ = 0` passes.
 
-For a crystal with truly **point group 1 (only identity)**, you need a chiral/asymmetric atomic arrangement that destroys inversion — e.g., multiple different-type atoms at generic positions with no inversion-related pairs. Our algorithm handles this naturally: only R=I passes, only τ=0 passes.
+(Earlier draft of this section incorrectly claimed a 1-atom triclinic crystal had only `{E}` — corrected per GH.)
 
-**Lean:** unspecified order. Users who need a canonical order can sort themselves.
+**Order of the returned Vector.** Initial lean was unspecified order. Per GH ask, identity is sorted to index 1 instead — the cost is one linear scan post-collection, and `ops[1]` becoming a reliable identity reference is a useful sanity check for callers.
 
-❓ **Agree?** No, I like putting identity first. Is there a compelling reason not too?
-
-**Decision (2026-04-23):** Put `(I, 0)` first. No compelling reason against — cost is one linear scan after collection, maybe three lines. Users reading the output can always check `ops[1]` for the identity as a sanity check. Implementation detail: sort the returned Vector so that the op with `R == I(3)` and `τ == zeros(3)` is at index 1; leave the remaining order unspecified.
+**Decision (2026-04-23):** put `(I, 0)` at index 1; leave the remaining order unspecified.
 
 ### 6.4 ❓ Should `spacegroup` accept a `verify_stable` kwarg?
 
@@ -455,8 +446,7 @@ Anticipated failure modes during implementation:
 2. **`pointGroup_robust` disagrees with the true lattice point group** due to the tolerance choices we discussed in `plan.md`/`research.md`. If the user's lattice is near a Bravais boundary (tetragonal/cubic with ε distortion, etc.), `lattice_tol` controls how `pointGroup_robust` sees it, and `spacegroup` inherits that. Not a Phase 2 bug — it's a known robustness issue pushed to Phase 4 with a `verify_stable` analog.
 3. **The `c_red` Crystal build fails the singular-A check** if numerical noise in `A_red` makes its det tiny. Unlikely — `minkReduce` output has the same det magnitude as input.
 4. **Loose `pos_tol` over-promotes** analogous to the BaTiO₃-class case already discussed. Same mitigation: tight default + `verify_stable` in Phase 4.
-5. **Off-by-one in `mod.(U_or * c.r, 1.0)`** at the `[0, 1)` boundary. Could show up as an atom at exactly `r = 1.0` not being folded to `0.0`. The `mod.()` in Julia handles this for positive values. Worth a belt-and-suspenders test. GH: What do you mean by this last phrase?
-["Belt-and-suspenders" is an English idiom for redundant safety (wearing both a belt and suspenders to hold up one's pants). I meant: a defensive regression test — one that's not strictly needed if the code is obviously correct, but protects against a low-probability failure mode. Rephrased: "worth a defensive regression test that places an atom exactly on the boundary and confirms it is folded cleanly."]
+5. **Off-by-one in `mod.(U_or * c.r, 1.0)`** at the `[0, 1)` boundary. Could show up as an atom at exactly `r = 1.0` not being folded to `0.0`. The `mod.()` in Julia handles this for positive values, but it's worth a defensive regression test — one that is not strictly needed if the code is obviously correct, but that pins this low-probability failure mode in case a future refactor touches the folding step. Implemented as test §4.2.10.
 
 ---
 
