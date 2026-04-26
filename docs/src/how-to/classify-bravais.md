@@ -2,7 +2,7 @@
 
 [`crystal_system`](../reference/crystals.md) returns the Bravais-system symbol of a lattice — one of seven values:
 
-| Symbol | Crystal system | Holohedry order |
+| Symbol | Crystal system | Group size |
 |---|---|---|
 | `:triclinic`    | triclinic    | 2  |
 | `:monoclinic`   | monoclinic   | 4  |
@@ -12,17 +12,17 @@
 | `:hexagonal`    | hexagonal    | 24 |
 | `:cubic`        | cubic        | 48 |
 
-Identification uses the order of the lattice's point group (its holohedry), which uniquely determines the system. This is the **7-class** (Layer 1) classification — for the full **14-class** Bravais lattice classification (which adds centering: P/I/F/C/R), see [Crystal system vs full Bravais](../explanation/crystal-system-vs-bravais.md).
+Identification uses the size of the lattice's point group (its holohedry), which uniquely determines the system. This is the **7-class** (Layer 1) classification — for the full **14-class** Bravais lattice classification (which adds centering: P/I/F/C/R), see [Crystal system vs full Bravais](../explanation/crystal-system-vs-bravais.md).
 
 ## From a 3×3 lattice matrix
 
 ```jldoctest
 julia> using Spacey, LinearAlgebra
 
-julia> crystal_system(Matrix{Float64}(I, 3, 3))
+julia> crystal_system([1.0 0 0; 0 1.0 0; 0 0 1])
 :cubic
 
-julia> crystal_system([1.0 0 0; 0 1 0; 0 0 1.5])
+julia> crystal_system([1.0 0 0; 0 1.0 0; 0 0 1.5])
 :tetragonal
 
 julia> crystal_system([1.0 0 0; 0 1.2 0; 0 0 1.5])
@@ -39,7 +39,7 @@ Same answer — `crystal_system(c)` reports the lattice's symmetry, not the crys
 ```jldoctest
 julia> using Spacey, LinearAlgebra
 
-julia> A = Matrix{Float64}(I, 3, 3);
+julia> A = [1.0 0 0; 0 1.0 0; 0 0 1.0];
 
 julia> r = reshape([0.0, 0.0, 0.0], 3, 1);
 

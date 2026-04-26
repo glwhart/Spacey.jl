@@ -29,7 +29,7 @@ julia> using Spacey, LinearAlgebra
 
 julia> A = Matrix{Float64}(I, 3, 3);
 
-julia> r = [0.0 0.5; 0.0 0.5; 0.0 0.5];   # CsCl: Cs at origin, Cl at body-centre
+julia> r = [0.0 0.5; 0.0 0.5; 0.0 0.5];   # CsCl: Cs at origin, Cl at body-center
 ```
 
 ## 3. Pick type labels

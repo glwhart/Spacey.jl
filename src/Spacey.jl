@@ -167,7 +167,7 @@ julia> using LinearAlgebra
 
 julia> A = Matrix{Float64}(I, 3, 3);   # cubic lattice, side 1
 
-julia> r = [0.0 0.5; 0.0 0.5; 0.0 0.5];   # CsCl: Cs at origin, Cl at body centre
+julia> r = [0.0 0.5; 0.0 0.5; 0.0 0.5];   # CsCl: Cs at origin, Cl at body center
 
 julia> c = Crystal(A, r, [:Cs, :Cl]; coords=:fractional);
 
@@ -315,7 +315,7 @@ which uniquely determines the system:
 Note: this reports the actual symmetry of the *lattice* Spacey sees.
 If lattice parameters coincidentally match a higher-symmetry relation
 (e.g. a ≈ b in an orthorhombic cell at default `lattice_tol`), the
-returned system may be higher than the nominal one — same behaviour as
+returned system may be higher than the nominal one — same behavior as
 `pointGroup_robust`.
 
 # Examples
@@ -409,7 +409,7 @@ end
 A single space-group operation `r ↦ R·r + τ`, expressed in lattice (fractional)
 coordinates: integer rotation `R`, fractional translation `τ`.
 
-`τ` is canonicalised to `[0, 1)` at construction via `mod.(τ, 1.0)`, so
+`τ` is canonicalized to `[0, 1)` at construction via `mod.(τ, 1.0)`, so
 `SpacegroupOp(I, [0,0,0])`, `SpacegroupOp(I, [1,0,0])`, and
 `SpacegroupOp(I, [2.5, 0, 0])` all produce the same stored representation.
 This makes Julia's default field-by-field `==` and `hash` consistent with
@@ -442,7 +442,7 @@ true
 struct SpacegroupOp
     R::Matrix{Int}
     τ::Vector{Float64}
-    # Canonicalise τ: fold mod 1 into [0, 1), then snap each component to
+    # Canonicalize τ: fold mod 1 into [0, 1), then snap each component to
     # the nearest p/q with q ≤ 12 if within 1e-6. Every τ component in an
     # ITA space group is an exact rational with small denominator (0, ½,
     # ⅓, ¼, ⅙, ¹/₁₂, …), so snapping preserves them exactly while killing
@@ -451,10 +451,10 @@ struct SpacegroupOp
     # silent bug: round(1/3, digits=10) = 0.3333333333 and
     # round(2/3, digits=10) = 0.6666666667, so 1/3 + 1/3 no longer
     # matched 2/3, breaking closure on trigonal groups (P3₁21 etc.).
-    SpacegroupOp(R, τ) = new(R, _canonicalise_τ(τ))
+    SpacegroupOp(R, τ) = new(R, _canonicalize_τ(τ))
 end
 
-function _canonicalise_τ(τ::AbstractVector, tol::Real=1e-6)
+function _canonicalize_τ(τ::AbstractVector, tol::Real=1e-6)
     out = Vector{Float64}(undef, length(τ))
     for i in eachindex(τ)
         x = mod(Float64(τ[i]), 1.0)
@@ -507,7 +507,7 @@ Base.one(::Type{SpacegroupOp}) = SpacegroupOp(Matrix{Int}(I, 3, 3), zeros(3))
 # Equality and hash. Julia's default `==` for a struct with Vector/Matrix
 # fields falls back to `===` (object identity), which would say two ops
 # with identical content are unequal. We override with explicit field-by-
-# field `==` (element-wise for R and τ). Because τ is canonicalised to
+# field `==` (element-wise for R and τ). Because τ is canonicalized to
 # [0, 1) at construction, this correctly treats ops with τ=[0,0,0] and
 # τ=[1,0,0] as equal (both stored as [0,0,0]). The matching `hash` method
 # keeps Set{SpacegroupOp} and Dict{SpacegroupOp,_} consistent with `==`.
@@ -699,7 +699,7 @@ Returns the tuple `(LG, G)` where:
 - `G::Vector{Matrix{Float64}}` — Cartesian-coordinate rotations.
 
 # Keyword arguments
-- `tol::Real=0.01` — relative tolerance applied to the (volume-normalised)
+- `tol::Real=0.01` — relative tolerance applied to the (volume-normalized)
   lattice. Tighter values reject more spurious candidates; looser values
   tolerate more input noise but risk over-promotion to higher symmetry.
 - `verify_stable::Bool=false` — opt-in stability check. When `true`, the
@@ -709,7 +709,7 @@ Returns the tuple `(LG, G)` where:
 
 Algorithm: Minkowski-reduce input (the matrix wrapper is required to be
 already-reduced, so this is verified at entry), enumerate candidate basis
-permutations from the {-1,0,1}³ neighbour set, filter by norm match →
+permutations from the {-1,0,1}³ neighbor set, filter by norm match →
 volume conservation → orthogonality, then keep the largest subset that
 closes under multiplication.
 

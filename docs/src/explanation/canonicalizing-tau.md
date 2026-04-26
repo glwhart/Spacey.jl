@@ -1,4 +1,4 @@
-# Canonicalising τ
+# Canonicalizing τ
 
 *Coming in Phase D5. Tracking placeholder.*
 

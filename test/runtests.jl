@@ -419,7 +419,7 @@ end
     @test all(op.τ ≈ zeros(3) for op in ops)
     @test all(abs(det(op.R)) == 1 for op in ops)
 
-    # 4.2.2 Simple cubic shifted to body-centre: still 48 ops
+    # 4.2.2 Simple cubic shifted to body-center: still 48 ops
     c_sc_shift = Crystal(A_cubic, reshape([0.5, 0.5, 0.5], 3, 1), [:X]; coords=:fractional)
     @test length(spacegroup(c_sc_shift)) == 48
 
@@ -516,7 +516,7 @@ end
     @test any(τ -> τ ≈ [0.0, 0.5, 0.5], τs_sorted)
 
     # 2) Diamond, conventional cubic cell (Fd3̄m = #227, order 192).
-    # Same cubic lattice and FCC-centred arrangement, but the 2-atom
+    # Same cubic lattice and FCC-centered arrangement, but the 2-atom
     # primitive basis is (0,0,0) and (¼,¼,¼). Non-symmorphic: glide
     # planes appear as ops with non-zero τ at non-lattice-centring values.
     fcc_pos = [0.0 0.5 0.5 0.0;
@@ -678,7 +678,7 @@ end
     end
 
     # ── α-O — A_mC4_12_i ───────────────────────────────────────────
-    # C2/m (#12), C-centred monoclinic. POSCAR gives the PRIMITIVE cell
+    # C2/m (#12), C-centered monoclinic. POSCAR gives the PRIMITIVE cell
     # (2 atoms), so Spacey sees 4 ops (point-group order = 4; the
     # C-centring translation is absorbed into the primitive basis).
     let
@@ -706,7 +706,7 @@ end
     end
 
     # ── High-pressure GaAs — AB_oI4_44_a_b ─────────────────────────
-    # Imm2 (#44), I-centred orthorhombic. POSCAR gives the primitive
+    # Imm2 (#44), I-centered orthorhombic. POSCAR gives the primitive
     # cell (2 atoms), so Spacey sees 4 ops.
     let
         A_rows = [-2.46000  2.39500  1.31750;
@@ -738,7 +738,7 @@ end
     end
 
     # ── α-U — A_oC4_63_c ───────────────────────────────────────────
-    # Cmcm (#63), C-centred orthorhombic. POSCAR gives the primitive
+    # Cmcm (#63), C-centered orthorhombic. POSCAR gives the primitive
     # cell (2 atoms), so Spacey sees 8 ops (point-group mmm; centring
     # absorbed).
     let
@@ -873,7 +873,7 @@ end
     #
     # The 8 structures listed in KNOWN_DEVIATIONS below report a
     # different operation count than the prototype label at default
-    # tolerances. Each is a documented, legitimate Spacey behaviour —
+    # tolerances. Each is a documented, legitimate Spacey behavior —
     # not a bug. Flipping them to @test_broken pins the current result
     # so a real regression (one of these starts passing with the wrong
     # value, or a new structure joins the list) shows up in CI.
@@ -889,7 +889,7 @@ end
         "ABC2_aP16_1_4a_4a_8a"    => (2,  1,  "near-inversion at default pos_tol"),
 
         # "Accidental higher symmetry": atomic arrangement happens to
-        # support inversion even though the labelled space group (Pna2₁,
+        # support inversion even though the labeled space group (Pna2₁,
         # Amm2, Aba2, …) does not include it. Spacey correctly finds the
         # maximal symmetry.
         "AB_oP8_33_a_a"           => (8,  4,  "atoms have accidental inversion beyond Pna2₁"),
@@ -1025,9 +1025,9 @@ end
 
 @testset "spacegroup: Phase 4 near-boundary crystal (verify_stable)" begin
     # BaTiO₃-style ferroelectric near-miss: cubic lattice (Pm3̄m = 48 ops at
-    # ε = 0), with Ti displaced from body-centre by ε along z. For ε > 0
+    # ε = 0), with Ti displaced from body-center by ε along z. For ε > 0
     # the true space group is P4mm (8 ops). At pos_tol ≫ ε, Spacey sees
-    # the Ti as effectively on-centre and reports the parent cubic 48 ops
+    # the Ti as effectively on-center and reports the parent cubic 48 ops
     # — silent over-promotion. See test/nearMissBoundaryCrystal.jl for
     # the full (ε, pos_tol) heatmap.
     function batio3_like(ε)
@@ -1048,7 +1048,7 @@ end
 
         # Exact arithmetic at tight pos_tol finds the true tetragonal group
         @test length(spacegroup(c; pos_tol=tight_pos_tol)) == 8
-        # At loose pos_tol, over-promotion to cubic (pins current behaviour)
+        # At loose pos_tol, over-promotion to cubic (pins current behavior)
         @test length(spacegroup(c; pos_tol=loose_pos_tol)) == 48
 
         # verify_stable emits a warning when the answer flips across the

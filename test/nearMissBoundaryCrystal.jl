@@ -11,7 +11,7 @@ using Printf
 #
 # Panel 1 — BaTiO₃-style ferroelectric displacement.
 #   Cubic Pm3̄m parent (space group 221, order 48) with Ba at corners,
-#   Ti at body centre, O at face centres. Apply a small z-displacement
+#   Ti at body center, O at face centers. Apply a small z-displacement
 #   δ to Ti: (½, ½, ½) → (½, ½, ½ − δ). For δ > 0 the true space group
 #   is P4mm (order 8). Pos_tol too loose → Spacey reports 48 silently.
 #

@@ -49,7 +49,7 @@ makedocs(
             "explanation/why-minkowski.md",
             "explanation/tolerances.md",
             "explanation/over-promotion.md",
-            "explanation/canonicalising-tau.md",
+            "explanation/canonicalizing-tau.md",
             "explanation/crystal-system-vs-bravais.md",
             "explanation/algorithm-overview.md",
             "explanation/validation-strategy.md",

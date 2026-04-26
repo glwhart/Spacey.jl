@@ -42,7 +42,7 @@ end
 
 `{T}` declares `Crystal` as a **parametric type**. `T` is a type parameter — a placeholder for some *other* type that will be chosen per-instance. When you later write `Crystal{Symbol}(...)`, `T` becomes `Symbol` and `types` becomes a `Vector{Symbol}`. When you write `Crystal{Int}(...)`, it becomes `Vector{Int}`. The struct definition is a *template*; each concrete `Crystal{T}` is a distinct type.
 
-This is the Julia generalisation of C++ templates / Java generics. Docs: [Parametric Types](https://docs.julialang.org/en/v1/manual/types/#Parametric-Types).
+This is the Julia generalization of C++ templates / Java generics. Docs: [Parametric Types](https://docs.julialang.org/en/v1/manual/types/#Parametric-Types).
 
 Why reach for it here: we want the algorithm to work with whatever atom-label type the user chooses, without the library hard-coding the choice. Parametric types are the mechanism.
 

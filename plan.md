@@ -8,7 +8,7 @@ This document analyzes the current implementation of `pointGroup_robust` (and re
 
 ### Why the code is already strong
 
-The core insight is that **Minkowski reduction makes the problem well-conditioned**. A Minkowski-reduced basis has the shortest possible vectors spanning the lattice, which minimises the ratio of the largest to smallest scale in the computation. Any symmetry operator of the lattice must permute the shortest lattice vectors among themselves, so searching only among the 27 combinations `A * [i, j, k]` (i,j,k ∈ {-1,0,1}) is provably sufficient for a reduced basis—this is the key theorem that makes the search finite and correct.
+The core insight is that **Minkowski reduction makes the problem well-conditioned**. A Minkowski-reduced basis has the shortest possible vectors spanning the lattice, which minimizes the ratio of the largest to smallest scale in the computation. Any symmetry operator of the lattice must permute the shortest lattice vectors among themselves, so searching only among the 27 combinations `A * [i, j, k]` (i,j,k ∈ {-1,0,1}) is provably sufficient for a reduced basis—this is the key theorem that makes the search finite and correct.
 
 The layered filtering in `pointGroup_robust` then narrows a worst-case 27³ = 19,683 candidate bases down to a small set using three cheap tests (norm match → volume conservation → orthogonality), each removing the bulk of false candidates before the more expensive next step.
 

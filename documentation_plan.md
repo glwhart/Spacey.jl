@@ -21,7 +21,7 @@ The four types serve different needs and require different writing styles. Mixin
 
 The "compass" decision rule: when adding a piece of documentation, ask *what is the reader doing?* (action vs cognition) and *what state are they in?* (learning vs applying). The answer points at exactly one quadrant.
 
-Adopting Diátaxis means the Spacey docs are organised into four top-level sections that match those quadrants. We will not invent a fifth category, nor split content randomly into "Getting Started", "API", "Cookbook" etc. as is common but anti-pattern.
+Adopting Diátaxis means the Spacey docs are organized into four top-level sections that match those quadrants. We will not invent a fifth category, nor split content randomly into "Getting Started", "API", "Cookbook" etc. as is common but anti-pattern.
 
 ### 1.2 Supporting principles from Write the Docs
 
@@ -36,7 +36,7 @@ Diátaxis tells you the *structure*; Write the Docs adds *quality* practices tha
 ### 1.3 Other approaches considered, and why we're not using them
 
 - **DITA** (Darwin Information Typing Architecture, OASIS standard) — XML-schema based, designed for large enterprise documentation pipelines. Far too heavy for a Julia research package; we'd spend more time fighting the schema than writing content.
-- **Information Mapping** — a commercial methodology around chunking and labelling. Useful for procedural manuals; less applicable to a scientific library where explanation/theory is a first-class concern.
+- **Information Mapping** — a commercial methodology around chunking and labeling. Useful for procedural manuals; less applicable to a scientific library where explanation/theory is a first-class concern.
 - **The Good Docs Project** templates — high-quality templates per content type, but conceptually nested under Diátaxis (their templates explicitly map to the four quadrants). Worth borrowing structure from for individual pages, but not a separate framework.
 - **Read-the-Docs default ("Getting Started / Tutorial / API / FAQ")** — the conventional layout. Comfortable, but it conflates how-to with tutorial and buries explanation. Diátaxis is a strict superset and identifies exactly where this default fails.
 - **Documenter.jl's auto-`@autodocs`** (used by MinkowskiReduction.jl's docs today, see §3.4 below) — fine for a single-page reference but provides nothing for tutorials, how-to, or explanation. We will use `@autodocs` for the reference quadrant only.
@@ -54,7 +54,7 @@ Most of the Spacey documentation content already exists in scattered form. Mappi
 | Source code docstrings       | Reference                       | Lift via `@autodocs` — already-live and tested via doctests where present                          |
 | `research.md`                | Explanation                     | Selectively lift theory: Minkowski-reduction completeness theorem, tolerance failure modes, near-boundary discussion. The research-narrative tone needs trimming |
 | `plan.md`                    | Mostly internal, some Explanation | The §1 robustness-strategy overview is good Explanation source. The §2 / §3 backlog items are internal |
-| `designDiscussions.md`       | Explanation (in part)           | The pos_tol-α, SpacegroupOp-rationale, τ-canonicalisation, and crystal_system Layer-1-vs-2 discussions all illuminate "why" — lift trimmed versions |
+| `designDiscussions.md`       | Explanation (in part)           | The pos_tol-α, SpacegroupOp-rationale, τ-canonicalization, and crystal_system Layer-1-vs-2 discussions all illuminate "why" — lift trimmed versions |
 | `spacegroup_plan.md`         | Internal                        | Stays internal — planning history, not user-facing                                                 |
 | `phase2_plan.md`             | Internal                        | Frozen design-review record, not user-facing                                                       |
 | `aiCodeExplanation.md`       | Internal                        | Julia-syntax notes for the project owner; not for end users                                        |
@@ -67,7 +67,7 @@ Most of the Spacey documentation content already exists in scattered form. Mappi
 
 ## 3. Proposed documentation structure
 
-A `docs/src/` tree organised by the four Diátaxis quadrants, with an entry-point `index.md` that orients new readers.
+A `docs/src/` tree organized by the four Diátaxis quadrants, with an entry-point `index.md` that orients new readers.
 
 ```
 docs/src/
@@ -95,12 +95,12 @@ docs/src/
 │   └── helpers.md                        ← isagroup, threeDrotation, aspectRatio
 └── explanation/
     ├── index.md                          ← intro: "why Spacey decides what it decides"
-    ├── why-minkowski.md                  ← Theorem: 27-neighbour search is complete on Mink-reduced bases
+    ├── why-minkowski.md                  ← Theorem: 27-neighbor search is complete on Mink-reduced bases
     ├── tolerances.md                     ← The two-tolerance model (lattice vs position); near-boundary failure
     ├── over-promotion.md                 ← The classic failure mode; how `verify_stable` flags it; near-miss heatmaps
-    ├── canonicalising-tau.md             ← Why τ snaps to small rationals; the round-vs-snap episode
+    ├── canonicalizing-tau.md             ← Why τ snaps to small rationals; the round-vs-snap episode
     ├── crystal-system-vs-bravais.md      ← Why we provide system (Layer 1) but not centering (Layer 2 deferred)
-    ├── algorithm-overview.md             ← End-to-end pipeline: minkReduce → 27-neighbour → filter → close → spacegroup
+    ├── algorithm-overview.md             ← End-to-end pipeline: minkReduce → 27-neighbor → filter → close → spacegroup
     └── validation-strategy.md            ← Hand-built tests + AFLOW corpus; what each catches
 ```
 
@@ -162,10 +162,10 @@ These are the most valuable pages for a research library — they're the differe
 
 | Explanation page              | Lifts from                          | What it covers                                                                                                |
 |---                            |---                                  |---                                                                                                            |
-| Why Minkowski reduction       | `research.md` §2.1, Hart-Jorgensen-Morgan-Forcade 2019 §A.1 | The 27-neighbour completeness theorem; intuition for *why* a Minkowski-reduced basis is sufficient            |
+| Why Minkowski reduction       | `research.md` §2.1, Hart-Jorgensen-Morgan-Forcade 2019 §A.1 | The 27-neighbor completeness theorem; intuition for *why* a Minkowski-reduced basis is sufficient            |
 | Tolerances                    | `research.md` §2.1, `designDiscussions.md` pos_tol section | The two-tolerance model; physical meaning; how to translate experimental noise to tolerance values |
 | Over-promotion                | `research.md` near-boundary, `test/nearMissBoundary*.jl` heatmaps | The classic failure mode; how `verify_stable` flags it; the diagonal `tol ≈ ε` crossover |
-| Canonicalising τ              | `designDiscussions.md` τ section    | Why τ snaps to rationals with q ≤ 12; the round-vs-snap episode and what it teaches about FP rationals       |
+| Canonicalizing τ              | `designDiscussions.md` τ section    | Why τ snaps to rationals with q ≤ 12; the round-vs-snap episode and what it teaches about FP rationals       |
 | Crystal system vs full Bravais| `designDiscussions.md` Layer-1 section | Why we provide the 7-class identification cheaply and defer the 14-class one                                 |
 | Algorithm overview            | `plan.md` §1, `CLAUDE.md` Core Algorithm | The end-to-end pipeline at a single conceptual level                                                          |
 | Validation strategy           | `plan.md` §3.13, this session's AFLOW work | Hand-built canonical tests, the AFLOW corpus, the op-count + crystal_system dual invariant, the deviation classes |
@@ -183,7 +183,7 @@ Each explanation page:
 Going through both files line-by-line, the user-facing-relevant pieces:
 
 ### From `research.md`
-- **§2.1 Minkowski reduction** — the 12-condition definition, the 27-neighbour theorem, the "epsilon-violation never breaks the search" result. **Surface in:** Explanation / Why Minkowski reduction.
+- **§2.1 Minkowski reduction** — the 12-condition definition, the 27-neighbor theorem, the "epsilon-violation never breaks the search" result. **Surface in:** Explanation / Why Minkowski reduction.
 - **§2.2 Niggli, §2.3 LLL** — alternatives compared. **Surface in:** Explanation / Why Minkowski reduction (closing paragraph).
 - **§3 (FINDSYM, Spglib, AFLOW-SYM)** — comparison with related tools. **Surface in:** Explanation / Algorithm overview (closing paragraph: "Spacey vs adjacent tools").
 - **The over-promotion section** — the canonical failure mode. **Surface in:** Explanation / Over-promotion.
@@ -198,7 +198,7 @@ Most of `plan.md` §2 (the backlog of tolerance / consistency improvements) is i
 ### From `designDiscussions.md`
 - **pos_tol α discussion** — "why is it 1% of (V/N)^(1/3)?" is exactly the kind of question a serious user asks. **Surface in:** Explanation / Tolerances.
 - **SpacegroupOp rationale** — surfaces only as much as needed in the SpacegroupOp how-to.
-- **τ canonicalisation episode** — surfaces in Explanation / Canonicalising τ.
+- **τ canonicalization episode** — surfaces in Explanation / Canonicalizing τ.
 - **Crystal system Layer-1-vs-Layer-2** — surfaces in Explanation / Crystal system vs full Bravais.
 
 Most of these go in trimmed form — the discussion-document narrative ("we considered X, then Y, then settled on Z") is internal. The user-facing version states the conclusion plus the reasoning.
@@ -258,7 +258,7 @@ makedocs(
             "explanation/why-minkowski.md",
             "explanation/tolerances.md",
             "explanation/over-promotion.md",
-            "explanation/canonicalising-tau.md",
+            "explanation/canonicalizing-tau.md",
             "explanation/crystal-system-vs-bravais.md",
             "explanation/algorithm-overview.md",
             "explanation/validation-strategy.md",
@@ -278,7 +278,7 @@ deploydocs(
 
 ### 5.2 Doctests
 
-Every example in tutorials, how-to, and (especially) reference should be a `jldoctest` block. CI runs `Pkg.test()` followed by a `doctest = true` makedocs and fails on stale examples. This is the primary defence against documentation rot.
+Every example in tutorials, how-to, and (especially) reference should be a `jldoctest` block. CI runs `Pkg.test()` followed by a `doctest = true` makedocs and fails on stale examples. This is the primary defense against documentation rot.
 
 ### 5.3 GitHub Actions
 
@@ -375,11 +375,11 @@ The user's note on §8 asked for a list of candidate diagrams. The recommendatio
 
 6. **Crystal-system decision tree.** Holohedry order → crystal system: 2 → triclinic, 4 → monoclinic, 8 → orthorhombic, 12 → trigonal, 16 → tetragonal, 24 → hexagonal, 48 → cubic. **Value: medium** — a small concept, but the table form may be enough; a Mermaid flowchart adds clarity for first-time readers. **Cost: low** — Mermaid. **Place:** `explanation/crystal-system-vs-bravais.md` and/or `how-to/classify-bravais.md`.
 
-7. **Over-promotion heatmap.** The `(tol, ε)` 2D scan (already produced by `test/nearMissBoundary*.jl`): x-axis tolerance, y-axis perturbation magnitude, cell colour = group order found. Diagonal failure region is visually striking. **Value: high** — turns a subtle numerical claim into a picture. **Cost: medium** — figures already exist as test artefacts; need cleanup pass to publication quality. **Place:** `explanation/over-promotion.md`.
+7. **Over-promotion heatmap.** The `(tol, ε)` 2D scan (already produced by `test/nearMissBoundary*.jl`): x-axis tolerance, y-axis perturbation magnitude, cell color = group order found. Diagonal failure region is visually striking. **Value: high** — turns a subtle numerical claim into a picture. **Cost: medium** — figures already exist as test artefacts; need cleanup pass to publication quality. **Place:** `explanation/over-promotion.md`.
 
 **Diagrams that would be nice but probably not worth the cost for initial publication:**
 
-8. **All 14 Bravais lattices, 3D rendered.** Useful pedagogy, but redundant with Wikipedia and standard textbooks. Skip in favour of linking out (e.g. to Wikipedia or DoITPoMS) until/unless we ship Layer 2 Bravais classification.
+8. **All 14 Bravais lattices, 3D rendered.** Useful pedagogy, but redundant with Wikipedia and standard textbooks. Skip in favor of linking out (e.g. to Wikipedia or DoITPoMS) until/unless we ship Layer 2 Bravais classification.
 
 9. **Brillouin-zone visualisations.** [Brillouin.jl](https://thchr.github.io/Brillouin.jl/stable/) (by Thomas Christensen) constructs and plots Wigner-Seitz cells for arbitrary lattices using PlotlyJS or GLMakie. Useful only if Spacey grows a reciprocal-space story (which it currently doesn't). Defer.
 

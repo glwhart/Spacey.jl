@@ -2,7 +2,7 @@
 
 Spacey.jl finds the **point group** of a Bravais lattice and the **space group** of a crystal, with algorithms specifically designed to be robust to finite-precision floating-point error in the input.
 
-This documentation is organised into four sections following the [Diátaxis](https://diataxis.fr/) framework. Pick the one that matches what you need right now:
+This documentation is organized into four sections following the [Diátaxis](https://diataxis.fr/) framework. Pick the one that matches what you need right now:
 
 | If you're …                    | Go to …                              |
 |---                             |---                                   |

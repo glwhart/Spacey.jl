@@ -39,12 +39,12 @@ Per §4.4/§4.5 decisions, copied here for reference and with concrete implement
 ```julia
 struct SpacegroupOp
     R::Matrix{Int}         # 3×3 integer rotation in lattice coords
-    τ::Vector{Float64}     # length-3 fractional translation, canonicalised to [0, 1)
+    τ::Vector{Float64}     # length-3 fractional translation, canonicalized to [0, 1)
     SpacegroupOp(R, τ) = new(R, mod.(τ, 1.0))
 end
 ```
 
-**Inner constructor canonicalises `τ`** (per §6.1 decision). Any input `τ` is folded into `[0, 1)` via `mod.(τ, 1.0)` before storage. Consequence: ops constructed with `τ = [1.0, 0, 0]`, `τ = [0.0, 0, 0]`, or `τ = [2.5, 0, 0]` all produce the same stored representation. This lets Julia's default field-by-field `==` and `hash` behave correctly without a custom method (see §2.1 for what this removes).
+**Inner constructor canonicalizes `τ`** (per §6.1 decision). Any input `τ` is folded into `[0, 1)` via `mod.(τ, 1.0)` before storage. Consequence: ops constructed with `τ = [1.0, 0, 0]`, `τ = [0.0, 0, 0]`, or `τ = [2.5, 0, 0]` all produce the same stored representation. This lets Julia's default field-by-field `==` and `hash` behave correctly without a custom method (see §2.1 for what this removes).
 
 ### 2.1 Methods
 
@@ -74,7 +74,7 @@ end
 # Identity op
 Base.one(::Type{SpacegroupOp}) = SpacegroupOp(Matrix{Int}(I, 3, 3), zeros(3))
 
-# Equality: no custom method needed — with τ canonicalised to [0,1) at
+# Equality: no custom method needed — with τ canonicalized to [0,1) at
 # construction, Julia's default field-by-field == (and hash) do the right thing.
 # Trade-off: two ops whose τ differ by floating-point epsilon (e.g. 0.5 vs
 # 0.5 + 1e-15) would compare unequal. In Phase 2 we never construct such
@@ -96,7 +96,7 @@ toCartesian(op::SpacegroupOp, A::AbstractMatrix) =
 
 ### 2.2 Design notes worth flagging
 
-- ~~**`==` does not compare hash-equivalently.**~~ **Resolved:** canonicalising `τ` to `[0, 1)` at construction (§6.1 decision) makes default `==` and `hash` consistent. The only case this doesn't handle is floating-point-epsilon differences in `τ` — which Phase 2 code paths don't produce. Flagged as a possible later addition if downstream code needs a tolerance-based `isapprox`.
+- ~~**`==` does not compare hash-equivalently.**~~ **Resolved:** canonicalizing `τ` to `[0, 1)` at construction (§6.1 decision) makes default `==` and `hash` consistent. The only case this doesn't handle is floating-point-epsilon differences in `τ` — which Phase 2 code paths don't produce. Flagged as a possible later addition if downstream code needs a tolerance-based `isapprox`.
 - **`inv` requires `det(R) = ±1`.** True for any rotation in a lattice point group, but we verify with an assertion for safety. A `SpacegroupOp` with `det(R) = 2` would not satisfy this — but we never construct such in `spacegroup()`, since point-group ops have `|det| = 1`. **❓ Should we also validate this at `SpacegroupOp` construction?** (I lean no — cost of a check per construction, and we construct only internally.) GH: No, lets not. **Decided: no construction-time det check.**
 - **`toCartesian` returns a `Tuple`, not a `SpacegroupOp`.** Because the Cartesian `R` is a `Matrix{Float64}`, not `Matrix{Int}`. A `SpacegroupOp` is defined to hold integer `R` (lattice coords); Cartesian output is deliberately a different shape.
 
@@ -127,7 +127,7 @@ function spacegroup(c::Crystal; lattice_tol::Real=0.01,
     # --- 3.2.1 Minkowski-reduce the lattice ------------------------------
     # GH: Why not use the matrix version of minkReduce?  [Using it — cleaner.]
     A_red = minkReduce(c.A)
-    u_red, v_red, w_red = eachcol(A_red)
+    u_red, v_red, w_red = eachcol(A_red) GH: seems like this line is unnecessary
 
     # --- 3.2.2 Change-of-basis integer matrices --------------------------
     # A_orig · U_ro = A_red    (so U_ro: reduced-coord → original-coord)
@@ -267,7 +267,7 @@ end
     @test all(op.τ ≈ zeros(3) for op in ops)
     @test all(abs(det(op.R)) == 1 for op in ops)
 
-    # 4.2.2 Simple cubic, 1 atom shifted to body-centre (0.5, 0.5, 0.5):
+    # 4.2.2 Simple cubic, 1 atom shifted to body-center (0.5, 0.5, 0.5):
     #       still 48 ops (origin shift preserves the abstract space group,
     #       though τ values change).
     c_sc_shift = Crystal(A_cubic, reshape([0.5, 0.5, 0.5], 3, 1), [:X]; coords=:fractional)
@@ -375,14 +375,14 @@ Plus a one-liner: "Space-group ops are returned as `Vector{SpacegroupOp}` with i
 
 Currently, two ops with `τ = [0.0, 0, 0]` and `τ = [1.0, 0, 0]` are `==` but would hash differently under Julia's default (field-by-field) hash. This means `Set{SpacegroupOp}` and `Dict{SpacegroupOp, _}` could have duplicate entries under the `==` semantics.
 
-Fix: canonicalise `τ` in the constructor (`mod.(τ, 1.0)`), then default hash is consistent with `==`.
+Fix: canonicalize `τ` in the constructor (`mod.(τ, 1.0)`), then default hash is consistent with `==`.
 GH: Yes, do this.
 
-**Lean:** canonicalise at construction. Cheap, closes a footgun. The only case this changes is if someone constructs an op with `τ = [2.5, 0, 0]` — we'd store `τ = [0.5, 0, 0]`. Any reasonable workflow treats these as the same op anyway. GH: just fine
+**Lean:** canonicalize at construction. Cheap, closes a footgun. The only case this changes is if someone constructs an op with `τ = [2.5, 0, 0]` — we'd store `τ = [0.5, 0, 0]`. Any reasonable workflow treats these as the same op anyway. GH: just fine
 
 ❓ **Do you agree?** GH: Yes
 
-**Decision (2026-04-23):** Canonicalise `τ` to `[0, 1)` via `mod.(τ, 1.0)` in an inner constructor. Consequence: we **drop the custom `==` method** and rely on Julia's default field-by-field `==` (and hash) — which is now consistent with the canonicalised representation. See §2.1 comment block for the trade-off (floating-point-epsilon differences in `τ` are treated as unequal).
+**Decision (2026-04-23):** Canonicalize `τ` to `[0, 1)` via `mod.(τ, 1.0)` in an inner constructor. Consequence: we **drop the custom `==` method** and rely on Julia's default field-by-field `==` (and hash) — which is now consistent with the canonicalized representation. See §2.1 comment block for the trade-off (floating-point-epsilon differences in `τ` are treated as unequal).
 
 ### 6.2 ❓ Should `spacegroup` also return the Cartesian form for compatibility with `pointGroup_robust`'s `(LG, G)` return?
 
@@ -490,5 +490,5 @@ to Phase 3.
 - Phase 4's noise-robustness + `verify_stable`-style detection.
 - Performance optimization beyond the naive O(N³) matching.
 - Hashing & Dict-key support — deferred pending §6.1 decision.
-- Non-primitive cell auto-reduction (user must supply the cell they want analysed).
+- Non-primitive cell auto-reduction (user must supply the cell they want analyzed).
 - Any kind of Wyckoff-position analysis or special-position detection.

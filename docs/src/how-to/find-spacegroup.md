@@ -30,7 +30,7 @@ true
 
 ## 3. Read individual operations
 
-Each `SpacegroupOp` has integer rotation `R` and fractional translation `τ` (canonicalised to `[0, 1)`).
+Each `SpacegroupOp` has integer rotation `R` and fractional translation `τ` (canonicalized to `[0, 1)`).
 
 ```jldoctest sc
 julia> using LinearAlgebra
@@ -51,9 +51,9 @@ Two tolerances control `spacegroup`:
 ```jldoctest
 julia> using Spacey, LinearAlgebra
 
-julia> A = Matrix{Float64}(I, 3, 3);
+julia> A = Matrix{Float64}(I, 3, 3); # Simple cubic lattice
 
-julia> r = [0.0 0.5; 0.0 0.5; 0.0 0.5];
+julia> r = [0.0 0.5; 0.0 0.5; 0.0 0.5]; # Two atoms, the origin and body center
 
 julia> c_cscl = Crystal(A, r, [:Cs, :Cl]; coords=:fractional);
 

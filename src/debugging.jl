@@ -147,7 +147,7 @@ tols = logrange(5e-5,4e-1,40)        # Tolerance values to test
 a = 1e-0; Navg =100; Nsteps = 40;
 plim = logrange(1e-5,1e-1,Nsteps)
 #colors = distinguishable_colors(length(tols))  # Generate clearly distinct colors
-colors = palette(:viridis, length(tols))       # Use the viridis colour scheme
+colors = palette(:viridis, length(tols))       # Use the viridis color scheme
 data = Matrix{Float64}(undef,Nsteps,length(tols))
 for (idx,tol) ∈ enumerate(tols)
      println("tol: ", round(tol,digits=5))

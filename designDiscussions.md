@@ -18,8 +18,8 @@ At α = 0.05, `pos_tol ≈ 0.1 Å` for typical crystals.
 
 **BaTiO₃ at room temperature** (the canonical ferroelectric):
 - Lattice `a = 3.994 Å, c = 4.038 Å`
-- Ti at `(½, ½, 0.512)` — off-centred by ~0.048 Å
-- O₂ at `(½, ½, 0.023)` — off-centred by ~0.09 Å
+- Ti at `(½, ½, 0.512)` — off-center by ~0.048 Å
+- O₂ at `(½, ½, 0.023)` — off-center by ~0.09 Å
 - True space group: **P4mm (8 ops)**
 - At α = 0.05: `pos_tol ≈ 0.12 Å` — all displacements below `pos_tol`, all atoms treated as on the cubic prototype positions → Spacey would report **Pm3̄m (48 ops)**. 6× over-promotion, silent.
 - At α = 0.01: `pos_tol ≈ 0.023 Å` — Ti displacement (0.048 Å) above tol → correctly **P4mm**.
@@ -166,7 +166,7 @@ Standard pattern in crystallographic libraries:
 ### Gotchas (solvable, but worth flagging)
 
 - **`inv` of an integer matrix.** Julia's generic `inv` returns `Float64`. For space-group R with `det = ±1` the true inverse is integer; we round and (should) verify. Minor precision care needed.
-- **Hashing.** If users want `Set{SpacegroupOp}` or `Dict` keys, we need `Base.hash`. Should canonicalise τ at construction (e.g. `mod.(τ, 1.0)` with a tolerance-based snap to 0) so equal ops hash identically.
+- **Hashing.** If users want `Set{SpacegroupOp}` or `Dict` keys, we need `Base.hash`. Should canonicalize τ at construction (e.g. `mod.(τ, 1.0)` with a tolerance-based snap to 0) so equal ops hash identically.
 - **Equality on τ.** Periodic-boundary semantics (mod 1) require the custom `==` above; the default field-by-field comparison would miss physically-equivalent ops with `τ = 0.0` vs `τ = 1.0`.
 - **Immutability.** Use `struct`, not `mutable struct`. Ops are values, not objects with identity. Enables safe use as Dict keys, safe parallelism.
 
@@ -190,7 +190,7 @@ Standard pattern in crystallographic libraries:
 
 ---
 
-## Canonicalising `τ` in `SpacegroupOp` — round-to-digits vs snap-to-rational
+## Canonicalizing `τ` in `SpacegroupOp` — round-to-digits vs snap-to-rational
 
 **Context (2026-04-24):** Followed §4.1/§4.4 once we started running the full AFLOW corpus and ran into Test failures on trigonal (P3₁21) structures. The issue surfaced as closure tests (`a * b ∈ ops`) failing for the 3-fold-screw structures (γ-Se, α-Quartz, Cinnabar, CrCl₃) even though the operation set was clearly correct.
 
@@ -217,7 +217,7 @@ This was completely silent on cubic / tetragonal / orthorhombic / hexagonal corp
 Replace the round-to-digits with a snap-to-rational with small denominator:
 
 ```julia
-function _canonicalise_τ(τ; tol=1e-6)
+function _canonicalize_τ(τ; tol=1e-6)
     out = similar(τ, Float64)
     for i in eachindex(τ)
         x = mod(Float64(τ[i]), 1.0)
@@ -244,7 +244,7 @@ The ITA standard τ denominators top out at 12 (P6₃ has c/2, P6₅ has c/6, et
 
 ### Decision and rollout
 
-Replaced `round(…, digits=10)` with snap-to-rational in commit `c2ac9bf` (AFLOW 3-fold-screw cases). Every existing test continued to pass, all four trigonal-screw structures now pass closure tests, and the full AFLOW corpus run uses the same canonicalisation. No exposed knob — `tol` is hardcoded to 1e-6 inside `_canonicalise_τ`. Could be made a kwarg later if needed.
+Replaced `round(…, digits=10)` with snap-to-rational in commit `c2ac9bf` (AFLOW 3-fold-screw cases). Every existing test continued to pass, all four trigonal-screw structures now pass closure tests, and the full AFLOW corpus run uses the same canonicalization. No exposed knob — `tol` is hardcoded to 1e-6 inside `_canonicalize_τ`. Could be made a kwarg later if needed.
 
 ---
 
