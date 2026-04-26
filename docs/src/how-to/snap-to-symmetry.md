@@ -1,6 +1,6 @@
 # Snap a noisy lattice to symmetry
 
-Real-world lattices (from experimental refinements, DFT relaxations, etc.) usually do not satisfy exact symmetry conditions — a "cubic" cell may have `a = 1.0000` and `b = 1.0001`. [`snapToSymmetry_SVD`](../reference/snap.md) takes a noisy lattice and the symmetry operations found by [`pointGroup_robust`](../reference/point-groups.md) and produces a snapped basis whose symmetry is exact.
+Real-world lattices (from experimental refinements, DFT relaxations, etc.) usually do not satisfy exact symmetry conditions — a "cubic" cell may have `a = 1.0000` and `b = 1.0001`. [`snapToSymmetry_SVD`](../reference/snap.md) takes a noisy lattice and the symmetry operations found by [`pointGroup`](../reference/point-groups.md) and produces a snapped basis whose symmetry is exact.
 
 ## Recipe
 
@@ -16,8 +16,8 @@ u = [1.0001, 0.0, 0.0]
 v = [0.0, 0.9999, 0.0]
 w = [0.0, 0.0, 1.0]
 
-LG, _ = pointGroup_robust(u, v, w; tol=0.01)
-length(LG)  # 48 — pointGroup_robust treats this as cubic at this tolerance
+LG, _ = pointGroup(u, v, w; tol=0.01)
+length(LG)  # 48 — pointGroup treats this as cubic at this tolerance
 ```
 
 `LG` is a `Vector{Matrix{Int}}` — exactly the form `snapToSymmetry_SVD` wants.

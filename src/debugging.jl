@@ -51,7 +51,7 @@ LGf,Gf=pointGroup(fcc)
 a1 = [1/16 - .0001, .001, .0001]
 a2 = [-0.001, 16-.0001, -.0001]
 a3 = [-.0001, .0001, 1.51]
-ops, rops = pointGroup_robust(minkReduce(a1,a2,a3)[1:3]...)
+ops, rops = Spacey.pointGroup_robust(minkReduce(a1,a2,a3)[1:3]...)
 pointGroup(hcat(minkReduce(a1,a2,a3)[1:3]...))
 pointGroup(hcat(a1,a2,a3))
 A = hcat(minkReduce(a1,a2,a3)[1:3]...)
@@ -81,7 +81,7 @@ t = svd(T)
 rescale = cbrt(abs(det(A)/det(Anew)))
 Afinal = t.U*t.V'*Anew*rescale # use the the ortho transform of the svd to get rid of the distortion component
 u,v,w=[Afinal[:,i] for i ∈ 1:length(u)]
-ops,_ = pointGroup_robust(u,v,w)
+ops,_ = Spacey.pointGroup_robust(u,v,w)
 if det([u v w]) < 0 
      u,v,w = v,u,w
 end
@@ -109,7 +109,7 @@ A = [0.0 0.5 0.5; 0.5 0.0 0.5; 0.5 0.5 0.0]
 @time for i ∈ 1:1000
     noise = (2*rand(3,3).-1)*ε
     Atemp = A + noise
-    length(pointGroup_robust(minkReduce(eachcol(Atemp)...)[1:3]...)[1])!=48 && error("Point group is not 48")
+    length(Spacey.pointGroup_robust(minkReduce(eachcol(Atemp)...)[1:3]...)[1])!=48 && error("Point group is not 48")
 end 
 
 # Test case 2
@@ -125,7 +125,7 @@ A = aspect_ratio*[0.0 0.5 0.5; 0.5 0.0 0.5; 0.5 0.5 0.0]
 for i ∈ 1:50
     noise = (2*rand(3,3).-1)*ε
     Atemp = A + noise
-    if length(pointGroup_robust(minkReduce(eachcol(Atemp)...)[1:3]...)[1])!=16
+    if length(Spacey.pointGroup_robust(minkReduce(eachcol(Atemp)...)[1:3]...)[1])!=16
         println("ε: ", ε)
         maxε = ε
         break
@@ -162,7 +162,7 @@ for (idx,tol) ∈ enumerate(tols)
     A = [1.1 0.0 0.0; 0.0 1.9 0.0; 0.0 0.0 2.5]# simple orthorhombic
     A =  [1.1 1.9 0.0; -1.1 1.9 0.0; 0.0 0.0 1.3] # base-centered orthorhombic
      for (i,ε) ∈ enumerate(plim)
-         data[i,idx] = count([length(pointGroup_robust(minkReduce(eachcol((A+(2*rand(3,3).-1)*ε)*a)...)[1:3]...;tol=tol)[1])==8 for _ ∈ 1:Navg])/Navg
+         data[i,idx] = count([length(Spacey.pointGroup_robust(minkReduce(eachcol((A+(2*rand(3,3).-1)*ε)*a)...)[1:3]...;tol=tol)[1])==8 for _ ∈ 1:Navg])/Navg
      end
 #p1=plot!(plim[findall(data.>0)],
 #            data[findall(data.>0)];
@@ -208,7 +208,7 @@ a = 1e-0; Navg =100; Nsteps = 40;
 data = Matrix{Float64}(undef,Nsteps,length(tols))
 for (si,s) ∈ enumerate(s)
 for (i,ε) ∈ enumerate(plim)
-    data[i,idx] = count([length(pointGroup_robust(minkReduce(eachcol((rhomb(si)+(2*rand(3,3).-1)*ε)*a)...)[1:3]...;tol=tol)[1])==8 for _ ∈ 1:Navg])/Navg
+    data[i,idx] = count([length(Spacey.pointGroup_robust(minkReduce(eachcol((rhomb(si)+(2*rand(3,3).-1)*ε)*a)...)[1:3]...;tol=tol)[1])==8 for _ ∈ 1:Navg])/Navg
 end
 end
 [length(pointGroup(minkReduce(rhomb(s[i]) + (2*rand(3,3).-1)*1e-10);tol=1e-3)[1]) for i ∈ 1:length(s)]
@@ -239,7 +239,7 @@ for ε ∈ logrange(4e-3*a,6e-3*a,20)
         noise = (2*rand(3,3).-1)*ε*a
         Atemp = A*a + noise
         #@show Atemp
-        nops = length(pointGroup_robust(minkReduce(eachcol(Atemp)...)[1:3]...)[1])
+        nops = length(Spacey.pointGroup_robust(minkReduce(eachcol(Atemp)...)[1:3]...)[1])
         if nops != 48
             println("Symmetry group is not 48. ε: ", round(ε/a,digits=5), "   nops: ", nops, "    noise: ", round(ε/a,digits=5))
             success = false

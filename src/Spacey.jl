@@ -2,15 +2,15 @@ module Spacey
 using MinkowskiReduction
 using LinearAlgebra
 using StatsBase
-export pointGroup_fast, pointGroup_simple,
-       pointGroup, pointGroup_robust, snapToSymmetry_SVD, isagroup,
+export pointGroup, snapToSymmetry_SVD, isagroup,
        Crystal, isSpacegroupOp, fractional, cartesian, default_pos_tol,
        crystal_system, SpacegroupOp, toCartesian, spacegroup
-# `threeDrotation`, `aspectRatio`, and `snapToSymmetry_avg` are intentionally
-# NOT exported — they are internal helpers (test scaffolding / a
-# less-robust alternative to `snapToSymmetry_SVD`). Reach them via
-# `Spacey.threeDrotation` / `Spacey.aspectRatio` / `Spacey.snapToSymmetry_avg`
-# if needed externally.
+# Internal / not-exported (reach via `Spacey.<name>(...)`):
+# - `pointGroup_robust`, `pointGroup_fast`, `pointGroup_simple` — the
+#   public point-group entry point is `pointGroup` (which delegates to
+#   `_robust`); `_fast` and `_simple` are validation/clean-input variants.
+# - `aspectRatio`, `threeDrotation` — diagnostic / test scaffolding.
+# - `snapToSymmetry_avg` — less-robust alternative to `snapToSymmetry_SVD`.
 
 """
     avgVecOverOps(vec, ops)
@@ -316,7 +316,7 @@ Note: this reports the actual symmetry of the *lattice* Spacey sees.
 If lattice parameters coincidentally match a higher-symmetry relation
 (e.g. a ≈ b in an orthorhombic cell at default `lattice_tol`), the
 returned system may be higher than the nominal one — same behavior as
-`pointGroup_robust`.
+[`pointGroup`](@ref).
 
 # Examples
 ```jldoctest
@@ -589,26 +589,29 @@ return A[:,1],A[:,2],A[:,3]
 end
 
 """
-    pointGroup_simple(a1, a2, a3, debug=false)
+    Spacey.pointGroup_simple(a1, a2, a3, debug=false)
 
 Brute-force enumeration of the point group of a 3D lattice. Iterates over
 every 3×3 candidate matrix with entries in `{-1, 0, 1}` (3⁹ = 19683
 matrices), retains those whose action on the basis preserves the metric
 tensor, and returns the survivors as Cartesian rotations.
 
-This is the simplest correct implementation — used to validate the more
-efficient [`pointGroup_fast`](@ref) and [`pointGroup_robust`](@ref). It
-performs strict (`isapprox` with default tolerance) equality checks, so it
-is most reliable on noiseless / synthetic input.
+Internal — not exported. The simplest correct implementation; used to
+validate the more efficient `Spacey.pointGroup_fast` and the public
+[`pointGroup`](@ref) (which delegates to `Spacey.pointGroup_robust`).
+It performs strict (`isapprox` with default tolerance) equality checks,
+so it is most reliable on noiseless / synthetic input.
 
 If `debug=true`, returns the candidate `T = UᵀU` matrices instead of the
 filtered ops, for use when diagnosing failures.
 
 # Examples
 ```jldoctest
+julia> using Spacey
+
 julia> u = [1.0, 0, 0]; v = [0.5, √3/2, 0]; w = [0.0, 0, √(8/3)];
 
-julia> length(pointGroup_simple(u, v, w))
+julia> length(Spacey.pointGroup_simple(u, v, w))
 24
 ```
 """
@@ -633,23 +636,25 @@ end
 
 
 """
-    pointGroup_fast(a1, a2, a3)
+    Spacey.pointGroup_fast(a1, a2, a3)
 
 Production-speed point-group finder for an exact / noiseless 3D lattice.
-Faster than [`pointGroup_simple`](@ref) by filtering candidate basis
+Faster than `Spacey.pointGroup_simple` by filtering candidate basis
 combinations by length and volume before checking orthogonality, but uses
 strict `isapprox` tolerance and so is best suited to clean inputs.
 
-For real-world (noisy) input use [`pointGroup_robust`](@ref), which exposes
-a tolerance keyword.
+Internal — not exported. For real-world (noisy) input use the public
+[`pointGroup`](@ref), which exposes a tolerance keyword.
 
 Returns operations as integer matrices in lattice coordinates.
 
 # Examples
 ```jldoctest
+julia> using Spacey
+
 julia> u = [1.0, 0, 0]; v = [0.5, √3/2, 0]; w = [0.0, 0, √(8/3)];
 
-julia> length(pointGroup_fast(u, v, w))
+julia> length(Spacey.pointGroup_fast(u, v, w))
 24
 ```
 """
@@ -688,15 +693,15 @@ return ops
 end
 
 """
-    pointGroup_robust(u, v, w; tol=0.01, verify_stable=false)
+    Spacey.pointGroup_robust(u, v, w; tol=0.01, verify_stable=false)
 
-Find the point group of the 3D lattice spanned by `u, v, w` using a
-tolerance scaled to the input — designed for real-world noisy input.
+Tolerance-tunable point-group finder for noisy real-world input. Returns
+the same `(LG, G)` tuple as the public [`pointGroup`](@ref).
 
-Returns the tuple `(LG, G)` where:
-- `LG::Vector{Matrix{Int}}` — operations in lattice coordinates (integer
-  matrices satisfying `A · LG[i] · inv(A) ≈ G[i]`).
-- `G::Vector{Matrix{Float64}}` — Cartesian-coordinate rotations.
+Internal — not exported. The public entry point [`pointGroup`](@ref) is a
+thin wrapper around this function (with the same defaults). Reach this
+form directly only when explicitly disambiguating between point-group
+variants (e.g. comparing against `Spacey.pointGroup_fast`).
 
 # Keyword arguments
 - `tol::Real=0.01` — relative tolerance applied to the (volume-normalized)
@@ -719,9 +724,11 @@ precision in the candidate-detection step.
 
 # Examples
 ```jldoctest
+julia> using Spacey
+
 julia> u = [1.0, 0, 0]; v = [0, 1.0, 0]; w = [0, 0, 1.0];
 
-julia> length(pointGroup_robust(u, v, w)[1])
+julia> length(Spacey.pointGroup_robust(u, v, w)[1])
 48
 ```
 """
@@ -911,8 +918,9 @@ end
 
 Snap a noisy lattice to its exact-symmetry form via singular value
 decomposition of the symmetry-averaged metric tensor. Given basis vectors
-`u, v, w` and lattice operations `ops` returned by [`pointGroup_robust`](@ref)
-(in lattice / integer-matrix form), produces:
+`u, v, w` and lattice operations `ops` returned by [`pointGroup`](@ref)
+(in lattice / integer-matrix form, the first element of its `(LG, G)`
+tuple), produces:
 
     (a, b, c, iops, rops)
 
@@ -920,7 +928,7 @@ where:
 - `a, b, c::Vector{Float64}` — the snapped basis vectors. Lengths and
   inter-vector angles are the symmetry-averaged values; volume is preserved.
 - `iops::Vector{Matrix{Int}}` — the integer-matrix lattice operations of
-  the snapped lattice (recomputed via `pointGroup_robust` on the snapped
+  the snapped lattice (recomputed via [`pointGroup`](@ref) on the snapped
   basis).
 - `rops::Vector{Matrix{Float64}}` — Cartesian rotations of the snapped lattice.
 
@@ -931,9 +939,10 @@ robust at high distortion.
 
 For accuracy-critical work — extracting symmetry operations from
 experimental refinements, post-processing DFT-relaxed structures, etc. —
-`pointGroup_robust(...; tol)` followed by `snapToSymmetry_SVD(..., ops)`
-gives lattice vectors and rotations that are as exact as possible while
-remaining consistent with the input.
+`pointGroup(...; tol)` followed by `snapToSymmetry_SVD(..., LG)` (using
+the integer-matrix half of the `(LG, G)` tuple) gives lattice vectors and
+rotations that are as exact as possible while remaining consistent with
+the input.
 
 For trusted/clean input (purely synthetic or already-snapped), this routine
 is unnecessary.
@@ -970,34 +979,59 @@ return u,v,w,iops,rops
 end
 
 """
-    pointGroup(A; tol=0.1)
+    pointGroup(u, v, w; tol=0.01, verify_stable=false)
+    pointGroup(A; tol=0.01, verify_stable=false)
 
-Matrix-form wrapper around [`pointGroup_robust`](@ref). Treats the columns
-of `A` as the three basis vectors and returns the same `(LG, G)` tuple.
+Find the point group of the 3D lattice spanned by basis vectors `u, v, w`,
+or equivalently by the columns of a 3×3 matrix `A`.
 
-Note the looser default `tol=0.1` (vs `0.01` for the vector form) — the
-matrix wrapper is most often used with already-clean lattices where the
-larger tolerance is harmless.
+Returns the tuple `(LG, G)` where:
+- `LG::Vector{Matrix{Int}}` — operations in lattice coordinates (integer
+  matrices satisfying `A · LG[i] · inv(A) ≈ G[i]`).
+- `G::Vector{Matrix{Float64}}` — Cartesian-coordinate rotations.
+
+# Keyword arguments
+- `tol::Real=0.01` — relative tolerance applied to the (volume-normalized)
+  lattice. Tighter values reject more spurious candidates; looser values
+  tolerate more input noise but risk over-promotion to higher symmetry.
+- `verify_stable::Bool=false` — opt-in stability check. When `true`, the
+  algorithm re-runs at `tol/1000` and emits a `@warn` if the operation
+  count differs between the two runs (i.e. the lattice is near a
+  symmetry boundary). The returned group is unchanged.
+
+This is the public entry point. It delegates to the internal
+[`Spacey.pointGroup_robust`](@ref) which is tolerance-tunable and designed
+for real-world noisy input. For other variants reachable via the qualified
+name, see [`Spacey.pointGroup_fast`](@ref) (clean input, production speed)
+and [`Spacey.pointGroup_simple`](@ref) (validation only, brute force).
 
 # Examples
 ```jldoctest
 julia> using LinearAlgebra
 
+julia> u = [1.0, 0, 0]; v = [0, 1.0, 0]; w = [0, 0, 1.0];
+
+julia> length(pointGroup(u, v, w)[1])
+48
+
 julia> length(pointGroup(Matrix{Float64}(I, 3, 3))[1])
 48
 ```
 """
-function pointGroup(A;tol=0.1)
-     return pointGroup_robust(A[:,1],A[:,2],A[:,3];tol=tol)
-end
+pointGroup(u::AbstractVector, v::AbstractVector, w::AbstractVector;
+           tol::Real=0.01, verify_stable::Bool=false) =
+    pointGroup_robust(u, v, w; tol=tol, verify_stable=verify_stable)
+
+pointGroup(A::AbstractMatrix; tol::Real=0.01, verify_stable::Bool=false) =
+    pointGroup_robust(A[:,1], A[:,2], A[:,3]; tol=tol, verify_stable=verify_stable)
 
 """
     Spacey.aspectRatio(a1, a2, a3)
 
 Return the lattice aspect ratio: longest / shortest basis vector after
 Minkowski reduction. A useful diagnostic — high aspect ratios degrade the
-numerical reliability of [`pointGroup_robust`](@ref) and `pointGroup_robust`
-emits a `@warn` when the ratio exceeds 100.
+numerical reliability of [`pointGroup`](@ref), and the underlying
+`Spacey.pointGroup_robust` emits a `@warn` when the ratio exceeds 100.
 
 Internal helper — not exported. Reach as `Spacey.aspectRatio(...)`.
 

@@ -38,12 +38,9 @@ All package code lives in the single file `src/Spacey.jl`. There is no code spli
 
 | Function | Purpose |
 |---|---|
-| `pointGroup_robust(u, v, w; tol=0.01, verify_stable=false)` | Main algorithm for noisy/real-world inputs; opt-in stability check warns on tolerance-dependent answers |
-| `pointGroup(A; tol=0.1)` | Matrix wrapper for `pointGroup_robust` |
-| `pointGroup_fast(a1, a2, a3)` | Production-speed variant, strict tolerances |
-| `pointGroup_simple(a1, a2, a3)` | Naive brute-force, used only for validation |
+| `pointGroup(u, v, w; tol=0.01, verify_stable=false)` | **Public point-group API.** Accepts three vectors or a 3×3 matrix; thin wrapper over `Spacey.pointGroup_robust` with the same defaults. |
+| `pointGroup(A; tol=0.01, verify_stable=false)` | Matrix-form of the same. |
 | `snapToSymmetry_SVD(u, v, w, ops)` | Snap noisy lattice to exact symmetry via SVD |
-| `snapToSymmetry_avg(v1, v2, v3, ops)` | Snap via averaging over group operations |
 | `isagroup(members)` | Verify a set of matrices forms a group |
 | `Crystal(A, r, types; coords)` | Construct a crystal (required `coords` kwarg: `:fractional` or `:cartesian`) |
 | `spacegroup(c; lattice_tol=0.01, pos_tol=default_pos_tol(c), verify_stable=false)` | Find all `(R, τ)` space-group operations; opt-in stability check |
@@ -53,11 +50,16 @@ All package code lives in the single file `src/Spacey.jl`. There is no code spli
 | `crystal_system(A)` / `crystal_system(c)` | Identify Bravais system from lattice holohedry (one of `:triclinic`, `:monoclinic`, `:orthorhombic`, `:tetragonal`, `:trigonal`, `:hexagonal`, `:cubic`) |
 | `toCartesian(op, A)` | Convert a `SpacegroupOp` to Cartesian `(R, τ)` tuple |
 
-`pointGroup_robust` returns a tuple `(LG, G)` where `LG` contains operations in lattice coordinates and `G` contains Cartesian rotations. These are related by `A * LG[i] * inv(A) == G[i]`.
+`pointGroup` returns a tuple `(LG, G)` where `LG` contains operations in lattice coordinates and `G` contains Cartesian rotations. These are related by `A * LG[i] * inv(A) == G[i]`.
+
+Internal point-group variants kept inside the package (not exported, reach via `Spacey.<name>`):
+- `Spacey.pointGroup_robust` — the function `pointGroup` delegates to. Same `(LG, G)` return.
+- `Spacey.pointGroup_fast` — synthetic / clean input, production speed; strict tolerance, no `tol` knob; returns just integer matrices.
+- `Spacey.pointGroup_simple` — brute-force validation finder; returns just Cartesian rotations.
 
 `spacegroup(c)` returns a `Vector{SpacegroupOp}` with `R::Matrix{Int}` and `τ::Vector{Float64}`, both in the user's original basis. Identity is guaranteed at index 1; remaining order is unspecified. The struct supports composition (`*`), inversion (`inv`), application to a fractional position (`op(r)`), and mod-1 equality (via canonicalized `τ`).
 
-### Core Algorithm (pointGroup_robust)
+### Core Algorithm (pointGroup → Spacey.pointGroup_robust)
 
 1. **Minkowski-reduce** the input basis (delegates to `MinkowskiReduction.jl`) — this is provably sufficient to define the candidate search space.
 2. **Generate candidates**: all integer-coefficient vectors from the 27-point {-1,0,1}³ grid applied to the reduced basis.
@@ -69,10 +71,10 @@ Key implementation detail: inputs are normalized by `∛|det(A)|` before compari
 
 ### Validation Strategy
 
-Three algorithm variants exist specifically for cross-validation:
-- `pointGroup_simple`: brute-force over all integer matrices in [-1,1]³ — slow but obviously correct
-- `pointGroup_fast`: optimized filter pipeline, strict tolerances — production speed
-- `pointGroup_robust`: tolerance-tunable, designed for real-world noisy input
+Three algorithm variants exist specifically for cross-validation (all internal — reach via `Spacey.<name>`):
+- `Spacey.pointGroup_simple`: brute-force over all integer matrices in [-1,1]³ — slow but obviously correct
+- `Spacey.pointGroup_fast`: optimized filter pipeline, strict tolerances — production speed
+- `Spacey.pointGroup_robust`: tolerance-tunable, designed for real-world noisy input (this is what the public `pointGroup` delegates to)
 
 Tests verify all three agree on exact (non-noisy) inputs for all 14 Bravais lattice types.
 
@@ -148,4 +150,4 @@ The vector form always returns 4 values. The matrix form drops the iteration cou
 
 Counter-example: the basis `(1,0,0), (0,1,0), (0,0,1000)` has `orthogonalityDefect = 1` (perfectly orthogonal) but `aspectRatio = 1000` (extremely elongated). Conversely, three equal-length but skewed vectors can have `aspectRatio = 1` and a large `orthogonalityDefect`.
 
-For Spacey's purposes the two are not symmetric concerns. Spacey calls `minkReduce` before any symmetry analysis, and Minkowski reduction is exactly the operation that drives `orthogonalityDefect` down to whatever the lattice allows — so a poor pre-reduction defect is not a problem the user has to manage. Aspect ratio, by contrast, is a property of the *lattice itself* (e.g. a tetragonal cell with c ≫ a stays elongated no matter how it is reduced) and is what compresses the integer-grid filter's discriminative power. That's why `pointGroup_robust` warns on `aspectRatio > 100` but does not warn on `orthogonalityDefect`.
+For Spacey's purposes the two are not symmetric concerns. Spacey calls `minkReduce` before any symmetry analysis, and Minkowski reduction is exactly the operation that drives `orthogonalityDefect` down to whatever the lattice allows — so a poor pre-reduction defect is not a problem the user has to manage. Aspect ratio, by contrast, is a property of the *lattice itself* (e.g. a tetragonal cell with c ≫ a stays elongated no matter how it is reduced) and is what compresses the integer-grid filter's discriminative power. That's why `Spacey.pointGroup_robust` warns on `aspectRatio > 100` but does not warn on `orthogonalityDefect`.

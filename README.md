@@ -32,7 +32,7 @@ By default the output is is "direct coordinates", the transformation matrices sh
 ```
  julia> u = [1, 1, 2]; v = [1, 2, 1];  w = [2, 1, 1];
 
-julia> u, v, w = threeDrotation(u, v, w, π / 3, π / 5, π / 7)
+julia> u, v, w = Spacey.threeDrotation(u, v, w, π / 3, π / 5, π / 7)
 ([1.0328466951537383, 1.855345731770484, 1.2210323173082058], [-0.2604424479658839, 2.2850084410500355, 0.8431525103014423], [0.7968127453125833, 2.3142904165695555, -0.09565206052008146])
 
 julia> length(pointGroup(u, v, w)) == 12
@@ -55,12 +55,12 @@ julia> pointGroup(u, v, w)
  ```
 
  ## Example 3: Slightly distorted cubic case, "snap back" to perfect cubic cell
-The lattice vectors are not quite orthogonal, not quite all the same length. First `pointGroup_robust` gets the symmetries that _should_ be present for a perfect cubic cell. `snapToSymmetry` then finds the perfect cubic cell that is _as close as possible_ to the original cell.
+The lattice vectors are not quite orthogonal, not quite all the same length. First `pointGroup` gets the symmetries that _should_ be present for a perfect cubic cell. `snapToSymmetry` then finds the perfect cubic cell that is _as close as possible_ to the original cell.
 
 ```
 julia> u = [1+.01,0,0]; v = [0.,1-.01,0]; w = [0,0,1-.001];
 
-julia> ops = pointGroup_robust(u,v,w)
+julia> ops = pointGroup(u,v,w)
 48-element Vector{Matrix{Int64}}:
  [-1 0 0; 0 -1 0; 0 0 -1]
  [-1 0 0; 0 -1 0; 0 0 1]

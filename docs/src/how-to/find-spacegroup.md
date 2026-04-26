@@ -45,7 +45,7 @@ For a non-symmorphic example (translations are not all zero), see [Compose and a
 
 Two tolerances control `spacegroup`:
 
-- `lattice_tol` (default `0.01`) — passed to `pointGroup_robust` for the lattice symmetry step.
+- `lattice_tol` (default `0.01`) — passed to the lattice point-group finder ([`pointGroup`](../reference/point-groups.md)) for the lattice symmetry step.
 - `pos_tol` (default `default_pos_tol(c)` ≈ 1% of the characteristic atom separation) — applied when matching atoms under each candidate operation.
 
 ```jldoctest
