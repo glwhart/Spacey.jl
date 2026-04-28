@@ -1,14 +1,14 @@
 # Detect tolerance-dependent answers
 
-Both [`pointGroup`](../reference/point-groups.md) and [`spacegroup`](../reference/space-groups.md) accept a `verify_stable=true` keyword. When set, the algorithm runs twice — once at the requested tolerance, once at 1/1000 of it — and emits a `@warn` if the operation count differs between the two runs. A difference means the answer depends on the tolerance: the lattice (or atomic positions) is near a symmetry boundary.
+Both [`pointGroup`](../reference/point-groups.md) and [`spacegroup`](../reference/space-groups.md) accept a `verify_stable=true` keyword. When set, the algorithm runs twice — once at the requested tolerance, once again at 1/1000 of it — and emits a `@warn` if the operation count differs between the two runs. A difference means the answer depends on the tolerance: the lattice (or atomic positions) is near a symmetry boundary.
 
-This is the canonical guard against silent over-promotion. Use it when you cannot personally vouch for the input's noise level.
+This setting provides a guard against silent over-promotion (finding a symmetry that is too high). Use it when you cannot personally vouch for the input's noise level.
 
 ## When to use it
 
 - **Always**, on first analysis of unfamiliar input — experimental refinements, new structures from a database, output of someone else's relaxation pipeline.
 - **Periodically**, in a CI loop over a corpus of structures, as a regression detector.
-- **Skip** when the input is exact / synthetic and you control its construction — for example, when you build a known Bravais prototype to validate downstream code.
+- **Skip it** when the input is exact / synthetic and you control its construction — for example, when you build a known Bravais prototype to validate downstream code.
 
 The cost is one extra invocation at tighter tolerance — the same algorithmic cost as the first call. Unless the routine is being called for tens of thousands of structures (say in automatic k-point generation) then the marginal cost of being careful is likely worth it.
 
@@ -23,7 +23,7 @@ julia> length(pointGroup(u, v, w; verify_stable=true)[1])   # silent: 48 at all 
 48
 ```
 
-When the lattice is near a symmetry boundary (e.g. tetragonal that's *almost* cubic at a loose tolerance), the warning fires:
+When the lattice is near a symmetry boundary (e.g., tetragonal that's *almost* cubic at a loose tolerance), the warning fires:
 
 ```julia
 julia> ε = 1e-3;
@@ -40,13 +40,13 @@ julia> pointGroup(u, v, w; tol=0.1, verify_stable=true);
 └ @ Spacey ...
 ```
 
-The returned group is the one at the *requested* `tol` — `verify_stable` does not change the answer, only flags it.
+The returned group is the one at the *requested* `tol` — `verify_stable` does not change the answer, only flags the fact that the answer is sensitive to the tolerance.
 
 ## Pattern: space group
 
 The same flag exists on `spacegroup`, where it re-runs at `pos_tol / 1000`. This catches **position over-promotion** — when atomic displacements are below `pos_tol`, Spacey treats the crystal as the higher-symmetry parent and the answer flips depending on how `pos_tol` is set.
 
-The canonical case is a ferroelectric like BaTiO₃: the cubic perovskite Pm3̄m parent has Ba at the corner, Ti at the body center, and three O at the face centers. Below the Curie point the Ti shifts by ~0.05 Å along z, dropping the symmetry to P4mm (8 ops). At loose `pos_tol` Spacey reports the parent Pm3̄m (48 ops):
+The canonical case is a ferroelectric like BaTiO₃: the cubic perovskite Pm3̄m parent has Ba at the corner, Ti at the body center, and three O at the face centers. Below the Curie point the Ti shifts by ~0.05 Å along z, dropping the symmetry to P4mm (8 ops). At loose `pos_tol`, Spacey reports the parent Pm3̄m (48 ops):
 
 ```julia
 using Spacey, LinearAlgebra
@@ -96,9 +96,9 @@ julia> length(spacegroup(c; verify_stable=true))   # 24 ops (T_d), no warning
 ## What to do when the warning fires
 
 1. **Don't ignore it.** Silent over-promotion is the canonical class of bug in symmetry analysis — the wrong space group propagates into downstream calculations.
-2. **Investigate the input.** What's the noise level you actually expect? Is the structure genuinely near a parent symmetry (a real ferroelectric, a displacive transition near its high-temperature parent, an octahedral tilt in a perovskite), or is noise dominating signal?
+2. **Investigate the input.** What's the noise level you actually expect? Is the structure genuinely near a parent symmetry (a real ferroelectric, a displacive transition near its high-temperature parent, an octahedral tilt in a perovskite), or is noise causing a broken symmetry when it shouldn't?
 3. **Tighten the tolerance** to one that's smaller than the structural distortion you want to detect, and re-run with `verify_stable`. If the answer is now stable, that's the truth.
-4. **If you cannot tighten** (genuine experimental noise that exceeds the displacement of interest), the question is unanswerable from this input alone. Consider [snapping to symmetry](snap-to-symmetry.md) and re-analyzing, or accept the higher-symmetry answer with the caveat documented in your output.
+4. **If you cannot tighten** (genuine experimental noise that exceeds the displacement of interest), the question is unanswerable from this input alone — it's a science question. Consider [snapping to symmetry](snap-to-symmetry.md) and re-analyzing, or accept the higher-symmetry answer with the caveat documented in your output.
 
 ## Cost
 

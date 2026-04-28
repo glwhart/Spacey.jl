@@ -53,7 +53,7 @@ Pass `verify_stable=true` to re-run the algorithm at `tol/1000` and emit a `@war
 
 ## Variants reachable via the qualified name
 
-`pointGroup` delegates to the internal robust finder. Three variants are kept inside the package and reachable as `Spacey.<name>` for specialized use cases — none of them is exported, none is part of the public API contract:
+`pointGroup` delegates to the internal robust finder (`pointGroup_robust`). Three variants are kept inside the package and reachable as `Spacey.<name>` for specialized use cases — none of them is exported, none is part of the public API contract:
 
 | Internal name | Use case |
 |---|---|

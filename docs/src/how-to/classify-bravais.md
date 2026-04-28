@@ -12,7 +12,7 @@
 | `:hexagonal`    | hexagonal    | 24 |
 | `:cubic`        | cubic        | 48 |
 
-Identification uses the size of the lattice's point group (its holohedry), which uniquely determines the system. This is the **7-class** (Layer 1) classification — for the full **14-class** Bravais lattice classification (which adds centering: P/I/F/C/R), see [Crystal system vs full Bravais](../explanation/crystal-system-vs-bravais.md).
+Identification uses the size of the lattice's point group (its holohedry), which uniquely determines the system. This is the **7-class** (Layer 1) classification (see [Wikipedia](https://en.wikipedia.org/wiki/Crystal_system#Classifications)) — for the full **14-class** Bravais lattice classification (which adds centering: P/I/F/C/R), see [Crystal system vs full Bravais](../explanation/crystal-system-vs-bravais.md).
 
 ## From a 3×3 lattice matrix
 
@@ -51,7 +51,7 @@ julia> crystal_system(c)
 
 ## Tune `lattice_tol`
 
-`crystal_system` accepts the same `lattice_tol` keyword as [`pointGroup_robust`](../reference/point-groups.md), which it calls internally. Default is `0.01`. Loosen for noisy lattices; tighten if you suspect over-promotion (see [Detect tolerance-dependent answers](detect-tolerance-dependence.md)).
+`crystal_system` accepts the same `lattice_tol` keyword as [`pointGroup`](../reference/point-groups.md), which it calls internally. Default is `0.01`. Loosen for noisy lattices; tighten if you suspect over-promotion (see [Detect tolerance-dependent answers](detect-tolerance-dependence.md)).
 
 ```jldoctest
 julia> using Spacey
@@ -65,7 +65,7 @@ julia> crystal_system(A_noisy; lattice_tol=1e-6)   # tight: actually tetragonal
 :tetragonal
 ```
 
-This is the canonical over-promotion footgun — a tolerance that's looser than the structural distortion silently classifies a tetragonal lattice as cubic. The size of the lattice distortion that causes this is `~lattice_tol` in normalized units.
+This is the canonical over-promotion [footgun](https://en.wiktionary.org/wiki/footgun) — a tolerance that's looser than the structural distortion silently classifies a tetragonal lattice as cubic. The size of the lattice distortion that causes this is about the size of `lattice_tol` (in normalized units).
 
 ## See also
 

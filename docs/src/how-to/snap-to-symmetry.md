@@ -46,11 +46,11 @@ Subsequent symmetry analyses on `[a b c]` no longer need a non-trivial tolerance
 ## When to skip snapping
 
 - **Synthetic / clean input** — already exact; snapping is a no-op.
-- **High-distortion inputs** where the noise approaches the structural distortion — snapping enforces the higher symmetry, masking the real (lower-symmetry) structure. Use [`verify_stable`](detect-tolerance-dependence.md) on `pointGroup_robust` first to detect this case.
+- **High-distortion inputs** where the noise approaches the structural distortion — snapping enforces the higher symmetry, masking the real (lower-symmetry) structure. Use [`verify_stable`](detect-tolerance-dependence.md) on [`pointGroup`](../reference/point-groups.md) first to detect this case.
 
 ## The internal alternative
 
-A faster but less robust alternative, `Spacey.snapToSymmetry_avg`, averages each basis vector independently over its op images. It is reachable as `Spacey.snapToSymmetry_avg(u, v, w, ops)` but is **not exported** — `snapToSymmetry_SVD` is the recommended path. Use the avg variant only for quick comparisons or when SVD performance becomes a bottleneck (almost never the case for 3×3 lattices).
+A faster but less robust alternative, `Spacey.snapToSymmetry_avg`, averages each basis vector independently over its op images. It is reachable as `Spacey.snapToSymmetry_avg(u, v, w, ops)` but is **not exported** — `snapToSymmetry_SVD` is the recommended path. Use the avg variant only for quick comparisons or when SVD performance becomes a bottleneck (only a problem when you are doing tens of thousands of cases over a large corpus of structures).
 
 ## See also
 

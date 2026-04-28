@@ -1,6 +1,6 @@
 # Handle noisy real-world data
 
-Real lattices and atomic positions from experiment or simulation are never exact. This page is a working scientist's guide to choosing tolerances for [`pointGroup`](../reference/point-groups.md) and [`spacegroup`](../reference/space-groups.md) given the noise level in your input.
+Real lattices and atomic positions from experiment or simulation are not necessarily exact. This page is a working scientist's guide to choosing tolerances for [`pointGroup`](../reference/point-groups.md) and [`spacegroup`](../reference/space-groups.md) given the noise level in your input.
 
 ## Two tolerances, two scales
 
@@ -38,6 +38,24 @@ julia> length(pointGroup(u, v, w; tol=1e-6)[1])             # tight, finds 24
 24
 ```
 
+For a *noisy* input — say an HCP lattice from an *ab initio* MD snapshot, with ~0.1% drift on each basis vector — the same tight tolerance no longer recognizes the symmetry. Loosening to `tol=0.01` (or the default) recovers it:
+
+```jldoctest
+julia> using Spacey, MinkowskiReduction
+
+julia> u = [1.0001, 0, 0]; v = [-0.5+1e-4, sqrt(3)/2 - 5e-5, 0]; w = [0, 0, sqrt(8/3)*1.0002];
+
+julia> u, v, w = minkReduce(u, v, w)[1:3];   # noisy bases may need explicit reduction first
+
+julia> length(pointGroup(u, v, w; tol=1e-2)[1])    # tol matched to the noise — finds 24
+24
+
+julia> length(pointGroup(u, v, w; tol=1e-6)[1])    # tighter than the noise — symmetry breaks
+4
+```
+
+The 4 ops at `tol=1e-6` are the residual symmetries that survive at sub-noise resolution: identity, inversion, and one 2-fold rotation plus its inversion. The reduction from 24 to 4 is the algorithm faithfully reporting that, at that tolerance, the input *literally is not hexagonal* — only the perturbations that happen to be small relative to `tol` show up as symmetries. Loosening to `tol=1e-2` hides the noise and reports the symmetry the user actually has in mind.
+
 ## Position tolerance: `pos_tol`
 
 `pos_tol` is **absolute**, in the same units as your lattice matrix `c.A` (the `A` field of the [`Crystal`](../reference/crystals.md) — the columns of which are the lattice basis vectors; see [Construct a crystal](construct-a-crystal.md)). The default is `0.01 · (V/N)^(1/3)` — 1% of the characteristic atom separation, computed from cell volume `V` and atom count `N`.
@@ -53,7 +71,7 @@ Recommended starting points (assuming `c.A` is in Ångström):
 | Experimental refinement | match to the reported atomic-displacement uncertainty |
 | Material with known small distortion you want to detect (ferroelectrics, Jahn–Teller) | **smaller than the distortion** |
 
-That last row is the trap. If you set `pos_tol` larger than the off-center displacement of the polar atom (e.g. Ti in BaTiO₃ at ~0.05 Å), Spacey reports the higher-symmetry parent (cubic, 48 ops) instead of the true ferroelectric (P4mm, 8 ops). It does so **silently**, with no warning, because at that tolerance the displaced atom does map to a parent-position image. Pass `verify_stable=true` to detect this case automatically: Spacey re-runs the analysis at `pos_tol/1000` and warns if the operation count changed between the two runs. See [Detect tolerance-dependent answers](detect-tolerance-dependence.md) for the full pattern.
+That last row is the trap. If you set `pos_tol` larger than the off-center displacement of the polar atom (e.g., Ti in BaTiO₃ at ~0.05 Å), Spacey reports the higher-symmetry parent (cubic, 48 ops) instead of the true ferroelectric (P4mm, 8 ops). It does so **silently**, with no warning, because at that tolerance the displaced atom does map to a parent-position image. Pass `verify_stable=true` to detect this case automatically: Spacey re-runs the analysis at `pos_tol/1000` and warns if the operation count changed between the two runs. See [Detect tolerance-dependent answers](detect-tolerance-dependence.md) for the full pattern.
 
 ## Recipe: choose tolerances given known noise
 

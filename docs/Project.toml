@@ -1,3 +1,4 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+MinkowskiReduction = "d617d09d-b3c0-43f1-8886-30d89b900f25"
 Spacey = "6fa23216-6d9f-473e-ad34-00be7be2628b"

@@ -1,6 +1,6 @@
 # Find a space group
 
-[`spacegroup(c)`](../reference/space-groups.md) returns a `Vector{SpacegroupOp}` of every symmetry operation of crystal `c`, in the user's original basis. Identity is at index 1; the remaining order is unspecified.
+[`spacegroup(c)`](../reference/space-groups.md) returns a `Vector{SpacegroupOp}` of every symmetry operation of crystal `c`, in the user's original basis. The identity operation is at index 1; the order of the other symmetry operations is unspecified.
 
 ## 1. Build a `Crystal`
 
