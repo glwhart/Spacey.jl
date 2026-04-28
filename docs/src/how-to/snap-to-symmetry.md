@@ -6,42 +6,48 @@ Real-world lattices (from experimental refinements, DFT relaxations, etc.) usual
 
 ### 1. Find the symmetry operations of the noisy lattice
 
-Use a tolerance that comfortably covers the noise.
+Use a tolerance that comfortably covers the noise. For example, a near-cubic lattice with ~1% distortion (basis vectors slightly shorter or longer than 1, none of them exactly orthogonal):
 
-```julia
-using Spacey
+```jldoctest snap
+julia> using Spacey, LinearAlgebra
 
-# A near-cubic lattice with ~0.1% noise
-u = [1.0001, 0.0, 0.0]
-v = [0.0, 0.9999, 0.0]
-w = [0.0, 0.0, 1.0]
+julia> u = [1.01, 0.0, 0.0]; v = [0.0, 0.99, 0.0]; w = [0.0, 0.0, 0.999];
 
-LG, _ = pointGroup(u, v, w; tol=0.01)
-length(LG)  # 48 — pointGroup treats this as cubic at this tolerance
+julia> LG, _ = pointGroup(u, v, w; tol=0.05);   # tol=0.05 absorbs the 1% noise
+
+julia> length(LG)                                # 48 — pointGroup sees this as cubic
+48
 ```
 
-`LG` is a `Vector{Matrix{Int}}` — exactly the form `snapToSymmetry_SVD` wants.
+`LG` is a `Vector{Matrix{Int}}` — exactly the form `snapToSymmetry_SVD` wants. (At the default `tol=0.01`, the same input only finds 8 ops because the 1% distortion now exceeds the tolerance — see [Handle noisy real-world data](handle-noisy-data.md) for how to choose `tol`.)
 
 ### 2. Snap
 
-```julia
-a, b, c, iops, rops = snapToSymmetry_SVD(u, v, w, LG)
+```jldoctest snap
+julia> a, b, c, iops, rops = snapToSymmetry_SVD(u, v, w, LG);
 ```
 
 Returns a 5-tuple:
 - `a, b, c::Vector{Float64}` — the snapped basis vectors. Lengths and inter-vector angles are the symmetry-averaged values; **volume is preserved**.
-- `iops::Vector{Matrix{Int}}` — the integer-matrix lattice operations of the snapped lattice (recomputed via `pointGroup_robust` on the snapped basis).
+- `iops::Vector{Matrix{Int}}` — the integer-matrix lattice operations of the snapped lattice (recomputed via [`pointGroup`](../reference/point-groups.md) on the snapped basis).
 - `rops::Vector{Matrix{Float64}}` — Cartesian rotations of the snapped lattice.
 
 After snapping, `A · iops[i] · inv(A) ≈ rops[i]` to machine precision.
 
 ### 3. Use the snapped basis
 
-```julia
-norm(a), norm(b), norm(c)   # all equal to within float precision
+```jldoctest snap
+julia> isapprox(norm(a), norm(b)) && isapprox(norm(b), norm(c))   # snapped lengths equal
+true
+
+julia> isapprox(abs(u × v ⋅ w), abs(a × b ⋅ c))                    # volume preserved
+true
+
+julia> length(iops)                                                # snapped lattice has full 48 ops
+48
 ```
 
-Subsequent symmetry analyses on `[a b c]` no longer need a non-trivial tolerance.
+Subsequent symmetry analyses on `[a b c]` no longer need a non-trivial tolerance — the snapped basis IS exactly cubic, with all three vectors of the same length and all angles exactly 90°.
 
 ## When to skip snapping
 
