@@ -1,10 +1,8 @@
 # Find the point group of a cubic lattice
 
-Welcome! In this tutorial you'll find the **point group** of a 3D Bravais lattice — the set of integer rotations that map the lattice to itself. We'll work through two short examples: a simple cubic lattice (which has the maximum 48 symmetries) and a tetragonal lattice (which has fewer, because it's stretched along one axis).
+Welcome! In this 5 min. tutorial you'll find the **point group** of a 3D Bravais lattice — the set of integer rotations that map the lattice to itself. We'll work through two short examples: a simple cubic lattice (which has the maximum 48 symmetries) and a tetragonal lattice (which has fewer, because it's stretched along one axis).
 
-By the end you'll know how to call `pointGroup` on a lattice you build by hand and read off the result. Plan on about five minutes.
-
-This tutorial assumes you have Spacey installed and a working Julia REPL. If `using Spacey` errors with "package not found," install it first:
+By the end you'll know how to call `pointGroup` on a lattice you build by hand and read off the result. This tutorial assumes you have Spacey installed and a working Julia REPL. If `using Spacey` errors with "package not found," install it first:
 
 ```julia
 julia> using Pkg
@@ -38,11 +36,11 @@ Each *column* of `A` is a basis vector — `(1, 0, 0)`, `(0, 1, 0)`, `(0, 0, 1)`
 
 If you prefer to specify the three vectors individually, that works too:
 
-```julia
+```jldoctest tut1
 julia> u = [1.0, 0, 0]; v = [0, 1.0, 0]; w = [0, 0, 1.0];
 ```
 
-Both forms work as input to `pointGroup`.
+Both forms work as input to `pointGroup`; we'll use both below.
 
 ## 3. Call `pointGroup`
 
@@ -58,6 +56,9 @@ julia> LG, G = pointGroup(A);
 
 julia> length(LG)
 48
+
+julia> length(pointGroup(u, v, w)[1])    # same answer using the three-vector form
+48
 ```
 
 **Forty-eight.** That's the maximum possible point group for a 3D Bravais lattice — the cubic point group, written O_h in [Schönflies notation](https://en.wikipedia.org/wiki/Sch%C3%B6nflies_notation). Every cubic lattice (simple cubic, FCC, BCC) has 48 lattice symmetries; the differences between them show up only when you add atoms (the next tutorial).
@@ -69,7 +70,7 @@ julia> Matrix{Int}(I, 3, 3) in LG
 true
 ```
 
-(Unlike `spacegroup`, which sorts the identity to index 1, `pointGroup` returns the lattice ops in unspecified order — pick any specific op by content rather than by index.)
+Note that `LG[1]` is *not* guaranteed to be the identity. `pointGroup` returns the 48 ops in an unspecified order, so the identity might be at any index. (`spacegroup` is different — it does sort the identity to index 1.) If you need to retrieve a specific op, look it up by what the matrix is rather than by where it sits in the list — for the identity, the test `Matrix{Int}(I, 3, 3) in LG` above; for any other op, `findfirst(==(target), LG)`.
 
 ## 4. Try a tetragonal lattice
 
@@ -84,7 +85,7 @@ julia> length(pointGroup(A_tet)[1])
 16
 ```
 
-**Sixteen ops.** The `c ≠ a` distinction breaks every symmetry that mixes the c-axis with the a- or b-axes — what remains is the tetragonal point group D_4h, of order 16. As you stretch the cell further (`c = 2`, `c = 10`, …), the count *stays at 16*; it's only the moment `c` becomes distinguishable from `a` (within tolerance) that the count drops from 48.
+**Sixteen ops.** The `c ≠ a` distinction breaks every symmetry that mixes the c-axis with the a- or b-axes — what remains is the tetragonal point group [D_4h](https://en.wikipedia.org/wiki/Crystallographic_point_group), of order 16. As you stretch the cell further (`c = 2`, `c = 10`, …), the count *stays at 16*; it's only the moment `c` becomes distinguishable from `a` (within tolerance) that the count drops from 48.
 
 To see the boundary in action, try `c = 1 + 1e-15`:
 
