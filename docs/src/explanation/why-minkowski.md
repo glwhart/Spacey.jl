@@ -37,8 +37,7 @@ The geometric picture is illustrated below in two dimensions:
 The figure illustrates the heart of the angle bound: every point on the boundary of the union of basis cells around the origin has a *closer interior cousin* when the basis is Minkowski-reduced. In other words, the original cell vectors correspond to two of the black points on the pink/red parallelogram and the rotated vectors must *still be* in the set of the points on the parallelogram. 
 
 
-The proof is one line of algebra applying the Minkowski condition `|b₁·b₂|/‖b₁‖ < ‖b₁‖/2` (Hart et al. §A.1.1). The 3D version, with planes through the origin instead of dashed lines, is Fig A2 of the same paper. It is merely a 3D analogue (3x3x3 points) of this 2D (3x3) figure.
-Claude, fix the formatting in that last sentence.  
+The proof is one line of algebra applying the Minkowski condition `|b₁·b₂|/‖b₁‖ < ‖b₁‖/2` (Hart et al. §A.1.1). The 3D version, with planes through the origin instead of dashed lines, is Fig A2 of the same paper — a direct 3D analog (3 × 3 × 3 = 27 candidate lattice points) of this 2D (3 × 3 = 9) figure.
 
 ## The 27-neighbor result
 
