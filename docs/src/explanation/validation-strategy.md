@@ -18,7 +18,7 @@ The test suite cross-checks all three on every clean (non-noisy) Bravais lattice
 
 This is `pointGroup_simple`'s only purpose. It's slow (~100× slower than `_fast`), but its correctness is *transparent* — there's no tolerance, no integer test, no group closure — and it serves as the ground truth that the optimized paths must match.
 
-## The 14-Bravais hand-built panel
+## The 14-Bravais lattices hand-built panel
 
 For each of the 14 Bravais lattices, the test suite has a hand-curated representative basis with the expected operation count baked in (cubic = 48, hexagonal = 24, …). Each is exercised against:
 

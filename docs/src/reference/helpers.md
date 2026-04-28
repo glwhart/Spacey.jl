@@ -21,3 +21,9 @@ Spacey.snapToSymmetry_avg
 ```@index
 Pages = ["helpers.md"]
 ```
+
+See also:
+
+- Reference: [`snapToSymmetry_SVD`](snap.md) (the public, recommended snap-to-symmetry path; `Spacey.snapToSymmetry_avg` is its faster but less-robust alternative)
+- How-to: [Snap a noisy lattice to symmetry](../how-to/snap-to-symmetry.md)
+- Explanation: [Validation strategy](../explanation/validation-strategy.md) (the `_simple` / `_fast` / `_robust` cross-validation rationale)

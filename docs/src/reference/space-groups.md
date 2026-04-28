@@ -24,4 +24,7 @@ toCartesian
 Pages = ["space-groups.md"]
 ```
 
-See also: [Find a space group](../how-to/find-spacegroup.md), [Compose and apply operations](../how-to/compose-and-apply-ops.md), [Canonicalizing τ](../explanation/canonicalizing-tau.md).
+See also:
+
+- How-to: [Find a space group](../how-to/find-spacegroup.md), [Compose and apply operations](../how-to/compose-and-apply-ops.md), [Detect tolerance-dependent answers](../how-to/detect-tolerance-dependence.md)
+- Explanation: [Canonicalizing τ](../explanation/canonicalizing-tau.md), [Tolerances](../explanation/tolerances.md), [Over-promotion](../explanation/over-promotion.md)

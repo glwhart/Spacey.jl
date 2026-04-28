@@ -30,6 +30,14 @@ julia --project test/runTimingTests.jl
 cd docs && julia --project make.jl
 ```
 
+The docs follow the [Diátaxis](https://diataxis.fr/) framework — four quadrants under `docs/src/`:
+- `tutorials/` — guided learning experiences (2 pages)
+- `how-to/` — task-oriented recipes (8 pages)
+- `reference/` — API surface (5 pages: crystals / point-groups / space-groups / snap / helpers)
+- `explanation/` — discussion of design decisions and failure modes (7 pages: why-minkowski, algorithm-overview, tolerances, over-promotion, canonicalizing-tau, crystal-system-vs-bravais, validation-strategy)
+
+Public deploy: <https://glwhart.github.io/Spacey.jl/stable>. Build verifies all jldoctests; `checkdocs = :exports` enforces that every exported symbol appears in some `@docs` block.
+
 ## Architecture
 
 All package code lives in the single file `src/Spacey.jl`. There is no code split across multiple source files.

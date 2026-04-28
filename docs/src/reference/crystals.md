@@ -23,4 +23,7 @@ crystal_system
 Pages = ["crystals.md"]
 ```
 
-See also: [Construct a crystal](../how-to/construct-a-crystal.md), [Classify the Bravais system](../how-to/classify-bravais.md).
+See also:
+
+- How-to: [Construct a crystal](../how-to/construct-a-crystal.md), [Classify the Bravais system](../how-to/classify-bravais.md), [Handle noisy real-world data](../how-to/handle-noisy-data.md)
+- Explanation: [Tolerances](../explanation/tolerances.md) (the `default_pos_tol` formula), [Crystal system vs full Bravais](../explanation/crystal-system-vs-bravais.md)

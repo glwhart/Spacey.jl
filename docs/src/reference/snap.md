@@ -14,4 +14,7 @@ snapToSymmetry_SVD
 Pages = ["snap.md"]
 ```
 
-See also: [Snap a noisy lattice to symmetry](../how-to/snap-to-symmetry.md).
+See also:
+
+- How-to: [Snap a noisy lattice to symmetry](../how-to/snap-to-symmetry.md)
+- Explanation: [Over-promotion](../explanation/over-promotion.md) (the failure mode that `snapToSymmetry_SVD` deliberately commits to, when invoked)
