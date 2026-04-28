@@ -53,22 +53,28 @@ julia> length(spacegroup(c))
 48
 ```
 
-**Three-vector form, Cartesian input:**
+**Three-vector form, Cartesian input** (L1₀ CuAu — face-centered tetragonal primitive, with Cu at the origin and Au at the body center along z):
 
 ```jldoctest
 julia> using Spacey
 
-julia> a1 = [2.0, 0, 0]; a2 = [0, 2.0, 0]; a3 = [0, 0, 2.0];
+julia> a1 = [0.5,  0.5, 0.0];      # face-center vector, +y component
 
-julia> r_cart = reshape([1.0, 1.0, 1.0], 3, 1);   # one atom at (1, 1, 1) in Cartesian
+julia> a2 = [0.5, -0.5, 0.0];      # face-center vector, -y component
 
-julia> c = Crystal(a1, a2, a3, r_cart, [:X]; coords=:cartesian);
+julia> a3 = [0.0,  0.0, 1.0];      # along z
 
-julia> fractional(c)   # constructor stored as halfway-along-each-basis
-3×1 Matrix{Float64}:
- 0.5
- 0.5
- 0.5
+julia> r_cart = [0.0  0.0;          # Cu at (0,0,0), Au at (0, 0, ½) in Cartesian
+                 0.0  0.0;
+                 0.0  0.5];
+
+julia> c = Crystal(a1, a2, a3, r_cart, [:Cu, :Au]; coords=:cartesian);
+
+julia> fractional(c)               # constructor converts Cartesian → fractional
+3×2 Matrix{Float64}:
+ 0.0  0.0
+ 0.0  0.0
+ 0.0  0.5
 ```
 
 ## Common errors
