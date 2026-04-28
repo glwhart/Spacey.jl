@@ -158,6 +158,11 @@ silent wrong-answer errors from misinterpreting position data. See
 `spacegroup_plan.md` §4.1. The constructor converts Cartesian input to
 fractional once at construction; internally positions are always fractional.
 
+Stored positions are folded into `[0, 1)` per axis. Atoms that differ by a
+lattice translation therefore land on the same stored representation
+regardless of how the user supplied them (Cartesian or fractional, inside
+or outside the unit cell).
+
 Numeric input is accepted as any `AbstractMatrix{<:Real}` / `AbstractVector{<:Real}`
 and converted to `Float64` once at construction.
 
@@ -194,7 +199,16 @@ struct Crystal{T}
         # from zero for a matrix of this scale.
         abs(det(A64)) > eps(Float64) * opnorm(A64)^3 ||
             error("A is singular or near-singular (det = $(det(A64)))")
+        # Fold every position to the canonical interval [0, 1) per axis. This
+        # applies whether the user supplied :fractional or :cartesian — in both
+        # cases the stored representation is the equivalent atom inside the
+        # primary unit cell. Without this fold, the Cartesian → fractional
+        # conversion can leave components outside [0, 1) (e.g. an atom at
+        # Cartesian (0, ½, ½) converted through a non-orthogonal A may produce
+        # a -0.5 component verbatim), which is mathematically equivalent but
+        # confusing to read off.
         r64 = coords === :cartesian ? inv(A64) * Float64.(r) : Float64.(r)
+        r64 = mod.(r64, 1.0)
         new{T}(A64, r64, collect(types))
     end
 end

@@ -70,14 +70,14 @@ julia> r_cart = [0.0  0.0;          # Cu at (0,0,0), Au at (0, ½, ½) in Cartes
 
 julia> c = Crystal(a1, a2, a3, r_cart, [:Cu, :Au]; coords=:cartesian);
 
-julia> fractional(c)               # constructor converts Cartesian → fractional
+julia> fractional(c)               # constructor converts Cartesian → fractional and folds to [0, 1)
 3×2 Matrix{Float64}:
- 0.0   0.5
- 0.0  -0.5
- 0.0   0.5
+ 0.0  0.5
+ 0.0  0.5
+ 0.0  0.5
 ```
 
-(Au's stored fractional position has a negative component because the constructor converts Cartesian → fractional via `inv(A) * r_cart` without folding mod 1. Translating Au by the lattice vector `a₁ - a₂ = (0, 1, 0)` gives the equivalent position `(0.5, 0.5, 0.5)`, but Spacey keeps the conversion result verbatim.)
+The constructor converts via `inv(A) * r_cart` and then folds each component into `[0, 1)`. So an atom at Cartesian `(0, ½, ½)` — which converts to `(0.5, -0.5, 0.5)` raw — is stored canonically as `(0.5, 0.5, 0.5)`. Equivalent positions that differ by a lattice translation always land on the same stored representation.
 
 ## Common errors
 
