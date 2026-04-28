@@ -41,13 +41,13 @@ A candidate symmetry operation chooses three of these vectors as the new basis. 
 
 Most candidate triples are obviously not symmetries. Three filters cut through the space cheaply:
 
-- **Norm match.** A symmetry sends each basis vector to a vector of the *same length*. Group the 27 candidates by their norm; only triples that match the original lengths (in some order) survive. For a cubic lattice with all three basis vectors of equal length, this leaves a few hundred triples; for a triclinic lattice with three distinct lengths, fewer.
-- **Volume conservation.** A symmetry preserves the determinant: `|det(B)| = |det(A)|`. This kills another large fraction.
+- **Norm match.** A symmetry sends each basis vector to a vector of the *same length*. Group the 27 candidates by their norm; only triples that match the original lengths (in some order) survive. For a cubic lattice with all three basis vectors of equal length, this leaves a few hundred triples; for a triclinic lattice with three distinct lengths, much fewer.
+- **Volume conservation.** A symmetry preserves the determinant: `|det(B)| = |det(A)|`. Checking this kills another large fraction.
 - **Integer-matrix test.** This is the heart of the algorithm. The candidate `B` represents a symmetry operation iff `U = A⁻¹ · B` has integer entries (the symmetry is then a lattice transformation, expressible exactly in integer coordinates). For a *clean* input we can require `U` to be exactly integer; for a *noisy* input we require `U` to be close to integer, with closeness controlled by `tol`. Specifically: each entry must be within `tol` of the nearest integer.
 
 Before any of these filters runs, Spacey **volume-normalizes the input**: divides the basis vectors by `∛|det(A)|` so that the cell has unit volume. This pulls every comparison onto a canonical scale — `tol = 0.01` means the same thing whether your lattice is in Ångström or in Bohr. See [Tolerances](tolerances.md) for the full discussion.
 
-After all three filters, you have a set of candidate operations — typically a few hundred for clean cubic input, fewer for lower-symmetry lattices. Most of them are real symmetries; some may be near-misses that passed the integer-matrix test by epsilon margin.
+After all three filters, you have a set of candidate operations — typically a few hundred for clean cubic input, fewer for lower-symmetry lattices. Most of them are real symmetries; some may be near-misses that passed the integer-matrix test by a small margin.
 
 ## Step 4: Group closure
 
@@ -69,7 +69,7 @@ This step is what makes Spacey robust to spurious near-misses on its own: a spur
 
 | Code | Approach | Strengths | Trade-offs |
 |---|---|---|---|
-| **Spacey.jl** | Mink-reduce + 27-candidate enumeration + group closure | Provably complete; transparent tolerance; no naming/Niggli machinery to disagree with | No standard-setting names; user must supply primitive cell |
+| **Spacey.jl** | Mink-reduce + 27-candidate enumeration + group closure | Provably complete; transparent tolerance; no naming/Niggli machinery to disagree with | No standard-setting names |
 | **spglib** | Iterative tolerance + atom-distance matching | Universally adopted; provides space-group names | Tolerance is absolute (Å), heuristic adjustments; no over-promotion warning |
 | **AFLOW-SYM** | Iterative tolerance + Niggli + table lookup | Full Bravais classification | Niggli boundary cases; coupled to large AFLOW corpus |
 | **FINDSYM** (ISOTROPY) | Tolerance-driven testing of all 230 space groups | Rich post-processing (group–subgroup, distortions) | Slower for batch processing |
