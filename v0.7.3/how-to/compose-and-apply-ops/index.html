@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Compose and apply operations · Spacey.jl</title><meta name="title" content="Compose and apply operations · Spacey.jl"/><meta property="og:title" content="Compose and apply operations · Spacey.jl"/><meta property="twitter:title" content="Compose and apply operations · Spacey.jl"/><meta name="description" content="Documentation for Spacey.jl."/><meta property="og:description" content="Documentation for Spacey.jl."/><meta property="twitter:description" content="Documentation for Spacey.jl."/><meta property="og:url" content="https://glwhart.github.io/Spacey.jl/how-to/compose-and-apply-ops/"/><meta property="twitter:url" content="https://glwhart.github.io/Spacey.jl/how-to/compose-and-apply-ops/"/><link rel="canonical" href="https://glwhart.github.io/Spacey.jl/how-to/compose-and-apply-ops/"/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Spacey.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../../tutorials/">Tutorials</a></li><li><a class="tocitem" href="../../tutorials/01-first-pointgroup/">Find the point group of a cubic lattice</a></li><li><a class="tocitem" href="../../tutorials/02-first-spacegroup/">Find the space group of NaCl (and three other crystals)</a></li></ul></li><li><span class="tocitem">How-to guides</span><ul><li><a class="tocitem" href="../">How-to guides</a></li><li><a class="tocitem" href="../construct-a-crystal/">Construct a crystal</a></li><li><a class="tocitem" href="../find-pointgroup/">Find a point group</a></li><li><a class="tocitem" href="../find-spacegroup/">Find a space group</a></li><li><a class="tocitem" href="../classify-bravais/">Classify the Bravais system</a></li><li><a class="tocitem" href="../handle-noisy-data/">Handle noisy real-world data</a></li><li><a class="tocitem" href="../detect-tolerance-dependence/">Detect tolerance-dependent answers</a></li><li class="is-active"><a class="tocitem" href>Compose and apply operations</a><ul class="internal"><li><a class="tocitem" href="#1.-Get-an-op-(or-build-one-by-hand)"><span>1. Get an op (or build one by hand)</span></a></li><li><a class="tocitem" href="#2.-Apply-an-op-to-a-fractional-position-(and-to-a-whole-crystal)"><span>2. Apply an op to a fractional position (and to a whole crystal)</span></a></li><li><a class="tocitem" href="#3.-Compose-with-*"><span>3. Compose with <code>*</code></span></a></li><li><a class="tocitem" href="#4.-Invert-with-inv"><span>4. Invert with <code>inv</code></span></a></li><li><a class="tocitem" href="#5.-Compare-for-equality"><span>5. Compare for equality</span></a></li><li><a class="tocitem" href="#6.-Convert-to-Cartesian-form"><span>6. Convert to Cartesian form</span></a></li><li><a class="tocitem" href="#See-also"><span>See also</span></a></li></ul></li><li><a class="tocitem" href="../snap-to-symmetry/">Snap a noisy lattice to symmetry</a></li></ul></li><li><span class="tocitem">Reference</span><ul><li><a class="tocitem" href="../../reference/">Reference</a></li><li><a class="tocitem" href="../../reference/crystals/">Crystals</a></li><li><a class="tocitem" href="../../reference/point-groups/">Point groups</a></li><li><a class="tocitem" href="../../reference/space-groups/">Space groups</a></li><li><a class="tocitem" href="../../reference/snap/">Snapping to symmetry</a></li><li><a class="tocitem" href="../../reference/helpers/">Helpers</a></li></ul></li><li><span class="tocitem">Explanation</span><ul><li><a class="tocitem" href="../../explanation/">Explanation</a></li><li><a class="tocitem" href="../../explanation/why-minkowski/">Why Minkowski reduction</a></li><li><a class="tocitem" href="../../explanation/tolerances/">Tolerances</a></li><li><a class="tocitem" href="../../explanation/over-promotion/">Over-promotion</a></li><li><a class="tocitem" href="../../explanation/canonicalizing-tau/">Canonicalizing τ</a></li><li><a class="tocitem" href="../../explanation/crystal-system-vs-bravais/">Crystal system vs full Bravais</a></li><li><a class="tocitem" href="../../explanation/algorithm-overview/">Algorithm overview</a></li><li><a class="tocitem" href="../../explanation/validation-strategy/">Validation strategy</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">How-to guides</a></li><li class="is-active"><a href>Compose and apply operations</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Compose and apply operations</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/glwhart/Spacey.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/glwhart/Spacey.jl/blob/main/docs/src/how-to/compose-and-apply-ops.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Compose-and-apply-operations"><a class="docs-heading-anchor" href="#Compose-and-apply-operations">Compose and apply operations</a><a id="Compose-and-apply-operations-1"></a><a class="docs-heading-anchor-permalink" href="#Compose-and-apply-operations" title="Permalink"></a></h1><p>A <a href="../../reference/space-groups/"><code>SpacegroupOp</code></a> is the operation <code>r ↦ R·r + τ</code> in lattice (fractional) coordinates, where <code>R</code> is a rotation/reflection of the unit cell and <code>τ</code> is a translation (fractional, not a full lattice translation, and often zero). Functions in the package support composing two symmetry elements, or finding a symmetry&#39;s inverse. The package also supports applying a symmetry (a <code>SpacegroupOp</code>) to atomic positions or checking for equality of two symmetry operations (modulo the lattice). It marks the identity element. A helper function is provided that converts operations to Cartesian form (internally they are stored as integer matrices). This page is the cookbook for using <code>SpacegroupOp</code>s.</p><div class="admonition is-info" id="Roadmap-2dcd0e3507a898d9"><header class="admonition-header">Roadmap<a class="admonition-anchor" href="#Roadmap-2dcd0e3507a898d9" title="Permalink"></a></header><div class="admonition-body"><p>Applying an op to an entire <code>Crystal</code> (and checking equality of two crystals or lattices under an operation) is currently a manual workflow — see §2 below. A <code>SpacegroupOp</code> method that takes a <code>Crystal</code> directly, plus a <code>crystal_equals_under_op</code> predicate, are on the roadmap. Until then, the manual recipe in §2 is the path.</p></div></div><h2 id="1.-Get-an-op-(or-build-one-by-hand)"><a class="docs-heading-anchor" href="#1.-Get-an-op-(or-build-one-by-hand)">1. Get an op (or build one by hand)</a><a id="1.-Get-an-op-(or-build-one-by-hand)-1"></a><a class="docs-heading-anchor-permalink" href="#1.-Get-an-op-(or-build-one-by-hand)" title="Permalink"></a></h2><p>Most ops come from finding the symmetry of a crystal <code>c</code>: <a href="../../reference/space-groups/"><code>spacegroup(c)</code></a>. For example, diamond carbon in its 2-atom primitive cell:</p><pre><code class="language-julia-repl hljs">julia&gt; using Spacey
+
+julia&gt; A = [0.0  0.5  0.5;        # FCC primitive lattice vectors
+            0.5  0.0  0.5;
+            0.5  0.5  0.0];
+
+julia&gt; r = [0.0  0.25;             # 2 carbon atoms (origin and (¼,¼,¼))
+            0.0  0.25;
+            0.0  0.25];
+
+julia&gt; c = Crystal(A, r, [:C, :C]; coords=:fractional); # :C is the label for the atoms
+
+julia&gt; ops = spacegroup(c);
+
+julia&gt; length(ops)                 # Fd-3m, full O_h order
+48
+
+julia&gt; ops[1]                      # the identity is always at index 1
+SpacegroupOp(R = [1 0 0; 0 1 0; 0 0 1], τ = [0.0, 0.0, 0.0])</code></pre><p>The remaining 47 ops appear in an unspecified order. Diamond is non-symmorphic — it has glide planes — so some ops carry a non-zero <code>τ</code>. Pick out a representative one geometrically rather than by index (the post-identity order is not part of the API contract):</p><pre><code class="language-julia-repl hljs">julia&gt; using LinearAlgebra
+
+julia&gt; ops[findfirst(op -&gt; op.R == -Matrix{Int}(I, 3, 3), ops)]   # the unique op with R = -I
+SpacegroupOp(R = [-1 0 0; 0 -1 0; 0 0 -1], τ = [0.25, 0.25, 0.25])</code></pre><p>Geometrically, <code>R = -I</code> is pure inversion; the non-zero <code>τ = (¼, ¼, ¼)</code> shifts the inversion center off the origin. The fixed point is <code>c</code> solving <code>-c + τ = c</code>, i.e. <code>c = τ/2 = (⅛, ⅛, ⅛)</code> in lattice coordinates — the midpoint of the C–C bond between the two atoms in the primitive cell. That bond midpoint is the actual inversion center of diamond; with our origin choice (a C atom), the symmetry expresses itself as inversion-plus-shift rather than inversion-at-origin.</p><p>You can also construct a symmetry operation directly. The constructor canonicalizes the fractional shift <code>τ</code> to the interval <code>[0, 1)</code> automatically — <code>1.0</code>, <code>2.5</code>, and <code>-0.5</code> all fold to a value in that interval:</p><pre><code class="language-julia-repl hljs">julia&gt; using Spacey
+
+julia&gt; R = [0 -1 0; 1 0 0; 0 0 1];   # 4-fold rotation about z (lattice coords)
+
+julia&gt; op = SpacegroupOp(R, [2.5, -0.5, 1.25]);   # any real τ accepted
+
+julia&gt; op.τ                                       # stored canonicalized to [0,1)
+3-element Vector{Float64}:
+ 0.5
+ 0.5
+ 0.25</code></pre><p>The identity is available via Julia&#39;s standard <code>one</code>:</p><pre><code class="language-julia-repl hljs">julia&gt; using Spacey
+
+julia&gt; e = one(SpacegroupOp);
+
+julia&gt; e.R
+3×3 Matrix{Int64}:
+ 1  0  0
+ 0  1  0
+ 0  0  1
+
+julia&gt; e.τ
+3-element Vector{Float64}:
+ 0.0
+ 0.0
+ 0.0</code></pre><p>The identity is always <code>(R = I, τ = 0)</code>, even in non-symmorphic groups. By definition the identity satisfies <code>e * g == g</code> for every <code>g</code> in the group, which forces <code>R_e = I</code> and <code>τ_e = 0</code> (mod the lattice). Non-symmorphic-ness shows up in the <em>other</em> operations carrying non-zero <code>τ</code> (screw rotations, glide reflections), not in the identity. Choosing a different origin shifts the <code>τ</code> of those non-symmorphic ops — for diamond with the origin at the C–C bond midpoint, the inversion above would land at <code>τ = 0</code> and the diamond glides would pick up new shifts — but the identity itself stays <code>(I, 0)</code>.</p><h2 id="2.-Apply-an-op-to-a-fractional-position-(and-to-a-whole-crystal)"><a class="docs-heading-anchor" href="#2.-Apply-an-op-to-a-fractional-position-(and-to-a-whole-crystal)">2. Apply an op to a fractional position (and to a whole crystal)</a><a id="2.-Apply-an-op-to-a-fractional-position-(and-to-a-whole-crystal)-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Apply-an-op-to-a-fractional-position-(and-to-a-whole-crystal)" title="Permalink"></a></h2><p>The struct is callable. <code>op(r)</code> returns the image of fractional position <code>r</code>, folded back to <code>[0, 1)</code>. Pick a generic interior point so the rotational part of <code>op</code> produces a visibly different image (the origin is invariant under any pure rotation, so it would hide what <code>R</code> does):</p><pre><code class="language-julia-repl hljs">julia&gt; using Spacey
+
+julia&gt; R = [0 -1 0; 1 0 0; 0 0 1];   # 4-fold about z, lattice coords
+
+julia&gt; op = SpacegroupOp(R, [0.5, 0.0, 0.0]);   # add a ½-translation along x
+
+julia&gt; op([0.25, 0.10, 0.30])
+3-element Vector{Float64}:
+ 0.4
+ 0.25
+ 0.3</code></pre><p>The 4-fold rotation sends <code>(x, y, z)</code> to <code>(-y, x, z)</code>, taking <code>(0.25, 0.10, 0.30)</code> to <code>(-0.10, 0.25, 0.30)</code>; the translation <code>(0.5, 0, 0)</code> then bumps the x-component by ½, giving <code>(0.40, 0.25, 0.30)</code>. No mod-1 folding was needed here — every component was already in <code>[0, 1)</code>.</p><p>For a whole <a href="../../reference/crystals/"><code>Crystal</code></a>, apply the op to each atom column of <code>c.r</code>. Spacey doesn&#39;t ship a single-shot <code>op(c::Crystal)</code> method yet (see the roadmap note above); the manual form is short:</p><pre><code class="language-julia-repl hljs">julia&gt; using Spacey, LinearAlgebra
+
+julia&gt; A = Matrix{Float64}(I, 3, 3);
+
+julia&gt; r = [0.0 0.5; 0.0 0.5; 0.0 0.5];   # CsCl: Cs at origin, Cl at body-center
+
+julia&gt; c = Crystal(A, r, [:Cs, :Cl]; coords=:fractional);
+
+julia&gt; sg = spacegroup(c);
+
+julia&gt; hcat([sg[2](c.r[:, i]) for i in 1:size(c.r, 2)]...)   # apply sg[2] to every atom
+3×2 Matrix{Float64}:
+ 0.0  0.5
+ 0.0  0.5
+ 0.0  0.5</code></pre><p>Because <code>sg[2]</code> is a true symmetry of CsCl, the <em>set</em> of image positions is identical to the original set (each Cs and Cl maps to its own type&#39;s position) — that&#39;s exactly what makes it a symmetry.</p><h2 id="3.-Compose-with-*"><a class="docs-heading-anchor" href="#3.-Compose-with-*">3. Compose with <code>*</code></a><a id="3.-Compose-with-*-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Compose-with-*" title="Permalink"></a></h2><p><code>op1 * op2</code> is function composition: <strong>apply <code>op2</code> first, then <code>op1</code></strong>. Algebraically, <code>(R₁, τ₁) ∘ (R₂, τ₂) = (R₁·R₂, R₁·τ₂ + τ₁)</code>. The result is a new <code>SpacegroupOp</code>. This matches Julia&#39;s <code>∘</code> and standard function-composition semantics where <code>(f ∘ g)(x) = f(g(x))</code> — so <code>op1 * op2</code> and <code>op1 ∘ op2</code> agree on element ordering.</p><pre><code class="language-julia-repl hljs">julia&gt; using Spacey
+
+julia&gt; R1 = [0 -1 0; 1 0 0; 0 0 1];   # 4-fold rotation about z
+
+julia&gt; R2 = [1 0 0; 0 -1 0; 0 0 1];   # mirror in the xz-plane
+
+julia&gt; op1 = SpacegroupOp(R1, [0.5, 0.0, 0.0]);   # 4-fold + ½ x-shift
+
+julia&gt; op2 = SpacegroupOp(R2, [0.0, 0.0, 0.0]);   # pure mirror, no shift
+
+julia&gt; op12 = op1 * op2;
+
+julia&gt; op12.R == R1 * R2     # rotational parts multiply (op2 first, then op1)
+true
+
+julia&gt; op12.R                # the composed operation
+3×3 Matrix{Int64}:
+ 0  1  0
+ 1  0  0
+ 0  0  1</code></pre><p>Geometrically the composite is a mirror in the diagonal <code>y = x</code> plane: the xz-mirror first sends <code>(x, y, z) → (x, -y, z)</code>, and the 4-fold then sends that to <code>(y, x, z)</code> — swapping the x and y axes, exactly the action of <code>op12.R</code>. The translation part of the composite, <code>R₁·τ₂ + τ₁</code>, is just <code>(½, 0, 0)</code> here because <code>τ₂ = 0</code>.</p><p>Composition is associative, and the identity behaves as expected:</p><pre><code class="language-julia-repl hljs">julia&gt; using Spacey
+
+julia&gt; R = [0 -1 0; 1 0 0; 0 0 1];
+
+julia&gt; e = one(SpacegroupOp);
+
+julia&gt; op = SpacegroupOp(R, [0.5, 0.0, 0.0]);
+
+julia&gt; e * op == op
+true
+
+julia&gt; op * e == op
+true</code></pre><h2 id="4.-Invert-with-inv"><a class="docs-heading-anchor" href="#4.-Invert-with-inv">4. Invert with <code>inv</code></a><a id="4.-Invert-with-inv-1"></a><a class="docs-heading-anchor-permalink" href="#4.-Invert-with-inv" title="Permalink"></a></h2><p><code>inv(op)</code> returns the inverse operation that undoes <code>op</code>. Algebraically, <code>(R, τ)⁻¹ = (R⁻¹, -R⁻¹·τ)</code>. <code>R⁻¹</code> is integer because <code>|det R| = 1</code> for any lattice rotation, so the inverse computation is exact (no rounding error); the constructor enforces this and errors otherwise.</p><pre><code class="language-julia-repl hljs">julia&gt; using Spacey
+
+julia&gt; R = [0 -1 0; 1 0 0; 0 0 1];
+
+julia&gt; op = SpacegroupOp(R, [0.25, 0.0, 0.0]);
+
+julia&gt; inv(op)                                # the inverse: -90° rotation, opposite shift
+SpacegroupOp(R = [0 1 0; -1 0 0; 0 0 1], τ = [0.0, 0.25, 0.0])
+
+julia&gt; op * inv(op) == one(SpacegroupOp)      # gives the identity
+true
+
+julia&gt; inv(inv(op)) == op                     # inverse applied twice returns the original op
+true</code></pre><p>Reading off the output: <code>inv(op).R = [0 1 0; -1 0 0; 0 0 1]</code> is the −90° rotation about z (the inverse of a +90° rotation), and <code>inv(op).τ = (0, ¼, 0)</code> is exactly <code>−R⁻¹·τ = −[0 1 0; -1 0 0; 0 0 1]·[¼, 0, 0] = (0, ¼, 0)</code>.</p><h2 id="5.-Compare-for-equality"><a class="docs-heading-anchor" href="#5.-Compare-for-equality">5. Compare for equality</a><a id="5.-Compare-for-equality-1"></a><a class="docs-heading-anchor-permalink" href="#5.-Compare-for-equality" title="Permalink"></a></h2><p>Equality is exact field-by-field on <code>(R, τ)</code>. Three things to verify:</p><pre><code class="language-julia-repl hljs">julia&gt; using Spacey, LinearAlgebra
+
+julia&gt; I3 = Matrix{Int}(I, 3, 3);
+
+julia&gt; R = [0 -1 0; 1 0 0; 0 0 1];          # 4-fold about z
+
+julia&gt; SpacegroupOp(R, [0.0, 0, 0]) == SpacegroupOp(R, [1.0, 0, 0])  # τ folded mod 1
+true
+
+julia&gt; SpacegroupOp(R, [0.5, 0, 0]) == SpacegroupOp(R, [0.0, 0, 0])  # different τ → not equal
+false
+
+julia&gt; SpacegroupOp(R, [0.5, 0, 0]) == SpacegroupOp(I3, [0.5, 0, 0])  # different R → not equal
+false</code></pre><p>The matching <code>hash</code> method makes ops safe as <code>Set</code> and <code>Dict</code> keys. This is the equality <code>spacegroup</code> itself uses internally — to enforce identity-at-index-1 in the returned vector and to deduplicate ops while verifying group closure.</p><h2 id="6.-Convert-to-Cartesian-form"><a class="docs-heading-anchor" href="#6.-Convert-to-Cartesian-form">6. Convert to Cartesian form</a><a id="6.-Convert-to-Cartesian-form-1"></a><a class="docs-heading-anchor-permalink" href="#6.-Convert-to-Cartesian-form" title="Permalink"></a></h2><p><code>spacegroup</code> returns ops in the user&#39;s lattice coordinates. To get the Cartesian rotation <code>R_c</code> and translation <code>τ_c</code> (e.g., for plotting or for combining with other Cartesian transforms), use <a href="../../reference/space-groups/"><code>toCartesian</code></a>:</p><pre><code class="language-julia-repl hljs">julia&gt; using Spacey, LinearAlgebra
+
+julia&gt; A = Matrix{Float64}(I, 3, 3);
+
+julia&gt; R_cart, τ_cart = toCartesian(one(SpacegroupOp), A);
+
+julia&gt; R_cart
+3×3 Matrix{Float64}:
+ 1.0  0.0  0.0
+ 0.0  1.0  0.0
+ 0.0  0.0  1.0
+
+julia&gt; τ_cart
+3-element Vector{Float64}:
+ 0.0
+ 0.0
+ 0.0</code></pre><p>The result is a <code>Tuple{Matrix{Float64},Vector{Float64}}</code>, <strong>not</strong> a <code>SpacegroupOp</code> — <code>SpacegroupOp.R</code> must be <code>Matrix{Int}</code>, but the Cartesian rotation is not integer-valued in general. For an orthonormal cubic lattice (<code>A = I</code>), the Cartesian rotation <code>R_cart = R</code> literally. For a non-orthonormal lattice (e.g., hexagonal, where the basis vectors are not mutually perpendicular), <code>R_cart = A·R·A⁻¹</code> is the same operation expressed in the orthogonal Cartesian frame — its entries depend on the specific basis even though the underlying symmetry is intrinsic to the lattice.</p><h2 id="See-also"><a class="docs-heading-anchor" href="#See-also">See also</a><a id="See-also-1"></a><a class="docs-heading-anchor-permalink" href="#See-also" title="Permalink"></a></h2><ul><li>Reference: <a href="../../reference/space-groups/"><code>SpacegroupOp</code></a>, <a href="../../reference/space-groups/"><code>toCartesian</code></a></li><li>How-to: <a href="../find-spacegroup/">Find a space group</a></li><li>Explanation: <a href="../../explanation/canonicalizing-tau/">Canonicalizing τ</a></li></ul></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../detect-tolerance-dependence/">« Detect tolerance-dependent answers</a><a class="docs-footer-nextpage" href="../snap-to-symmetry/">Snap a noisy lattice to symmetry »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Wednesday 29 April 2026 04:39">Wednesday 29 April 2026</span>. Using Julia version 1.11.9.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
