@@ -25,6 +25,19 @@ using Pkg; Pkg.test(test_args=["BravaisLatticeList"])
 julia --project test/runTimingTests.jl
 ```
 
+**Run regression-grade benchmarks** (PkgBenchmark; manual, before a release):
+```julia
+julia --project=benchmark
+julia> using PkgBenchmark
+julia> result = judge("Spacey", "main", "HEAD")    # compare branches on the same machine
+julia> export_markdown("benchmark.md", result)     # human-readable diff
+```
+The `judge` workflow is the only reliable way to detect performance regressions
+because absolute timings on shared CI are too noisy. The benchmark suite is
+defined in `benchmark/benchmarks.jl`. Allocation-only regressions (a related but
+narrower class) are caught for free by the `Allocation regressions` testset in
+`runtests.jl`, which runs on every push.
+
 **Build documentation:**
 ```bash
 cd docs && julia --project make.jl

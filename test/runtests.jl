@@ -1068,3 +1068,59 @@ end
     end
 end
 
+# =============================================================================
+# Allocation regression panel
+# =============================================================================
+# Allocations are exactly deterministic (same code → same byte count, regardless
+# of machine speed) and so are the one performance metric we *can* test in CI
+# without flakiness. Caps below are 2× the baselines measured on v0.7.3; a
+# regression that doubles allocations is loud, an algorithmic change that
+# legitimately needs more allocation will require updating these caps.
+#
+# Pattern: each function call is wrapped in a helper that calls once for warmup
+# (kills compilation noise) and then measures the second call. Without the
+# warmup, we'd be measuring compilation, which dominates and is also non-
+# deterministic in itself.
+#
+# For a deeper performance check (timing, scaling), see PkgBenchmark.jl —
+# `benchmark/benchmarks.jl` defines a comparison-based suite that's run
+# manually before releases. Allocation tests catch the most common regression
+# class (type instability, accidental Vector{Any}, hot-loop allocation) for
+# free in the main test suite.
+@testset "Allocation regressions" begin
+    function alloc(f, args...)
+        f(args...)              # warmup — first call compiles
+        @allocated f(args...)   # second call measures steady state
+    end
+
+    A_cubic = Matrix{Float64}(I, 3, 3)
+    u_hcp, v_hcp, w_hcp = [1.0, 0, 0], [-0.5, sqrt(3)/2, 0], [0.0, 0, sqrt(8/3)]
+    A_fcc = [0.0 0.5 0.5; 0.5 0.0 0.5; 0.5 0.5 0.0]
+
+    c_NaCl    = Crystal(A_fcc, [0.0 0.5; 0.0 0.5; 0.0 0.5], [:Na, :Cl]; coords=:fractional)
+    c_diamond = Crystal(A_fcc, [0.0 0.25; 0.0 0.25; 0.0 0.25], [:C, :C]; coords=:fractional)
+
+    let A_BTO = 4.0 * Matrix{Float64}(I, 3, 3), δ = 0.05/4
+        global c_BaTiO3 = Crystal(A_BTO,
+            [0.0 0.5 0.5 0.5 0.0; 0.0 0.5 0.5 0.0 0.5; 0.0 0.5-δ 0.0 0.5 0.5],
+            [:Ba, :Ti, :O, :O, :O]; coords=:fractional)
+    end
+
+    R_I = Matrix{Int}(I, 3, 3); τ_zero = zeros(3)
+
+    # pointGroup — matrix and three-vector forms
+    @test alloc(pointGroup, A_cubic)              ≤ 1_500_000   # baseline ≈ 485 KB
+    @test alloc(pointGroup, u_hcp, v_hcp, w_hcp)  ≤   600_000   # baseline ≈ 176 KB
+
+    # crystal_system — wraps pointGroup so should be ~ same
+    @test alloc(crystal_system, A_cubic)          ≤ 1_500_000   # baseline ≈ 489 KB
+
+    # spacegroup — bigger because it iterates the full LG and does isSpacegroupOp per τ
+    @test alloc(spacegroup, c_NaCl)               ≤ 4_000_000   # baseline ≈ 1.75 MB
+    @test alloc(spacegroup, c_diamond)            ≤ 4_000_000   # baseline ≈ 1.82 MB
+    @test alloc(spacegroup, c_BaTiO3)             ≤ 2_000_000   # baseline ≈ 659 KB
+
+    # isSpacegroupOp — small per-call cost
+    @test alloc(isSpacegroupOp, R_I, τ_zero, c_NaCl) ≤ 4_096    # baseline ≈ 1.2 KB
+end
+
