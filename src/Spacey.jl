@@ -4,7 +4,8 @@ using LinearAlgebra
 using StatsBase
 export pointGroup, snapToSymmetry_SVD, isagroup,
        Crystal, isSpacegroupOp, fractional, cartesian, default_pos_tol,
-       crystal_system, SpacegroupOp, toCartesian, spacegroup
+       crystal_system, SpacegroupOp, toCartesian, spacegroup,
+       is_equiv_lattice, is_derivative
 # Internal / not-exported (reach via `Spacey.<name>(...)`):
 # - `pointGroup_robust`, `pointGroup_fast`, `pointGroup_simple` — the
 #   public point-group entry point is `pointGroup` (which delegates to
@@ -134,6 +135,74 @@ function isagroup(members::AbstractVector{<:AbstractMatrix{<:AbstractFloat}}; at
     end
 
     return true
+end
+
+"""
+    is_equiv_lattice(A, B; tol=1e-6) -> Bool
+
+Test whether two 3×3 lattice bases `A` and `B` describe the same lattice
+— i.e., span the same set of points in space. Two bases are equivalent
+iff the change-of-basis matrix `S = inv(A) * B` is unimodular (integer
+entries, `|det(S)| = 1`).
+
+This is a purely geometric test on the basis vectors; it does not look
+at atoms, so it operates on bare matrices rather than [`Crystal`](@ref).
+
+`tol` is an absolute tolerance on `S`'s deviation from the nearest
+integer matrix and on `|det(S)|`'s deviation from 1.
+
+# Examples
+```jldoctest
+julia> using Spacey, LinearAlgebra
+
+julia> A = Matrix{Float64}(I, 3, 3);
+
+julia> is_equiv_lattice(A, A * [1 1 0; 0 1 0; 0 0 1])    # unimodular shear → equivalent
+true
+
+julia> is_equiv_lattice(A, 2 * A)                         # different volume → not equivalent
+false
+```
+"""
+function is_equiv_lattice(A::AbstractMatrix, B::AbstractMatrix; tol::Real=1e-6)
+    S = inv(A) * B
+    return isapprox(abs(det(S)), 1.0; atol=tol) &&
+           isapprox(S, round.(S); atol=tol)
+end
+
+"""
+    is_derivative(parent, child; tol=1e-6) -> Bool
+
+Test whether the lattice spanned by `child` is a sublattice of (a derivative
+of) the lattice spanned by `parent`. The relationship is one-way: every
+parent-lattice point need not be a child-lattice point.
+
+A child lattice is a derivative iff `S = inv(parent) * child` has integer
+entries (no constraint on `|det(S)|`, which equals the index of the sublattice).
+
+This is the test used to decide whether a candidate supercell is consistent
+with a given parent lattice (the standard derivative-superstructure
+enumeration question). Like [`is_equiv_lattice`](@ref), it operates on bare
+basis matrices.
+
+# Examples
+```jldoctest
+julia> using Spacey, LinearAlgebra
+
+julia> parent = Matrix{Float64}(I, 3, 3);
+
+julia> super = parent * [2 0 0; 0 2 0; 0 0 2];   # cubic 8× supercell
+
+julia> is_derivative(parent, super)
+true
+
+julia> is_derivative(super, parent)              # not symmetric: 1/2-integer entries
+false
+```
+"""
+function is_derivative(parent::AbstractMatrix, child::AbstractMatrix; tol::Real=1e-6)
+    S = inv(parent) * child
+    return isapprox(S, round.(S); atol=tol)
 end
 
 """

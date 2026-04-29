@@ -80,6 +80,73 @@ end
     @test LG_auto == LG_strict
 end
 
+@testset "is_equiv_lattice" begin
+    I3 = Matrix{Float64}(I, 3, 3)
+
+    # Reflexive
+    @test is_equiv_lattice(I3, I3)
+
+    # Unimodular transforms (det = ±1, integer entries) preserve the lattice
+    for M in [
+        [1 1 0; 0 1 0; 0 0 1],            # shear, det = 1
+        [-1 0 0; 0 1 0; 0 0 1],           # reflection, det = -1
+        [0 1 0; 1 0 0; 0 0 1],            # axis swap, det = -1
+        RandUnimodMat3(8),                # random unimodular
+    ]
+        @test is_equiv_lattice(I3, I3 * M)
+        @test is_equiv_lattice(I3 * M, I3)   # symmetric
+    end
+
+    # Different volume → NOT equivalent
+    @test !is_equiv_lattice(I3, 2 * I3)
+    @test !is_equiv_lattice(I3, [2 0 0; 0 1 0; 0 0 1])
+
+    # Same volume but non-integer transform → NOT equivalent
+    A_skew = [1.0 0.5 0.0; 0.0 1.0 0.0; 0.0 0.0 1.0]   # det = 1, not integer-related to I
+    @test !is_equiv_lattice(I3, A_skew)
+
+    # Tolerance respected
+    A_noisy = I3 + 1e-12 * ones(3, 3)
+    @test  is_equiv_lattice(I3, A_noisy; tol = 1e-8)    # noise below tol
+    @test !is_equiv_lattice(I3, A_noisy; tol = 1e-15)   # noise above tol
+
+    # Self-equivalence under each Bravais point group: every LG op acts on the
+    # basis as a unimodular transform, so the lattice it produces must be
+    # equivalent to the original.
+    for (_, (A, _nops)) ∈ BravaisLatticeList
+        Ar = minkReduce(A)
+        for op in pointGroup(Ar)
+            @test is_equiv_lattice(Ar, Ar * op)
+        end
+    end
+end
+
+@testset "is_derivative" begin
+    I3 = Matrix{Float64}(I, 3, 3)
+
+    # Equivalent lattices are trivially derivatives (det = ±1 case)
+    @test is_derivative(I3, I3)
+    @test is_derivative(I3, I3 * [1 1 0; 0 1 0; 0 0 1])
+
+    # Integer supercells are derivatives
+    for hnf in [[2 0 0; 0 1 0; 0 0 1],          # 2× in one direction
+                [2 0 0; 0 2 0; 0 0 2],          # 8× cubic
+                [3 1 0; 0 2 0; 0 0 1]]          # general HNF, det = 6
+        @test is_derivative(I3, I3 * hnf)
+    end
+
+    # Non-integer transform → NOT a derivative
+    @test !is_derivative(I3, [1.0 0.5 0; 0 1 0; 0 0 1])
+
+    # The relationship is one-way: parent IS a derivative of itself, but the
+    # parent is NOT a derivative of a 2× supercell (the inverse transform has
+    # half-integer entries).
+    parent = I3
+    super = parent * [2 0 0; 0 1 0; 0 0 1]
+    @test  is_derivative(parent, super)
+    @test !is_derivative(super, parent)
+end
+
 @testset "pointGroup_simple, random rotations" begin
     u = [1, 0, 0]
     v = [0.5, √3 / 2, 0]

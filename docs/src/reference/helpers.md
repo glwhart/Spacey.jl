@@ -4,6 +4,8 @@
 
 ```@docs
 isagroup
+is_equiv_lattice
+is_derivative
 ```
 
 ## Internals
