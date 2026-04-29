@@ -44,20 +44,17 @@ Both forms work as input to `pointGroup`; we'll use both below.
 
 ## 3. Call `pointGroup`
 
-`pointGroup` returns a tuple `(LG, G)`:
-
-- `LG` is a `Vector{Matrix{Int}}` — each entry is one symmetry operation, expressed as an integer matrix in the lattice basis.
-- `G` is the same operations, expressed as Cartesian rotations (`Vector{Matrix{Float64}}`).
+`pointGroup` returns a `Vector{Matrix{Int}}` — each entry is one symmetry operation, expressed as an integer matrix in the lattice basis. (If you need the same operations as Cartesian rotations, pass the result through `toCartesian`; we'll do that below.)
 
 For just the *order* of the group (the count of operations) we want `length(LG)`:
 
 ```jldoctest tut1
-julia> LG, G = pointGroup(A);
+julia> LG = pointGroup(A);
 
 julia> length(LG)
 48
 
-julia> length(pointGroup(u, v, w)[1])    # same answer using the three-vector form
+julia> length(pointGroup(u, v, w))    # same answer using the three-vector form
 48
 ```
 
@@ -81,7 +78,7 @@ julia> A_tet = [1.0  0    0;
                 0    1.0  0;
                 0    0    1.5];
 
-julia> length(pointGroup(A_tet)[1])
+julia> length(pointGroup(A_tet))
 16
 ```
 
@@ -94,7 +91,7 @@ julia> A_almost_cubic = [1.0  0    0;
                          0    1.0  0;
                          0    0    1.0+1e-15];
 
-julia> length(pointGroup(A_almost_cubic)[1])
+julia> length(pointGroup(A_almost_cubic))
 48
 ```
 
@@ -103,7 +100,7 @@ At a 1e-15 distortion (well below `tol`), Spacey still sees this as cubic. That'
 ## What you learned
 
 - `pointGroup(A)` accepts a 3×3 matrix or three basis vectors.
-- It returns `(LG, G)` — integer-matrix and Cartesian forms of the same operations.
+- It returns a `Vector{Matrix{Int}}` of integer-matrix lattice operations. For Cartesian rotations of the same ops, use `toCartesian(LG, A)`.
 - A simple cubic lattice has 48 symmetries; a tetragonal lattice has 16.
 - The number is intrinsic to the *lattice geometry* — atom positions don't enter at this level.
 

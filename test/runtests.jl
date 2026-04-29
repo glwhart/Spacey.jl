@@ -32,14 +32,18 @@ function LG_G_test(LG,G,A)
     return all([norm(A*lg*inv(A)-g) for (lg,g) ∈ zip(LG,G)] .< 5e-15)
 end
 
-@testset "LG/G tests" begin
+@testset "pointGroup on the 14 Bravais lattices" begin
     for (name, (A,nops)) ∈ BravaisLatticeList
         println(name, ",  nOps: ", nops)
         A = minkReduce(A)
-        LG,G = pointGroup(A)
+        LG = pointGroup(A)
+        @test length(LG) == nops
         @test isagroup(LG)
+        # toCartesian gives back the Cartesian rotations and they form a group too
+        # (the relationship `G = A·LG·A⁻¹` preserves group structure).
+        G = toCartesian(LG, A)
         @test isagroup(G)
-        @test all([norm(A*lg*inv(A)-g) for (lg,g) ∈ zip(LG,G)] .< 5e-15)
+        @test all([norm(A*lg*inv(A) - g) for (lg, g) ∈ zip(LG, G)] .< 5e-15)
     end
 end
 
@@ -88,7 +92,7 @@ end
     # Simple cubic example of snap function, ~1% noise
     a1 = [1+.01,0,0]; a2 = [0.,1-.01,0]; a3 = [0,0,1-.001];
     u,v,w = minkReduce(a1,a2,a3)
-    ops,_ = Spacey.pointGroup_robust(u,v,w;tol=5e-2)
+    ops = Spacey.pointGroup_robust(u,v,w;tol=5e-2)
     @test isagroup(ops)
     a,b,c,iops,rops = snapToSymmetry_SVD(u,v,w,ops)
     @test det([a b c])≈det([a1 a2 a3])
@@ -100,9 +104,8 @@ end
     # Simple tetragonal example of snap
     a1 = [1+.01,0,0]; a2 = [0.,1-.01,0]; a3 = [0,0,1.5];
     u,v,w = minkReduce(a1,a2,a3)
-    ops,R = Spacey.pointGroup_robust(u,v,w;tol=5e-2)
+    ops = Spacey.pointGroup_robust(u,v,w;tol=5e-2)
     @test isagroup(ops)
-    @test isagroup(R)
     a,b,c,iops,rops = snapToSymmetry_SVD(u,v,w,ops)
     @test length(iops)==16
     @test norm(a)≈norm(b)
@@ -115,7 +118,7 @@ end
     println("Orthorhombic example of snap")
     a1 = [1,0.01,-.005]; a2 = [0.001,2,-0.01]; a3 = [0.02,-0.003,1.5];
     u,v,w = minkReduce(a1,a2,a3)
-    ops, R = Spacey.pointGroup_robust(u,v,w;tol=5e-2)
+    ops = Spacey.pointGroup_robust(u,v,w;tol=5e-2)
     a,b,c,iops,rops = snapToSymmetry_SVD(u,v,w,ops)
     @test length(iops)==8
     @test det([a b c])≈det([a1 a2 a3])
@@ -128,28 +131,28 @@ end
     a1 = [1/16 - .0001, .001, .0001]
     a2 = [-0.001, 16-.0001, -.0001]
     a3 = [-.0001, .0001, 1.51]
-    ops,_ = pointGroup(minkReduce(hcat(a1,a2,a3)))
+    ops = pointGroup(minkReduce(hcat(a1,a2,a3)))
     @test length(ops)==8
 
     println("Example of large aspect ratio: 500 (should still succeed)")
     a1 = [1/10 - .0001, .001, .0001]
     a2 = [-0.001, 50-.0001, -.0001]
     a3 = [-.0001, .0001, 1.51]
-    ops,_ = pointGroup(minkReduce(hcat(a1,a2,a3)))
+    ops = pointGroup(minkReduce(hcat(a1,a2,a3)))
     @test length(ops)==8
 
     println("Example of large aspect ratio: 512 (fails, even with large tolerance)")
     a1 = [1/16 - .0001, .001, .0001]
     a2 = [-0.001, 32-.0001, -.0001]
     a3 = [-.0001, .0001, 1.51]
-    ops,_ = Spacey.pointGroup_robust(minkReduce(a1,a2,a3)[1:3]...;tol=9e-1)
+    ops = Spacey.pointGroup_robust(minkReduce(a1,a2,a3)[1:3]...;tol=9e-1)
     @test length(ops)==4
 
     println("Example of large aspect ratio: 1024 (fails, even with large tolerance)")
     a1 = [1/32 - .0001, .001, .0001]
     a2 = [-0.001, 32-.0001, -.0001]
     a3 = [-.0001, .0001, 1.51]
-    ops,_ = Spacey.pointGroup_robust(minkReduce(a1,a2,a3)[1:3]...;tol=9e-1)
+    ops = Spacey.pointGroup_robust(minkReduce(a1,a2,a3)[1:3]...;tol=9e-1)
     @test length(ops)==4
 
 
@@ -157,7 +160,7 @@ end
     a1 = [1/32 - .0001, .00001, .00001]
     a2 = [-0.0001, 32-.0001, -.00001]
     a3 = [-.0001, .00001, 1.51]
-    ops,_ = Spacey.pointGroup_robust(minkReduce(a1,a2,a3)[1:3]...;tol=1e-1)
+    ops = Spacey.pointGroup_robust(minkReduce(a1,a2,a3)[1:3]...;tol=1e-1)
     @test length(ops)==8
 end
 
@@ -172,7 +175,7 @@ end
             for ε ∈ plim
                 if tol < 12*ε/a; break; end # Anything less than 5*ε/a will fail for many cases. Slight tetragonal distortions from bcc/fcc will be found as cubic if tol is too big or distortion is too small.
                 Atest =  hcat(minkReduce(eachcol(A*a + (2*rand(3,3).-1)*ε*a)...)[1:3]...)
-                nSuccess = count([length(pointGroup(Atest;tol=tol)[1])==nops for _ ∈ 1:Navg])
+                nSuccess = count([length(pointGroup(Atest;tol=tol))==nops for _ ∈ 1:Navg])
                 if nSuccess != Navg
                     @show Atest
                     error("Pointgroup size is not $nops.  tol: ", tol, "  ε: ", ε,"  nSuccess: ", nSuccess)
@@ -199,10 +202,10 @@ end
         tight_tol = ε / 100
         loose_tol = 100 * ε
         @test length(Spacey.pointGroup_simple(u, v, w)) == 16
-        @test length(Spacey.pointGroup_robust(u, v, w; tol=tight_tol)[1]) == 16
-        @test length(Spacey.pointGroup_robust(u, v, w; tol=loose_tol)[1]) == 48
+        @test length(Spacey.pointGroup_robust(u, v, w; tol=tight_tol)) == 16
+        @test length(Spacey.pointGroup_robust(u, v, w; tol=loose_tol)) == 48
         @test_logs (:warn, r"near a symmetry boundary") match_mode=:any Spacey.pointGroup_robust(u, v, w; tol=loose_tol, verify_stable=true)
-        @test length(Spacey.pointGroup_robust(u, v, w; tol=tight_tol, verify_stable=true)[1]) == 16
+        @test length(Spacey.pointGroup_robust(u, v, w; tol=tight_tol, verify_stable=true)) == 16
     end
 end
 

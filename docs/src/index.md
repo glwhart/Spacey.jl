@@ -18,7 +18,7 @@ julia> using Pkg; Pkg.add(url="https://github.com/glwhart/Spacey.jl")
 
 julia> using Spacey
 
-julia> LG, G = pointGroup([1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0]);
+julia> LG = pointGroup([1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0]);
 
 julia> length(LG)   # 48 — the cubic point group
 48

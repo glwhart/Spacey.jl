@@ -34,7 +34,7 @@ julia> using Spacey
 
 julia> u = [1.0, 0, 0]; v = [-0.5, sqrt(3)/2, 0]; w = [0, 0, sqrt(8/3)];   # ideal HCP
 
-julia> length(pointGroup(u, v, w; tol=1e-6)[1])             # tight, finds 24
+julia> length(pointGroup(u, v, w; tol=1e-6))             # tight, finds 24
 24
 ```
 
@@ -47,10 +47,10 @@ julia> u = [1.0001, 0, 0]; v = [-0.5+1e-4, sqrt(3)/2 - 5e-5, 0]; w = [0, 0, sqrt
 
 julia> u, v, w = minkReduce(u, v, w)[1:3];   # noisy bases may need explicit reduction first
 
-julia> length(pointGroup(u, v, w; tol=1e-2)[1])    # tol matched to the noise — finds 24
+julia> length(pointGroup(u, v, w; tol=1e-2))    # tol matched to the noise — finds 24
 24
 
-julia> length(pointGroup(u, v, w; tol=1e-6)[1])    # tighter than the noise — symmetry breaks
+julia> length(pointGroup(u, v, w; tol=1e-6))    # tighter than the noise — symmetry breaks
 4
 ```
 

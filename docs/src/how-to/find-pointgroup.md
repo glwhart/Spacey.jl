@@ -1,6 +1,6 @@
 # Find a point group
 
-[`pointGroup`](../reference/point-groups.md) is the single public entry point. It accepts either three basis vectors or a 3×3 matrix and returns the tuple `(LG, G)` (lattice-coordinate integer matrices and their Cartesian rotations).
+[`pointGroup`](../reference/point-groups.md) is the single public entry point. It accepts either three basis vectors or a 3×3 matrix and returns a `Vector{Matrix{Int}}` of lattice-coordinate integer matrices. If you need Cartesian rotations, pass the result through [`toCartesian`](../reference/space-groups.md).
 
 ## 1. Have three basis vectors (or a matrix)
 
@@ -17,20 +17,20 @@ julia> using Spacey
 
 julia> u = [1.0, 0, 0]; v = [0.5, √3/2, 0]; w = [0.0, 0, √(8/3)];
 
-julia> LG, G = pointGroup(u, v, w);
+julia> LG = pointGroup(u, v, w);
 
 julia> length(LG)   # hexagonal point group has 24 ops
 24
 ```
 
-The two halves of the tuple are related by `A · LG[i] · inv(A) ≈ G[i]` where `A = [u v w]` — same operation, different basis.
+To get the Cartesian rotations, call `G = toCartesian(LG, [u v w])`. The two forms are related by `A · LG[i] · inv(A) ≈ G[i]` where `A = [u v w]` — same operation, different basis.
 
 For a lattice given as a 3×3 matrix, pass it directly:
 
 ```jldoctest
 julia> using Spacey, LinearAlgebra
 
-julia> length(pointGroup(Matrix{Float64}(I, 3, 3))[1])
+julia> length(pointGroup(Matrix{Float64}(I, 3, 3)))
 48
 ```
 
@@ -43,7 +43,7 @@ julia> using Spacey
 
 julia> u = [1.0, 0, 0]; v = [0, 1.0, 0]; w = [0, 0, 1.0];
 
-julia> length(pointGroup(u, v, w; tol=1e-6)[1])   # tight: cubic, 48
+julia> length(pointGroup(u, v, w; tol=1e-6))   # tight: cubic, 48
 48
 ```
 
@@ -62,7 +62,7 @@ julia> u = [1.0, 1, 2]; v = [1.0, 2, 1]; w = [2.0, 1, 1];   # rhombohedral
 
 julia> u, v, w = minkReduce(u, v, w)[1:3];
 
-julia> length(pointGroup(u, v, w)[1])
+julia> length(pointGroup(u, v, w))
 12
 
 julia> u, v, w = [1.0, 1, 2], [1.0, 2, 1], [2.0, 1, 1];   # reset to the original
@@ -71,7 +71,7 @@ julia> u, v, w = Spacey.threeDrotation(u, v, w, π/3, π/5, π/7);   # rotate by
 
 julia> u, v, w = minkReduce(u, v, w)[1:3];
 
-julia> length(pointGroup(u, v, w)[1])
+julia> length(pointGroup(u, v, w))
 12
 ```
 

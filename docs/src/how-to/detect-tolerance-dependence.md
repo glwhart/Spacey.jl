@@ -19,7 +19,7 @@ julia> using Spacey
 
 julia> u = [1.0, 0, 0]; v = [0, 1.0, 0]; w = [0, 0, 1.0];   # exact cubic
 
-julia> length(pointGroup(u, v, w; verify_stable=true)[1])   # silent: 48 at all tols
+julia> length(pointGroup(u, v, w; verify_stable=true))   # silent: 48 at all tols
 48
 ```
 

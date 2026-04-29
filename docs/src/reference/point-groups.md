@@ -1,6 +1,6 @@
 # Point groups
 
-The public point-group API is one function: [`pointGroup`](#Spacey.pointGroup). It accepts either three basis vectors or a 3×3 matrix and returns the tuple `(LG, G)` of integer-matrix lattice operations and Cartesian rotations.
+The public point-group API is one function: [`pointGroup`](#Spacey.pointGroup). It accepts either three basis vectors or a 3×3 matrix and returns a `Vector{Matrix{Int}}` of integer-matrix lattice operations. For the Cartesian-rotation form of the same operations, use [`toCartesian`](space-groups.md#Spacey.toCartesian).
 
 ## Public API
 

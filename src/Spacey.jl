@@ -349,7 +349,7 @@ julia> crystal_system([1.0 0 0; 0 1.2 0; 0 0 1.5])
 function crystal_system(A::AbstractMatrix{<:Real}; lattice_tol::Real=0.01)
     A_red = minkReduce(Float64.(A))
     u, v, w = eachcol(A_red)
-    LG, _ = pointGroup_robust(u, v, w; tol=lattice_tol)
+    LG = pointGroup_robust(u, v, w; tol=lattice_tol)
     order = length(LG)
     order == 2  && return :triclinic
     order == 4  && return :monoclinic
@@ -568,6 +568,43 @@ toCartesian(op::SpacegroupOp, A::AbstractMatrix) =
     (A * op.R * inv(A), A * op.τ)
 
 """
+    toCartesian(op::AbstractMatrix{<:Integer}, A::AbstractMatrix)
+    toCartesian(LG::AbstractVector{<:AbstractMatrix{<:Integer}}, A::AbstractMatrix)
+
+Convert a lattice-coordinate point-group operation (a single integer
+matrix) — or a whole vector of them, like the result of [`pointGroup`](@ref) —
+to Cartesian rotation form. Returns `A · op · inv(A)` for the single-op
+method and `[A · op · inv(A) for op in LG]` for the vector method.
+
+These overloads exist because `pointGroup` returns just the integer-matrix
+form (since v0.8); use these helpers if you need the Cartesian rotations.
+
+# Examples
+```jldoctest
+julia> using Spacey, LinearAlgebra
+
+julia> A = Matrix{Float64}(I, 3, 3);
+
+julia> LG = pointGroup(A);
+
+julia> G = toCartesian(LG, A);   # Cartesian rotations of the cubic point group
+
+julia> length(G)
+48
+
+julia> G[findfirst(==(Matrix{Int}(I, 3, 3)), LG)]   # identity in Cartesian
+3×3 Matrix{Float64}:
+ 1.0  0.0  0.0
+ 0.0  1.0  0.0
+ 0.0  0.0  1.0
+```
+"""
+toCartesian(op::AbstractMatrix{<:Integer}, A::AbstractMatrix) = A * op * inv(A)
+
+toCartesian(LG::AbstractVector{<:AbstractMatrix{<:Integer}}, A::AbstractMatrix) =
+    [A * op * inv(A) for op in LG]
+
+"""
     Spacey.threeDrotation(u, v, w, α, β, γ)
 
 Rotate the basis vectors `u, v, w` by Euler angles `α, β, γ` (the
@@ -710,7 +747,9 @@ end
     Spacey.pointGroup_robust(u, v, w; tol=0.01, verify_stable=false)
 
 Tolerance-tunable point-group finder for noisy real-world input. Returns
-the same `(LG, G)` tuple as the public [`pointGroup`](@ref).
+a `Vector{Matrix{Int}}` of the lattice-coordinate symmetry operations —
+the same form the public [`pointGroup`](@ref) returns. For Cartesian
+rotations, pass the result through [`toCartesian`](@ref).
 
 Internal — not exported. The public entry point [`pointGroup`](@ref) is a
 thin wrapper around this function (with the same defaults). Reach this
@@ -742,7 +781,7 @@ julia> using Spacey
 
 julia> u = [1.0, 0, 0]; v = [0, 1.0, 0]; w = [0, 0, 1.0];
 
-julia> length(Spacey.pointGroup_robust(u, v, w)[1])
+julia> length(Spacey.pointGroup_robust(u, v, w))
 48
 ```
 """
@@ -798,15 +837,14 @@ for il ∈ [48,24,16,12,8,4,2] # These are the only possible group sizes for a 3
      end
 end
 result_ops = ops[tp][1:maxl]
-result_Rc  = Rc[tp][1:maxl]
 if verify_stable
     tight_tol = tol / 1000
-    tight_ops, _ = pointGroup_robust(u, v, w; tol=tight_tol, verify_stable=false)
+    tight_ops = pointGroup_robust(u, v, w; tol=tight_tol, verify_stable=false)
     if length(tight_ops) != length(result_ops)
         @warn "pointGroup_robust: group size depends on tolerance — lattice is near a symmetry boundary." tol group_at_tol=length(result_ops) tight_tol group_at_tight_tol=length(tight_ops)
     end
 end
-return result_ops, result_Rc
+return result_ops
 end
 
 """
@@ -872,7 +910,7 @@ function spacegroup(c::Crystal; lattice_tol::Real=0.01,
     c_red = Crystal(A_red, r_red, c.types; coords=:fractional)
 
     # 4. Point group of the reduced lattice
-    LG_red, _ = pointGroup_robust(u_red, v_red, w_red; tol=lattice_tol)
+    LG_red = pointGroup_robust(u_red, v_red, w_red; tol=lattice_tol)
 
     # 5. Choose the probe atom type — the one with the fewest atoms, so the
     #    per-R candidate-τ set is as small as possible. Ties broken by
@@ -988,7 +1026,8 @@ u,v,w=[Afinal[:,i] for i ∈ 1:length(u)]
 if det([u v w]) < 0 
      u,v,w = v,u,w
 end
-iops,rops = pointGroup_robust(u,v,w)
+iops = pointGroup_robust(u,v,w)
+rops = toCartesian(iops, hcat(u,v,w))
 return u,v,w,iops,rops
 end
 
@@ -999,10 +1038,15 @@ end
 Find the point group of the 3D lattice spanned by basis vectors `u, v, w`,
 or equivalently by the columns of a 3×3 matrix `A`.
 
-Returns the tuple `(LG, G)` where:
-- `LG::Vector{Matrix{Int}}` — operations in lattice coordinates (integer
-  matrices satisfying `A · LG[i] · inv(A) ≈ G[i]`).
-- `G::Vector{Matrix{Float64}}` — Cartesian-coordinate rotations.
+Returns a `Vector{Matrix{Int}}` of the symmetry operations expressed in
+lattice coordinates. Each entry is a 3×3 integer matrix; if the basis
+matrix is `A` then the Cartesian rotation corresponding to op `M` is
+`A · M · inv(A)`. Use [`toCartesian`](@ref) to convert when needed.
+
+(The pre-v0.8 API returned a `(LG, G)` tuple of lattice and Cartesian
+forms together. The Cartesian half was almost always discarded by callers
+and the LG/G ambiguity was a documented footgun — see the v0.8 release
+notes. Convert with `toCartesian(LG, A)` if you actually need `G`.)
 
 # Keyword arguments
 - `tol::Real=0.01` — relative tolerance applied to the (volume-normalized)
@@ -1025,10 +1069,10 @@ julia> using LinearAlgebra
 
 julia> u = [1.0, 0, 0]; v = [0, 1.0, 0]; w = [0, 0, 1.0];
 
-julia> length(pointGroup(u, v, w)[1])
+julia> length(pointGroup(u, v, w))
 48
 
-julia> length(pointGroup(Matrix{Float64}(I, 3, 3))[1])
+julia> length(pointGroup(Matrix{Float64}(I, 3, 3)))
 48
 ```
 """

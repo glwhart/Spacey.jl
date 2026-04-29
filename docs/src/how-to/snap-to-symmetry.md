@@ -13,7 +13,7 @@ julia> using Spacey, LinearAlgebra
 
 julia> u = [1.01, 0.0, 0.0]; v = [0.0, 0.99, 0.0]; w = [0.0, 0.0, 0.999];
 
-julia> LG, _ = pointGroup(u, v, w; tol=0.05);   # tol=0.05 absorbs the 1% noise
+julia> LG = pointGroup(u, v, w; tol=0.05);   # tol=0.05 absorbs the 1% noise
 
 julia> length(LG)                                # 48 — pointGroup sees this as cubic
 48

@@ -42,8 +42,8 @@ function panel(label, basis_fn, truth_fn, εs, tols)
         print(@sprintf("%12.0e", ε))
         for t ∈ tols
             try
-                n_loose = length(Spacey.pointGroup_robust(u, v, w; tol=t)[1])
-                n_tight = length(Spacey.pointGroup_robust(u, v, w; tol=t/1000)[1])
+                n_loose = length(Spacey.pointGroup_robust(u, v, w; tol=t))
+                n_tight = length(Spacey.pointGroup_robust(u, v, w; tol=t/1000))
                 print(@sprintf("%9d%s", n_loose, mark(n_loose, n_tight, truth)))
             catch e
                 print(@sprintf("%10s", "err"))
