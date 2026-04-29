@@ -53,29 +53,35 @@ Pass `verify_stable=true` to re-run the algorithm at `tol/1000` and emit a `@war
 
 ## Rotation invariance
 
-The point group is intrinsic to the lattice — applying an arbitrary 3D rotation to the basis must not change the result. Take a rhombohedral basis `(1,1,2), (1,2,1), (2,1,1)`: it has 12 ops (D₃d), with the 3-fold axis along the body diagonal `(1,1,1)`. Rotating to an arbitrary orientation should still give 12. Pass through `minkReduce` first because (a) the raw rhombohedral basis above is not Minkowski-reduced — its differences are shorter than the basis vectors — and (b) the rotated basis generally won't be reduced either:
+The point group is intrinsic to the lattice — applying an arbitrary 3D rotation to the basis must not change the result. Take a rhombohedral basis `(1,1,2), (1,2,1), (2,1,1)`: it has 12 ops (D₃d), with the 3-fold axis along the body diagonal `(1,1,1)`. Rotating to an arbitrary orientation should still give 12. The raw rhombohedral basis above is not Minkowski-reduced (its differences are shorter than the basis vectors), and the rotated basis won't be reduced either, but `pointGroup` Minkowski-reduces internally by default:
 
 ```jldoctest
-julia> using Spacey, MinkowskiReduction
+julia> using Spacey
 
-julia> u = [1.0, 1, 2]; v = [1.0, 2, 1]; w = [2.0, 1, 1];   # rhombohedral
-
-julia> u, v, w = minkReduce(u, v, w)[1:3];
+julia> u = [1.0, 1, 2]; v = [1.0, 2, 1]; w = [2.0, 1, 1];   # rhombohedral, not Mink-reduced
 
 julia> length(pointGroup(u, v, w))
 12
 
-julia> u, v, w = [1.0, 1, 2], [1.0, 2, 1], [2.0, 1, 1];   # reset to the original
-
 julia> u, v, w = Spacey.threeDrotation(u, v, w, π/3, π/5, π/7);   # rotate by Euler angles (π/3, π/5, π/7)
-
-julia> u, v, w = minkReduce(u, v, w)[1:3];
 
 julia> length(pointGroup(u, v, w))
 12
 ```
 
 Same group order, regardless of orientation. (`Spacey.threeDrotation` is an internal test helper — see the variants table below for the convention on internal names.)
+
+If you want `pointGroup` to error rather than silently reduce — useful as a self-check when you believe the input is already reduced — pass `auto_reduce=false`:
+
+```jldoctest
+julia> using Spacey
+
+julia> u = [1.0, 1, 2]; v = [1.0, 2, 1]; w = [2.0, 1, 1];
+
+julia> pointGroup(u, v, w; auto_reduce=false)
+ERROR: Input basis for 'pointGroup' is not Minkowski-reduced. Either pass `auto_reduce=true` (the default) or run `minkReduce` first.
+[...]
+```
 
 ## Variants reachable via the qualified name
 

@@ -349,7 +349,7 @@ julia> crystal_system([1.0 0 0; 0 1.2 0; 0 0 1.5])
 function crystal_system(A::AbstractMatrix{<:Real}; lattice_tol::Real=0.01)
     A_red = minkReduce(Float64.(A))
     u, v, w = eachcol(A_red)
-    LG = pointGroup_robust(u, v, w; tol=lattice_tol)
+    LG = pointGroup_robust(u, v, w; tol=lattice_tol, auto_reduce=false)
     order = length(LG)
     order == 2  && return :triclinic
     order == 4  && return :monoclinic
@@ -744,7 +744,7 @@ return ops
 end
 
 """
-    Spacey.pointGroup_robust(u, v, w; tol=0.01, verify_stable=false)
+    Spacey.pointGroup_robust(u, v, w; tol=0.01, verify_stable=false, auto_reduce=true)
 
 Tolerance-tunable point-group finder for noisy real-world input. Returns
 a `Vector{Matrix{Int}}` of the lattice-coordinate symmetry operations —
@@ -764,12 +764,18 @@ variants (e.g. comparing against `Spacey.pointGroup_fast`).
   algorithm re-runs at `tol/1000` and emits a `@warn` if the operation
   count differs between the two runs (i.e. the lattice is near a
   symmetry boundary). The returned group is unchanged.
+- `auto_reduce::Bool=true` — Minkowski-reduce the input automatically
+  before searching for symmetries. The returned operations are still
+  expressed in the user's *input* basis (a unimodular change-of-basis is
+  applied internally to map the reduced-basis ops back). Set to `false`
+  to assert the input is already reduced; the function then errors if
+  it isn't (the pre-v0.8 strict behavior, useful as a self-check).
 
-Algorithm: Minkowski-reduce input (the matrix wrapper is required to be
-already-reduced, so this is verified at entry), enumerate candidate basis
-permutations from the {-1,0,1}³ neighbor set, filter by norm match →
-volume conservation → orthogonality, then keep the largest subset that
-closes under multiplication.
+Algorithm: Minkowski-reduce input (or verify it's already reduced if
+`auto_reduce=false`), enumerate candidate basis permutations from the
+{-1,0,1}³ neighbor set, filter by norm match → volume conservation →
+orthogonality, keep the largest subset that closes under multiplication,
+then transform the result back to the user's basis if needed.
 
 A `@warn` fires automatically when the input aspect ratio exceeds 100 —
 results may be unreliable for ratios above ~500 due to floating-point
@@ -785,10 +791,29 @@ julia> length(Spacey.pointGroup_robust(u, v, w))
 48
 ```
 """
-function pointGroup_robust(u,v,w;tol=0.01, verify_stable::Bool=false)
-# Mink reduction can change the basis even when the basis is already reduced (degenerate cases). So don't do it here. But do check that no reduction is needed.
-if !(orthogonalityDefect(u,v,w)≈orthogonalityDefect(minkReduce(u,v,w)[1:3]...))
-    error("Input basis for 'pointGroup' is not reduced. Use 'minkReduce' to pick the shortest basis vectors.")
+function pointGroup_robust(u, v, w; tol=0.01, verify_stable::Bool=false,
+                                    auto_reduce::Bool=true)
+# Handle the input basis: either reduce it ourselves (default) or verify the
+# caller's reduced-basis assertion. When auto-reducing we keep the change-of-
+# basis matrix so we can map the operations back to the user's basis at the end.
+local U_basis::Matrix{Int}, Uinv_basis::Matrix{Int}
+needs_basis_change = false
+if auto_reduce
+    A_orig = hcat(u, v, w)
+    u, v, w = minkReduce(u, v, w)[1:3]
+    A_red = hcat(u, v, w)
+    # A_orig = A_red · U_basis where U_basis is unimodular (both bases span the
+    # same lattice). Round to absorb floating-point noise.
+    U_basis = round.(Int, inv(A_red) * A_orig)
+    Uinv_basis = round.(Int, inv(Float64.(U_basis)))
+    abs(det(U_basis)) == 1 ||
+        error("Mink reduction yielded a non-unimodular change-of-basis (det = $(det(U_basis))).")
+    needs_basis_change = U_basis != Matrix{Int}(I, 3, 3)
+else
+    # Mink reduction can change the basis even when the basis is already reduced (degenerate cases). So don't do it here. But do check that no reduction is needed.
+    if !(orthogonalityDefect(u,v,w)≈orthogonalityDefect(minkReduce(u,v,w)[1:3]...))
+        error("Input basis for 'pointGroup' is not Minkowski-reduced. Either pass `auto_reduce=true` (the default) or run `minkReduce` first.")
+    end
 end
 inputVol = ∛(abs(u×v⋅w)) # Rescale the basis to have a volume of 1, avoid floating point issues
 u, v, w = u ./ inputVol, v ./ inputVol, w ./ inputVol
@@ -837,9 +862,19 @@ for il ∈ [48,24,16,12,8,4,2] # These are the only possible group sizes for a 3
      end
 end
 result_ops = ops[tp][1:maxl]
+if needs_basis_change
+    # Map ops from the reduced-basis representation back to the user's basis:
+    # if R_cart = A_red · M_red · inv(A_red) = A_orig · M_orig · inv(A_orig)
+    # and A_orig = A_red · U_basis, then M_orig = U_basis⁻¹ · M_red · U_basis.
+    result_ops = [Uinv_basis * op * U_basis for op in result_ops]
+end
 if verify_stable
     tight_tol = tol / 1000
-    tight_ops = pointGroup_robust(u, v, w; tol=tight_tol, verify_stable=false)
+    # Skip auto_reduce in the recursion: at this point the local u,v,w are
+    # already reduced (and rescaled), and verify_stable only inspects the
+    # length of the returned group — which is invariant under basis choice.
+    tight_ops = pointGroup_robust(u, v, w; tol=tight_tol, verify_stable=false,
+                                            auto_reduce=false)
     if length(tight_ops) != length(result_ops)
         @warn "pointGroup_robust: group size depends on tolerance — lattice is near a symmetry boundary." tol group_at_tol=length(result_ops) tight_tol group_at_tight_tol=length(tight_ops)
     end
@@ -910,7 +945,8 @@ function spacegroup(c::Crystal; lattice_tol::Real=0.01,
     c_red = Crystal(A_red, r_red, c.types; coords=:fractional)
 
     # 4. Point group of the reduced lattice
-    LG_red = pointGroup_robust(u_red, v_red, w_red; tol=lattice_tol)
+    LG_red = pointGroup_robust(u_red, v_red, w_red; tol=lattice_tol,
+                                                     auto_reduce=false)
 
     # 5. Choose the probe atom type — the one with the fewest atoms, so the
     #    per-R candidate-τ set is as small as possible. Ties broken by
@@ -1032,8 +1068,8 @@ return u,v,w,iops,rops
 end
 
 """
-    pointGroup(u, v, w; tol=0.01, verify_stable=false)
-    pointGroup(A; tol=0.01, verify_stable=false)
+    pointGroup(u, v, w; tol=0.01, verify_stable=false, auto_reduce=true)
+    pointGroup(A; tol=0.01, verify_stable=false, auto_reduce=true)
 
 Find the point group of the 3D lattice spanned by basis vectors `u, v, w`,
 or equivalently by the columns of a 3×3 matrix `A`.
@@ -1042,6 +1078,12 @@ Returns a `Vector{Matrix{Int}}` of the symmetry operations expressed in
 lattice coordinates. Each entry is a 3×3 integer matrix; if the basis
 matrix is `A` then the Cartesian rotation corresponding to op `M` is
 `A · M · inv(A)`. Use [`toCartesian`](@ref) to convert when needed.
+
+By default the input is Minkowski-reduced internally, so any non-reduced
+basis is accepted. The returned operations are still expressed in the
+*input* basis (a unimodular change-of-basis maps them back). Pass
+`auto_reduce=false` to assert the input is already reduced — useful as a
+self-check; the function will error if the assertion fails.
 
 (The pre-v0.8 API returned a `(LG, G)` tuple of lattice and Cartesian
 forms together. The Cartesian half was almost always discarded by callers
@@ -1077,11 +1119,14 @@ julia> length(pointGroup(Matrix{Float64}(I, 3, 3)))
 ```
 """
 pointGroup(u::AbstractVector, v::AbstractVector, w::AbstractVector;
-           tol::Real=0.01, verify_stable::Bool=false) =
-    pointGroup_robust(u, v, w; tol=tol, verify_stable=verify_stable)
+           tol::Real=0.01, verify_stable::Bool=false, auto_reduce::Bool=true) =
+    pointGroup_robust(u, v, w; tol=tol, verify_stable=verify_stable,
+                                auto_reduce=auto_reduce)
 
-pointGroup(A::AbstractMatrix; tol::Real=0.01, verify_stable::Bool=false) =
-    pointGroup_robust(A[:,1], A[:,2], A[:,3]; tol=tol, verify_stable=verify_stable)
+pointGroup(A::AbstractMatrix; tol::Real=0.01, verify_stable::Bool=false,
+                              auto_reduce::Bool=true) =
+    pointGroup_robust(A[:,1], A[:,2], A[:,3]; tol=tol, verify_stable=verify_stable,
+                                              auto_reduce=auto_reduce)
 
 """
     Spacey.aspectRatio(a1, a2, a3)

@@ -47,6 +47,39 @@ end
     end
 end
 
+@testset "pointGroup auto_reduce" begin
+    # Non-Mink-reduced FCC basis (same lattice as ([0.5 0.5 0; 0.5 0 0.5; 0 0.5 0.5])
+    # but with a longer first column).
+    A = [0.0 0.5 1.0; 0.5 0.0 1.0; 0.5 0.5 1.0]
+    @test !isMinkReduced(A)
+
+    # Default (auto_reduce=true): silently reduces and returns ops in the user's basis.
+    LG = pointGroup(A)
+    @test length(LG) == 48
+    @test isagroup(LG)
+    @test all(eltype(M) <: Integer for M in LG)
+    # Ops live in the *input* basis: A · LG · inv(A) must be a Cartesian rotation.
+    for M in LG
+        R = A * M * inv(A)
+        @test norm(R'R - I) < 1e-12
+        @test isapprox(abs(det(R)), 1.0; atol=1e-12)
+    end
+
+    # Three-vector form behaves identically.
+    u, v, w = eachcol(A)
+    @test length(pointGroup(u, v, w)) == 48
+
+    # auto_reduce=false preserves the strict pre-v0.8 behavior: error on non-reduced input.
+    @test_throws ErrorException pointGroup(A; auto_reduce=false)
+    @test_throws ErrorException pointGroup(u, v, w; auto_reduce=false)
+
+    # On already-reduced input, auto_reduce=true and =false agree (sets, not order).
+    A_red = minkReduce(A)
+    LG_auto = Set(pointGroup(A_red))
+    LG_strict = Set(pointGroup(A_red; auto_reduce=false))
+    @test LG_auto == LG_strict
+end
+
 @testset "pointGroup_simple, random rotations" begin
     u = [1, 0, 0]
     v = [0.5, √3 / 2, 0]
