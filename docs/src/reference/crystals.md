@@ -17,6 +17,13 @@ default_pos_tol
 crystal_system
 ```
 
+## Primitivization
+
+```@docs
+is_primitive
+make_primitive
+```
+
 ## Index
 
 ```@index

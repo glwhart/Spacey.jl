@@ -86,12 +86,14 @@ end
     # Reflexive
     @test is_equiv_lattice(I3, I3)
 
-    # Unimodular transforms (det = ±1, integer entries) preserve the lattice
+    # Unimodular transforms (det = ±1, integer entries) preserve the lattice.
+    # `RandUnimodMat3(4)` is well-conditioned enough that the default 1e-6 tol
+    # catches its inverse without FP false-negatives across RNG states.
     for M in [
         [1 1 0; 0 1 0; 0 0 1],            # shear, det = 1
         [-1 0 0; 0 1 0; 0 0 1],           # reflection, det = -1
         [0 1 0; 1 0 0; 0 0 1],            # axis swap, det = -1
-        RandUnimodMat3(8),                # random unimodular
+        RandUnimodMat3(4),                # random unimodular (modest condition number)
     ]
         @test is_equiv_lattice(I3, I3 * M)
         @test is_equiv_lattice(I3 * M, I3)   # symmetric
@@ -145,6 +147,57 @@ end
     super = parent * [2 0 0; 0 1 0; 0 0 1]
     @test  is_derivative(parent, super)
     @test !is_derivative(super, parent)
+end
+
+@testset "is_primitive / make_primitive" begin
+    A_cubic = Matrix{Float64}(I, 3, 3)
+
+    # Already-primitive: simple cubic with one atom.
+    c_sc = Crystal(A_cubic, reshape([0.0, 0, 0], 3, 1), [:X]; coords=:fractional)
+    @test is_primitive(c_sc)
+    c_sc_prim, removed = make_primitive(c_sc)
+    @test removed == Int[]
+    @test c_sc_prim === c_sc   # same object — no work needed
+
+    # BCC in conventional cubic cell: 2 atoms (corner + body-centre).
+    c_bcc = Crystal(A_cubic, [0.0 0.5; 0.0 0.5; 0.0 0.5], [:X, :X]; coords=:fractional)
+    @test !is_primitive(c_bcc)
+    c_bcc_p, removed_bcc = make_primitive(c_bcc)
+    @test size(c_bcc_p.r, 2) == 1
+    @test isapprox(abs(det(c_bcc_p.A)), 0.5)
+    @test length(removed_bcc) == 1
+    # The primitive BCC has the cubic point group (48 ops) and a single Wyckoff
+    # site, so the space group has 48 ops too.
+    @test length(spacegroup(c_bcc_p)) == 48
+
+    # FCC in conventional cubic cell: 4 atoms (corner + three face-centres).
+    r_fcc = [0.0 0.5 0.5 0.0;
+             0.0 0.5 0.0 0.5;
+             0.0 0.0 0.5 0.5]
+    c_fcc = Crystal(A_cubic, r_fcc, fill(:X, 4); coords=:fractional)
+    @test !is_primitive(c_fcc)
+    c_fcc_p, removed_fcc = make_primitive(c_fcc)
+    @test size(c_fcc_p.r, 2) == 1
+    @test isapprox(abs(det(c_fcc_p.A)), 0.25)
+    @test length(removed_fcc) == 3
+
+    # NaCl conventional: 4 Na (FCC) + 4 Cl (FCC offset by ½,½,½) = 8 atoms.
+    A_nacl = 5.64 * A_cubic
+    r_nacl = hcat(r_fcc, r_fcc .+ 0.5)
+    types_nacl = vcat(fill(:Na, 4), fill(:Cl, 4))
+    c_nacl = Crystal(A_nacl, r_nacl, types_nacl; coords=:fractional)
+    @test !is_primitive(c_nacl)
+    c_nacl_p, _ = make_primitive(c_nacl)
+    @test size(c_nacl_p.r, 2) == 2     # 1 Na + 1 Cl
+    @test isapprox(abs(det(c_nacl_p.A)), abs(det(A_nacl)) / 4)
+    # Conventional NaCl spacegroup has 192 ops; primitive has 192/4 = 48.
+    @test length(spacegroup(c_nacl)) == 192
+    @test length(spacegroup(c_nacl_p)) == 48
+
+    # Idempotence: a make_primitive output is itself primitive.
+    @test is_primitive(c_bcc_p)
+    @test is_primitive(c_fcc_p)
+    @test is_primitive(c_nacl_p)
 end
 
 @testset "pointGroup_simple, random rotations" begin

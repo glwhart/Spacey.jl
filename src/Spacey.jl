@@ -5,7 +5,8 @@ using StatsBase
 export pointGroup, snapToSymmetry_SVD, isagroup,
        Crystal, isSpacegroupOp, fractional, cartesian, default_pos_tol,
        crystal_system, SpacegroupOp, toCartesian, spacegroup,
-       is_equiv_lattice, is_derivative
+       is_equiv_lattice, is_derivative,
+       is_primitive, make_primitive
 # Internal / not-exported (reach via `Spacey.<name>(...)`):
 # - `pointGroup_robust`, `pointGroup_fast`, `pointGroup_simple` — the
 #   public point-group entry point is `pointGroup` (which delegates to
@@ -952,6 +953,214 @@ return result_ops
 end
 
 """
+    Spacey._probe_atoms(c::Crystal) -> (probe_indices, i0)
+
+Pick the atom type with the fewest representatives in `c` as the probe
+type. Returns the indices of all atoms of that type plus the first such
+index. Used by [`spacegroup`](@ref) and [`_find_self_translations`](@ref)
+to keep the per-rotation τ-enumeration small.
+
+Internal — not exported.
+"""
+function _probe_atoms(c::Crystal)
+    types_unique = unique(c.types)
+    counts = [count(==(t), c.types) for t in types_unique]
+    probe_type = types_unique[argmin(counts)]
+    probe_indices = findall(==(probe_type), c.types)
+    return probe_indices, probe_indices[1]
+end
+
+"""
+    Spacey._find_translations_for_rotation(R, c, probe_indices, i0; pos_tol) -> Vector{Vector{Float64}}
+
+For a candidate rotation `R` (integer matrix in `c.A`'s basis), enumerate
+the fractional translations `τ` such that the operation `(R, τ)` is a
+symmetry of `c`. Each surviving τ has been verified by [`isSpacegroupOp`](@ref).
+
+This is the inner loop of [`spacegroup`](@ref) and the core of
+[`_find_self_translations`](@ref) (which fixes `R = I`).
+
+Internal — not exported.
+"""
+function _find_translations_for_rotation(R, c::Crystal, probe_indices, i0;
+                                         pos_tol::Real)
+    image_i0 = R * c.r[:, i0]
+    τs = Vector{Float64}[]
+    for j in probe_indices
+        τ = mod.(c.r[:, j] .- image_i0, 1.0)
+        if isSpacegroupOp(R, τ, c; tol=pos_tol)
+            push!(τs, τ)
+        end
+    end
+    return τs
+end
+
+"""
+    Spacey._find_self_translations(c::Crystal; pos_tol=default_pos_tol(c))
+        -> Vector{Vector{Float64}}
+
+Return the fractional translations `τ` such that `(R = I, τ)` is a symmetry
+of crystal `c`. The list always contains `τ = (0, 0, 0)` (the identity);
+extra entries are the centering translations of a non-primitive cell.
+
+`length(_find_self_translations(c)) == 1` iff `c` is primitive — see
+[`is_primitive`](@ref) and [`make_primitive`](@ref).
+
+Internal — not exported.
+"""
+function _find_self_translations(c::Crystal; pos_tol::Real=default_pos_tol(c))
+    probe_indices, i0 = _probe_atoms(c)
+    R = Matrix{Int}(I, 3, 3)
+    return _find_translations_for_rotation(R, c, probe_indices, i0; pos_tol)
+end
+
+"""
+    is_primitive(c::Crystal; pos_tol=default_pos_tol(c)) -> Bool
+
+Return `true` iff the crystal `c` is described in a primitive cell — i.e.
+the only fractional translation that maps `c` onto itself is `(0, 0, 0)`.
+A `false` return means `c` has a centering translation; pass it to
+[`make_primitive`](@ref) to reduce.
+
+The criterion is purely geometric (no symmetry operations applied) and
+runs in `O(N²)` for `N` atoms.
+
+# Examples
+```jldoctest
+julia> using Spacey, LinearAlgebra
+
+julia> A = Matrix{Float64}(I, 3, 3);
+
+julia> c1 = Crystal(A, reshape([0.0, 0, 0], 3, 1), [:X]; coords=:fractional);   # primitive cubic
+
+julia> is_primitive(c1)
+true
+
+julia> c2 = Crystal(A, [0.0 0.5; 0.0 0.5; 0.0 0.5], [:X, :X]; coords=:fractional);  # BCC, conventional cell
+
+julia> is_primitive(c2)
+false
+```
+"""
+is_primitive(c::Crystal; pos_tol::Real=default_pos_tol(c)) =
+    length(_find_self_translations(c; pos_tol)) == 1
+
+"""
+    make_primitive(c::Crystal; pos_tol=default_pos_tol(c)) -> (Crystal, Vector{Int})
+
+Return a primitive description of crystal `c`, plus the indices of atoms
+that were dropped (one representative kept per centering equivalence class).
+If `c` is already primitive, returns `(c, Int[])`.
+
+Algorithm: find the fractional self-translations of `c` (the centering
+group). Build a candidate Cartesian basis pool from the original lattice
+columns plus the non-zero centering vectors, then search triples for one
+whose volume is `|det(c.A)| / k` (where `k` is the centering multiplicity)
+and which expresses every candidate vector as an integer combination —
+that triple is a primitive basis. Atomic positions are folded into the
+primitive cell and deduplicated.
+
+# Examples
+```jldoctest
+julia> using Spacey, LinearAlgebra
+
+julia> A = Matrix{Float64}(I, 3, 3);
+
+julia> c_bcc = Crystal(A, [0.0 0.5; 0.0 0.5; 0.0 0.5], [:X, :X]; coords=:fractional);
+
+julia> c_prim, removed = make_primitive(c_bcc);
+
+julia> size(c_prim.r, 2)            # one atom per primitive cell
+1
+
+julia> isapprox(abs(det(c_prim.A)), abs(det(A)) / 2)   # half the conventional volume
+true
+
+julia> length(removed)              # one of the two original atoms was dropped
+1
+```
+"""
+function make_primitive(c::Crystal; pos_tol::Real=default_pos_tol(c))
+    T = _find_self_translations(c; pos_tol)
+    k = length(T)
+    if k == 1
+        return c, Int[]
+    end
+
+    # Candidate primitive lattice vectors — all guaranteed to lie in the
+    # primitive lattice. Original cell columns expressed in fractional coords
+    # are the standard basis vectors; non-zero centering translations are
+    # already fractional. Convert all to Cartesian for the volume search.
+    cands_frac = Vector{Float64}[[1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0]]
+    for τ in T
+        if norm(τ) > pos_tol     # skip the identity translation
+            push!(cands_frac, collect(τ))
+        end
+    end
+    cands_cart = [c.A * f for f in cands_frac]
+    perm = sortperm(norm.(cands_cart))   # prefer short bases
+    cands_cart = cands_cart[perm]
+    n = length(cands_cart)
+
+    V_orig = abs(det(c.A))
+    V_target = V_orig / k
+
+    A_new = nothing
+    for i in 1:n-2, j in i+1:n-1, l in j+1:n
+        B = hcat(cands_cart[i], cands_cart[j], cands_cart[l])
+        d = abs(det(B))
+        if d < 1e-12 * V_orig
+            continue   # degenerate triple
+        end
+        if !isapprox(d, V_target; rtol=1e-6)
+            continue
+        end
+        # Verify every candidate is an integer combination of B's columns.
+        Binv = inv(B)
+        all_integer = true
+        for v in cands_cart
+            f = Binv * v
+            if !isapprox(f, round.(f); atol=1e-6)
+                all_integer = false
+                break
+            end
+        end
+        if all_integer
+            A_new = B
+            break    # first valid triple — shortest by sort order
+        end
+    end
+
+    A_new === nothing &&
+        error("make_primitive: failed to find a primitive basis from the candidate set (this is a bug — please open an issue with the input crystal).")
+
+    # Fold atomic positions into the new (smaller) primitive cell, then
+    # deduplicate. The centering translations guarantee N_new = N / k.
+    r_new = mod.(inv(A_new) * c.A * c.r, 1.0)
+    keep = Int[]
+    removed = Int[]
+    for i in 1:size(r_new, 2)
+        is_dup = false
+        for j in keep
+            c.types[i] == c.types[j] || continue
+            # Signed mod-1 difference, then back to Cartesian for tolerance check.
+            diff_frac = mod.(r_new[:, i] .- r_new[:, j] .+ 0.5, 1.0) .- 0.5
+            if norm(A_new * diff_frac) < pos_tol
+                is_dup = true
+                break
+            end
+        end
+        if is_dup
+            push!(removed, i)
+        else
+            push!(keep, i)
+        end
+    end
+
+    return Crystal(A_new, r_new[:, keep], c.types[keep]; coords=:fractional), removed
+end
+
+"""
     spacegroup(c::Crystal; lattice_tol=0.01, pos_tol=default_pos_tol(c),
                            verify_stable=false)
 
@@ -1020,22 +1229,14 @@ function spacegroup(c::Crystal; lattice_tol::Real=0.01,
     # 5. Choose the probe atom type — the one with the fewest atoms, so the
     #    per-R candidate-τ set is as small as possible. Ties broken by
     #    first-appearance.
-    types_unique = unique(c.types)
-    counts = [count(==(t), c.types) for t in types_unique]
-    probe_type = types_unique[argmin(counts)]
-    probe_indices = findall(==(probe_type), c.types)
-    i0 = probe_indices[1]
+    probe_indices, i0 = _probe_atoms(c_red)
 
     # 6. For each R_red, enumerate candidate τ_red via probe-atom differences,
     #    test each with `isSpacegroupOp`, collect surviving (R_red, τ_red).
     ops_red = Tuple{Matrix{Int}, Vector{Float64}}[]
     for R in LG_red
-        image_i0 = R * c_red.r[:, i0]
-        for j in probe_indices
-            τ = mod.(c_red.r[:, j] .- image_i0, 1.0)
-            if isSpacegroupOp(R, τ, c_red; tol=pos_tol)
-                push!(ops_red, (Matrix{Int}(R), τ))
-            end
+        for τ in _find_translations_for_rotation(R, c_red, probe_indices, i0; pos_tol)
+            push!(ops_red, (Matrix{Int}(R), τ))
         end
     end
 
