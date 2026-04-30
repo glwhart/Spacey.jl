@@ -6,7 +6,8 @@ export pointGroup, snapToSymmetry_SVD, isagroup,
        Crystal, isSpacegroupOp, fractional, cartesian, default_pos_tol,
        crystal_system, SpacegroupOp, toCartesian, spacegroup,
        is_equiv_lattice, is_derivative,
-       is_primitive, make_primitive
+       is_primitive, make_primitive,
+       read_poscar
 # Internal / not-exported (reach via `Spacey.<name>(...)`):
 # - `pointGroup_robust`, `pointGroup_fast`, `pointGroup_simple` — the
 #   public point-group entry point is `pointGroup` (which delegates to
@@ -289,6 +290,148 @@ Crystal(A::AbstractMatrix, r::AbstractMatrix, types::AbstractVector{T}; coords) 
 Crystal(a1::AbstractVector, a2::AbstractVector, a3::AbstractVector,
         r::AbstractMatrix, types::AbstractVector; coords) =
     Crystal(hcat(a1, a2, a3), r, types; coords=coords)
+
+"""
+    read_poscar(path::AbstractString) -> Crystal
+
+Read a POSCAR file (VASP 4 or VASP 5+) from `path` and return a [`Crystal`](@ref).
+
+POSCAR layout (line numbers refer to the standard ordering):
+1. comment / title — discarded
+2. scaling factor — a single positive number scales the lattice; a negative
+   number is treated as a target volume and the lattice is rescaled to match
+3. three lines of lattice vectors (rows in POSCAR; transposed to columns
+   in the returned `Crystal`)
+4. (VASP 5+ only) element symbols, e.g. `Na Cl`
+5. atom counts per species, e.g. `4 4`
+6. (optional) `Selective dynamics` — recognised and skipped
+7. coordinate type — `Direct`/`d` for fractional, `Cartesian`/`c`/`k` for Cartesian
+8. one position per atom (`x y z`, with any trailing per-atom flags ignored)
+
+VASP 4 files (which omit the element-symbol line) are detected by the first
+token on line 6 being numeric; the species are then labelled `:X1`, `:X2`,
+… in order. Trailing velocity / lattice-velocity blocks after the position
+list are ignored.
+
+The returned `Crystal` has `Symbol`-typed atom labels.
+
+# Examples
+
+```jldoctest
+julia> using Spacey
+
+julia> path = tempname() * ".poscar";
+
+julia> write(path, \"\"\"
+       NaCl conventional
+       1.0
+       5.64 0.0  0.0
+       0.0  5.64 0.0
+       0.0  0.0  5.64
+       Na Cl
+       4 4
+       Direct
+       0.0 0.0 0.0
+       0.5 0.5 0.0
+       0.5 0.0 0.5
+       0.0 0.5 0.5
+       0.5 0.5 0.5
+       0.0 0.0 0.5
+       0.0 0.5 0.0
+       0.5 0.0 0.0
+       \"\"\");
+
+julia> c = read_poscar(path);
+
+julia> c.types
+8-element Vector{Symbol}:
+ :Na
+ :Na
+ :Na
+ :Na
+ :Cl
+ :Cl
+ :Cl
+ :Cl
+
+julia> length(spacegroup(c))   # NaCl conventional cell, Pm-3m centering
+192
+```
+"""
+function read_poscar(path::AbstractString)
+    lines = readlines(path)
+    length(lines) ≥ 8 ||
+        error("read_poscar: file too short to be a valid POSCAR ($(length(lines)) lines)")
+    idx = 2   # skip comment line
+
+    # Line 2: scaling factor (single scalar).
+    scale = parse(Float64, first(split(strip(lines[idx]))))
+    idx += 1
+
+    # Lines 3–5: lattice vectors as rows.
+    rows = Matrix{Float64}(undef, 3, 3)
+    for r in 1:3
+        toks = split(strip(lines[idx]))
+        rows[r, :] = parse.(Float64, toks[1:3])
+        idx += 1
+    end
+    A_raw = collect(transpose(rows))   # POSCAR rows → Crystal columns
+    A = if scale > 0
+        scale * A_raw
+    else
+        target_volume = -scale
+        s = (target_volume / abs(det(A_raw)))^(1/3)
+        s * A_raw
+    end
+
+    # Line 6: either species symbols (VASP 5+) or counts (VASP 4).
+    line6_toks = split(strip(lines[idx]))
+    idx += 1
+    local species, counts
+    if all(isdigit, first(line6_toks))
+        # VASP 4: counts only, no species names.
+        counts = parse.(Int, line6_toks)
+        species = [Symbol("X", i) for i in 1:length(counts)]
+    else
+        species = Symbol.(line6_toks)
+        counts = parse.(Int, split(strip(lines[idx])))
+        idx += 1
+    end
+    length(species) == length(counts) ||
+        error("read_poscar: $(length(species)) species but $(length(counts)) counts")
+
+    # Optional "Selective dynamics" line — recognised by leading 'S' / 's'.
+    if uppercase(first(strip(lines[idx]))) == 'S'
+        idx += 1
+    end
+
+    # Coordinate type: 'D' → fractional, 'C'/'K' → Cartesian.
+    coord_char = uppercase(first(strip(lines[idx])))
+    idx += 1
+    coords = if coord_char == 'D'
+        :fractional
+    elseif coord_char == 'C' || coord_char == 'K'
+        :cartesian
+    else
+        error("read_poscar: unrecognized coordinate type on line $(idx-1): \"$(strip(lines[idx-1]))\"")
+    end
+
+    # Positions: N atoms, each line is `x y z [trailing flags ignored]`.
+    N = sum(counts)
+    r = Matrix{Float64}(undef, 3, N)
+    for i in 1:N
+        toks = split(strip(lines[idx]))
+        r[:, i] = parse.(Float64, toks[1:3])
+        idx += 1
+    end
+
+    types = Symbol[]
+    for (sym, n) in zip(species, counts)
+        append!(types, fill(sym, n))
+    end
+
+    return Crystal(A, r, types; coords=coords)
+end
 
 
 """

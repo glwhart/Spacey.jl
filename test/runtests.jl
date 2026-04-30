@@ -200,6 +200,115 @@ end
     @test is_primitive(c_nacl_p)
 end
 
+@testset "read_poscar" begin
+    # VASP 5+ POSCAR (with element-symbol line). NaCl conventional cell.
+    poscar5 = """
+    NaCl conventional
+    1.0
+    5.64 0.0  0.0
+    0.0  5.64 0.0
+    0.0  0.0  5.64
+    Na Cl
+    4 4
+    Direct
+    0.0 0.0 0.0
+    0.5 0.5 0.0
+    0.5 0.0 0.5
+    0.0 0.5 0.5
+    0.5 0.5 0.5
+    0.0 0.0 0.5
+    0.0 0.5 0.0
+    0.5 0.0 0.0
+    """
+    p1 = tempname() * ".poscar"
+    write(p1, poscar5)
+    c1 = read_poscar(p1)
+    @test c1.A == 5.64 * Matrix{Float64}(I, 3, 3)
+    @test size(c1.r, 2) == 8
+    @test c1.types == vcat(fill(:Na, 4), fill(:Cl, 4))
+    @test length(spacegroup(c1)) == 192   # NaCl Fm-3m, conventional cell
+
+    # Cartesian-coordinate POSCAR (same NaCl, scale = 1.0 already, positions in Å).
+    poscar_cart = """
+    NaCl conventional, Cartesian
+    1.0
+    5.64 0.0  0.0
+    0.0  5.64 0.0
+    0.0  0.0  5.64
+    Na Cl
+    4 4
+    Cartesian
+    0.0  0.0  0.0
+    2.82 2.82 0.0
+    2.82 0.0  2.82
+    0.0  2.82 2.82
+    2.82 2.82 2.82
+    0.0  0.0  2.82
+    0.0  2.82 0.0
+    2.82 0.0  0.0
+    """
+    p2 = tempname() * ".poscar"
+    write(p2, poscar_cart)
+    c2 = read_poscar(p2)
+    @test c2.A == 5.64 * Matrix{Float64}(I, 3, 3)
+    # Cartesian → Crystal converts to fractional internally
+    @test isapprox(c2.r, c1.r; atol=1e-12)
+
+    # Selective dynamics line is recognised and skipped.
+    poscar_sd = """
+    Test selective dynamics
+    1.0
+    1.0 0.0 0.0
+    0.0 1.0 0.0
+    0.0 0.0 1.0
+    H
+    1
+    Selective dynamics
+    Direct
+    0.5 0.5 0.5 T T T
+    """
+    p3 = tempname() * ".poscar"
+    write(p3, poscar_sd)
+    c3 = read_poscar(p3)
+    @test c3.types == [:H]
+    @test isapprox(c3.r, reshape([0.5, 0.5, 0.5], 3, 1))
+
+    # Negative scaling factor = target volume (in Å³).
+    poscar_negscale = """
+    Cubic, target volume = 8 Å³
+    -8.0
+    1.0 0.0 0.0
+    0.0 1.0 0.0
+    0.0 0.0 1.0
+    X
+    1
+    Direct
+    0.0 0.0 0.0
+    """
+    p4 = tempname() * ".poscar"
+    write(p4, poscar_negscale)
+    c4 = read_poscar(p4)
+    @test isapprox(abs(det(c4.A)), 8.0)
+    @test c4.A == 2.0 * Matrix{Float64}(I, 3, 3)
+
+    # VASP 4 POSCAR (no element-symbol line); species labeled :X1, :X2.
+    poscar4 = """
+    Old VASP 4 format
+    1.0
+    1.0 0.0 0.0
+    0.0 1.0 0.0
+    0.0 0.0 1.0
+    1 1
+    Direct
+    0.0 0.0 0.0
+    0.5 0.5 0.5
+    """
+    p5 = tempname() * ".poscar"
+    write(p5, poscar4)
+    c5 = read_poscar(p5)
+    @test c5.types == [:X1, :X2]
+end
+
 @testset "pointGroup_simple, random rotations" begin
     u = [1, 0, 0]
     v = [0.5, √3 / 2, 0]

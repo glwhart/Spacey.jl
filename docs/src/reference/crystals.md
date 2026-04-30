@@ -8,6 +8,7 @@ The `Crystal` type bundles a lattice with atomic positions and type labels. All 
 Crystal
 fractional
 cartesian
+read_poscar
 ```
 
 ## Tolerances and classification
