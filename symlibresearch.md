@@ -299,21 +299,28 @@ This is `pointGroup_simple`'s only purpose. It exists to be a reference truth �
 
 ## v1.0 task list (in priority order)
 
+**Status: all six items shipped in v0.8.0 (2026-04-29).** Items 1–5 landed in
+Spacey.jl; item 6 (MinkowskiReduction.jl Gaussian stress panel) landed in that
+package's repo earlier in the same review pass. The v0.8.0 → v1.0.0 bump is
+held back deliberately to season the new APIs (predicates, `make_primitive`,
+`read_poscar`) under real downstream use before committing to long-term API
+stability. Reasons captured in the Spacey.jl release notes for v0.8.0.
+
 User-confirmed scope, with effort estimates:
 
-1. **Allow non-Mink-reduced input to the three-vector form of `pointGroup`** (~30 min). The matrix-form wrapper already auto-reduces; the three-vector form errors out. Symmetric handling removes the footgun. Add a kwarg `auto_reduce=true` (default) with the current behavior preserved as `auto_reduce=false` for users who want to assert their input is already reduced.
+1. **Allow non-Mink-reduced input to the three-vector form of `pointGroup`** (~30 min). The matrix-form wrapper already auto-reduces; the three-vector form errors out. Symmetric handling removes the footgun. Add a kwarg `auto_reduce=true` (default) with the current behavior preserved as `auto_reduce=false` for users who want to assert their input is already reduced. **— Done, commit 95b9959.**
 
-2. **`is_equiv_lattice` / `is_derivative` predicates in Spacey** (~1 hour). Lattice-only predicates (no Crystal, no atoms). Test plan above.
+2. **`is_equiv_lattice` / `is_derivative` predicates in Spacey** (~1 hour). Lattice-only predicates (no Crystal, no atoms). Test plan above. **— Done, commit 74a5c0e. `is_derivative` docstring strengthened in cf52f62 to lead with the directional framing (the asymmetry is load-bearing, not a footgun).**
 
-3. **`make_primitive` / `is_primitive`** (~½ day, including refactoring `spacegroup` to share the "find fractional self-translations" helper). Closes the most visible functionality gap relative to symlib. Hard requirement: no duplicated code with `spacegroup`'s τ-enumeration step.
+3. **`make_primitive` / `is_primitive`** (~½ day, including refactoring `spacegroup` to share the "find fractional self-translations" helper). Closes the most visible functionality gap relative to symlib. Hard requirement: no duplicated code with `spacegroup`'s τ-enumeration step. **— Done, commit 546cb70. Three internal helpers (`Spacey._probe_atoms`, `Spacey._find_translations_for_rotation`, `Spacey._find_self_translations`) factored from `spacegroup`'s τ-loop; both `spacegroup` and `make_primitive` go through them.**
 
-4. **POSCAR reader** (~½ day). Function that reads a POSCAR-format file and returns a `Crystal`. Lots of users would benefit (the symlib drivers all use POSCAR-like input, and downstream ML-training-data workflows consume POSCAR by default). Could live in Spacey or as a small companion package; user preference is to ship in Spacey for accessibility.
+4. **POSCAR reader** (~½ day). Function that reads a POSCAR-format file and returns a `Crystal`. Lots of users would benefit (the symlib drivers all use POSCAR-like input, and downstream ML-training-data workflows consume POSCAR by default). Could live in Spacey or as a small companion package; user preference is to ship in Spacey for accessibility. **— Done, commit fb20213. Supports VASP 4 / VASP 5+, Direct/Cartesian coords, scaling factor (positive or negative-as-target-volume), `Selective dynamics` line.**
 
-5. **Drop `G` from `pointGroup`'s return** (substantial breaking change, ~½–1 day for the API + docs sweep + downstream Enumlib update). The `(LG, G)` tuple has been a footgun — users see two outputs, are unsure which to use, and downstream code shows a mix of `LG, _ = pointGroup(A)` (correct) and `LG, G = pointGroup(A)` with `G` then discarded. New API: `pointGroup(A)` returns just `LG`; a separate helper `to_cartesian(LG, A) → G` for users who genuinely want Cartesian rotations. Migrating Enumlib.jl is part of the same change.
+5. **Drop `G` from `pointGroup`'s return** (substantial breaking change, ~½–1 day for the API + docs sweep + downstream Enumlib update). The `(LG, G)` tuple has been a footgun — users see two outputs, are unsure which to use, and downstream code shows a mix of `LG, _ = pointGroup(A)` (correct) and `LG, G = pointGroup(A)` with `G` then discarded. New API: `pointGroup(A)` returns just `LG`; a separate helper `to_cartesian(LG, A) → G` for users who genuinely want Cartesian rotations. Migrating Enumlib.jl is part of the same change. **— Done first (so items 1–4 could land on the cleaner API). Spacey commit 4f2f029, Enumlib commit daa99af.**
 
 This was previously raised as a v0.8 cleanup in `phase2_plan.md` §6.2; promoted to a v1.0 task because the LG/G confusion compounds the longer it lives.
 
-6. **Pure-random Gaussian stress panel in MinkowskiReduction.jl** (~30 min — see "Test corpus" above). Not Spacey-side but related; the symlib review surfaced it.
+6. **Pure-random Gaussian stress panel in MinkowskiReduction.jl** (~30 min — see "Test corpus" above). Not Spacey-side but related; the symlib review surfaced it. **— Done earlier in the same review pass; in MinkowskiReduction.jl repo.**
 
 ### Explicitly out of scope for v1.0
 
