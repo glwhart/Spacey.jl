@@ -175,17 +175,22 @@ end
 """
     is_derivative(parent, child; tol=1e-6) -> Bool
 
-Test whether the lattice spanned by `child` is a sublattice of (a derivative
-of) the lattice spanned by `parent`. The relationship is one-way: every
-parent-lattice point need not be a child-lattice point.
+Test whether the lattice spanned by `child` is a **sublattice of** the lattice
+spanned by `parent` — i.e. every `child`-lattice point is also a
+`parent`-lattice point. The argument order is significant: this is a directed
+question, *not* symmetric. `is_derivative(parent, child)` and
+`is_derivative(child, parent)` answer different questions, and the second is
+true only when `parent` and `child` span the same lattice (index 1). For the
+symmetric "do they span the same lattice" question, use [`is_equiv_lattice`](@ref).
 
 A child lattice is a derivative iff `S = inv(parent) * child` has integer
-entries (no constraint on `|det(S)|`, which equals the index of the sublattice).
+entries; `|det(S)|` is then the *index* of the sublattice (8 for a 2×2×2
+cubic supercell, etc.). No volume constraint is imposed — that's the
+distinction from `is_equiv_lattice`, which additionally requires `|det(S)| = 1`.
 
-This is the test used to decide whether a candidate supercell is consistent
-with a given parent lattice (the standard derivative-superstructure
-enumeration question). Like [`is_equiv_lattice`](@ref), it operates on bare
-basis matrices.
+The standard use case is validating a candidate supercell against a known
+parent: "given the primitive cell I'm enumerating from, is this HNF a valid
+superlattice?" Operates on bare basis matrices, no atoms.
 
 # Examples
 ```jldoctest
@@ -195,10 +200,10 @@ julia> parent = Matrix{Float64}(I, 3, 3);
 
 julia> super = parent * [2 0 0; 0 2 0; 0 0 2];   # cubic 8× supercell
 
-julia> is_derivative(parent, super)
+julia> is_derivative(parent, super)              # super ⊂ parent
 true
 
-julia> is_derivative(super, parent)              # not symmetric: 1/2-integer entries
+julia> is_derivative(super, parent)              # parent ⊄ super (would need 1/2-integer entries)
 false
 ```
 """
