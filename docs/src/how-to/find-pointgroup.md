@@ -1,6 +1,6 @@
 # Find a point group
 
-[`pointGroup`](../reference/point-groups.md) is the single public entry point. It accepts either three basis vectors or a 3×3 matrix and returns a `Vector{Matrix{Int}}` of lattice-coordinate integer matrices. If you need Cartesian rotations, pass the result through [`toCartesian`](../reference/space-groups.md).
+[`pointgroup`](../reference/point-groups.md) is the single public entry point. It accepts either three basis vectors or a 3×3 matrix and returns a `Vector{Matrix{Int}}` of lattice-coordinate integer matrices. If you need Cartesian rotations, pass the result through [`to_cartesian`](../reference/space-groups.md).
 
 ## 1. Have three basis vectors (or a matrix)
 
@@ -10,27 +10,27 @@ julia> using Spacey
 julia> u = [1.0, 0, 0]; v = [0.5, √3/2, 0]; w = [0.0, 0, √(8/3)];   # ideal HCP
 ```
 
-## 2. Call `pointGroup`
+## 2. Call `pointgroup`
 
 ```jldoctest hcp
 julia> using Spacey
 
 julia> u = [1.0, 0, 0]; v = [0.5, √3/2, 0]; w = [0.0, 0, √(8/3)];
 
-julia> LG = pointGroup(u, v, w);
+julia> LG = pointgroup(u, v, w);
 
 julia> length(LG)   # hexagonal point group has 24 ops
 24
 ```
 
-To get the Cartesian rotations, call `G = toCartesian(LG, [u v w])`. The two forms are related by `A · LG[i] · inv(A) ≈ G[i]` where `A = [u v w]` — same operation, different basis.
+To get the Cartesian rotations, call `G = to_cartesian(LG, [u v w])`. The two forms are related by `A · LG[i] · inv(A) ≈ G[i]` where `A = [u v w]` — same operation, different basis.
 
 For a lattice given as a 3×3 matrix, pass it directly:
 
 ```jldoctest
 julia> using Spacey, LinearAlgebra
 
-julia> length(pointGroup(Matrix{Float64}(I, 3, 3)))
+julia> length(pointgroup(Matrix{Float64}(I, 3, 3)))
 48
 ```
 
@@ -43,7 +43,7 @@ julia> using Spacey
 
 julia> u = [1.0, 0, 0]; v = [0, 1.0, 0]; w = [0, 0, 1.0];
 
-julia> length(pointGroup(u, v, w; tol=1e-6))   # tight: cubic, 48
+julia> length(pointgroup(u, v, w; tol=1e-6))   # tight: cubic, 48
 48
 ```
 
@@ -53,50 +53,50 @@ Pass `verify_stable=true` to re-run the algorithm at `tol/1000` and emit a `@war
 
 ## Rotation invariance
 
-The point group is intrinsic to the lattice — applying an arbitrary 3D rotation to the basis must not change the result. Take a rhombohedral basis `(1,1,2), (1,2,1), (2,1,1)`: it has 12 ops (D₃d), with the 3-fold axis along the body diagonal `(1,1,1)`. Rotating to an arbitrary orientation should still give 12. The raw rhombohedral basis above is not Minkowski-reduced (its differences are shorter than the basis vectors), and the rotated basis won't be reduced either, but `pointGroup` Minkowski-reduces internally by default:
+The point group is intrinsic to the lattice — applying an arbitrary 3D rotation to the basis must not change the result. Take a rhombohedral basis `(1,1,2), (1,2,1), (2,1,1)`: it has 12 ops (D₃d), with the 3-fold axis along the body diagonal `(1,1,1)`. Rotating to an arbitrary orientation should still give 12. The raw rhombohedral basis above is not Minkowski-reduced (its differences are shorter than the basis vectors), and the rotated basis won't be reduced either, but `pointgroup` Minkowski-reduces internally by default:
 
 ```jldoctest
 julia> using Spacey
 
 julia> u = [1.0, 1, 2]; v = [1.0, 2, 1]; w = [2.0, 1, 1];   # rhombohedral, not Mink-reduced
 
-julia> length(pointGroup(u, v, w))
+julia> length(pointgroup(u, v, w))
 12
 
-julia> u, v, w = Spacey.threeDrotation(u, v, w, π/3, π/5, π/7);   # rotate by Euler angles (π/3, π/5, π/7)
+julia> u, v, w = Spacey.rotate_basis_3d(u, v, w, π/3, π/5, π/7);   # rotate by Euler angles (π/3, π/5, π/7)
 
-julia> length(pointGroup(u, v, w))
+julia> length(pointgroup(u, v, w))
 12
 ```
 
-Same group order, regardless of orientation. (`Spacey.threeDrotation` is an internal test helper — see the variants table below for the convention on internal names.)
+Same group order, regardless of orientation. (`Spacey.rotate_basis_3d` is an internal test helper — see the variants table below for the convention on internal names.)
 
-If you want `pointGroup` to error rather than silently reduce — useful as a self-check when you believe the input is already reduced — pass `auto_reduce=false`:
+If you want `pointgroup` to error rather than silently reduce — useful as a self-check when you believe the input is already reduced — pass `auto_reduce=false`:
 
 ```jldoctest
 julia> using Spacey
 
 julia> u = [1.0, 1, 2]; v = [1.0, 2, 1]; w = [2.0, 1, 1];
 
-julia> pointGroup(u, v, w; auto_reduce=false)
-ERROR: Input basis for 'pointGroup' is not Minkowski-reduced. Either pass `auto_reduce=true` (the default) or run `minkReduce` first.
+julia> pointgroup(u, v, w; auto_reduce=false)
+ERROR: ArgumentError: Input basis for 'pointgroup' is not Minkowski-reduced. Either pass `auto_reduce=true` (the default) or run `minkReduce` first.
 [...]
 ```
 
 ## Variants reachable via the qualified name
 
-`pointGroup` delegates to the internal robust finder (`pointGroup_robust`). Three variants are kept inside the package and reachable as `Spacey.<name>` for specialized use cases — none of them is exported, none is part of the public API contract:
+`pointgroup` delegates to the internal robust finder (`pointgroup_robust`). Three variants are kept inside the package and reachable as `Spacey.<name>` for specialized use cases — none of them is exported, none is part of the public API contract:
 
 | Internal name | Use case |
 |---|---|
-| `Spacey.pointGroup_robust` | The exact function `pointGroup` delegates to. Reach directly only when explicitly comparing variants. |
-| `Spacey.pointGroup_fast` | Synthetic / clean input, production speed; strict `isapprox` tolerance with no `tol` knob. |
-| `Spacey.pointGroup_simple` | Validation only. Brute-force; obviously correct but slow. |
+| `Spacey.pointgroup_robust` | The exact function `pointgroup` delegates to. Reach directly only when explicitly comparing variants. |
+| `Spacey.pointgroup_fast` | Synthetic / clean input, production speed; strict `isapprox` tolerance with no `tol` knob. |
+| `Spacey.pointgroup_simple` | Validation only. Brute-force; obviously correct but slow. |
 
-In normal use, prefer `pointGroup`.
+In normal use, prefer `pointgroup`.
 
 ## See also
 
-- Reference: [`pointGroup`](../reference/point-groups.md)
+- Reference: [`pointgroup`](../reference/point-groups.md)
 - Explanation: [Why Minkowski reduction](../explanation/why-minkowski.md), [Over-promotion](../explanation/over-promotion.md)
 - How-to: [Detect tolerance-dependent answers](detect-tolerance-dependence.md), [Handle noisy real-world data](handle-noisy-data.md)

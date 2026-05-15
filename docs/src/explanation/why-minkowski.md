@@ -80,5 +80,5 @@ Minkowski reduction is the foundation; tolerance handling is the superstructure 
 ## See also
 
 - Explanation: [Algorithm overview](algorithm-overview.md), [Tolerances](tolerances.md), [Over-promotion](over-promotion.md)
-- Reference: [`pointGroup`](../reference/point-groups.md)
+- Reference: [`pointgroup`](../reference/point-groups.md)
 - External: [MinkowskiReduction.jl](https://github.com/glwhart/MinkowskiReduction.jl); Hart, Jorgensen, Morgan, Forcade (2019), [*J. Phys. Commun.* 3, 065009](https://bsg.byu.edu/docs/papers/kpointFolding-J-Phys-Comm-3-065009.pdf).

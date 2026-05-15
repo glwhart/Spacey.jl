@@ -6,7 +6,7 @@ The space-group API. `spacegroup(c)` is the entry point; everything else either 
 
 ```@docs
 spacegroup
-isSpacegroupOp
+is_spacegroup_op
 ```
 
 ## The `SpacegroupOp` type
@@ -15,7 +15,7 @@ A single space-group operation `r ↦ R·r + τ`, in lattice (fractional) coordi
 
 ```@docs
 SpacegroupOp
-toCartesian
+to_cartesian
 ```
 
 ## Index

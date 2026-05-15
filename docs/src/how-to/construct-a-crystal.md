@@ -34,7 +34,7 @@ julia> r = [0.0 0.5; 0.0 0.5; 0.0 0.5];   # CsCl: Cs at origin, Cl at body-cente
 
 ## 3. Pick type labels
 
-Any vector of length `N`. Common choices: `Symbol`, `Int`, `String`. The type parameter is inferred from this vector — `Crystal{Symbol}`, `Crystal{Int}`, etc. Labels are used by `spacegroup` and `isSpacegroupOp` only to check that an op maps each atom to one of the *same type*.
+Any vector of length `N`. Common choices: `Symbol`, `Int`, `String`. The type parameter is inferred from this vector — `Crystal{Symbol}`, `Crystal{Int}`, etc. Labels are used by `spacegroup` and `is_spacegroup_op` only to check that an op maps each atom to one of the *same type*.
 
 ```jldoctest cscl
 julia> types = [:Cs, :Cl];

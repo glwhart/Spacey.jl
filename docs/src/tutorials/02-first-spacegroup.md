@@ -8,7 +8,7 @@ By the end you'll know how to:
 - Call `spacegroup`, and
 - Read the resulting `SpacegroupOp` objects.
 
-This tutorial picks up where [Find the point group of a cubic lattice](01-first-pointgroup.md) left off. If you haven't read it, do so first — `pointGroup` is the lattice-only step that `spacegroup` builds on. Plan on about fifteen minutes.
+This tutorial picks up where [Find the point group of a cubic lattice](01-first-pointgroup.md) left off. If you haven't read it, do so first — `pointgroup` is the lattice-only step that `spacegroup` builds on. Plan on about fifteen minutes.
 
 ## 1. Set up
 

@@ -15,8 +15,8 @@ A symmetry analysis that uses one tolerance for both can either accept too much 
 
 | Tolerance | Used by | Operates on | Default |
 |---|---|---|---|
-| `tol` (or `lattice_tol` for `spacegroup`) | `pointGroup`, `spacegroup` lattice step | volume-normalized lattice vectors | `0.01` |
-| `pos_tol` | `spacegroup`, `isSpacegroupOp` | atomic positions in the user's lattice basis | `default_pos_tol(c) = 0.01 · (V/N)^(1/3)` |
+| `tol` (or `lattice_tol` for `spacegroup`) | `pointgroup`, `spacegroup` lattice step | volume-normalized lattice vectors | `0.01` |
+| `pos_tol` | `spacegroup`, `is_spacegroup_op` | atomic positions in the user's lattice basis | `default_pos_tol(c) = 0.01 · (V/N)^(1/3)` |
 
 ## Lattice tolerance: `tol`
 
@@ -99,4 +99,4 @@ Spacey's `verify_stable` flag — re-run at 1/1000 the input tolerance, warn on 
 
 - Explanation: [Algorithm overview](algorithm-overview.md), [Over-promotion](over-promotion.md), [Why Minkowski reduction](why-minkowski.md)
 - How-to: [Handle noisy real-world data](../how-to/handle-noisy-data.md), [Detect tolerance-dependent answers](../how-to/detect-tolerance-dependence.md)
-- Reference: [`pointGroup`](../reference/point-groups.md), [`spacegroup`](../reference/space-groups.md), [`default_pos_tol`](../reference/crystals.md)
+- Reference: [`pointgroup`](../reference/point-groups.md), [`spacegroup`](../reference/space-groups.md), [`default_pos_tol`](../reference/crystals.md)

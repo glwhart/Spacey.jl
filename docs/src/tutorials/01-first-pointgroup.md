@@ -2,7 +2,7 @@
 
 Welcome! In this 5 min. tutorial you'll find the **point group** of a 3D Bravais lattice — the set of integer rotations that map the lattice to itself. We'll work through two short examples: a simple cubic lattice (which has the maximum 48 symmetries) and a tetragonal lattice (which has fewer, because it's stretched along one axis).
 
-By the end you'll know how to call `pointGroup` on a lattice you build by hand and read off the result. This tutorial assumes you have Spacey installed and a working Julia REPL. If `using Spacey` errors with "package not found," install it first:
+By the end you'll know how to call `pointgroup` on a lattice you build by hand and read off the result. This tutorial assumes you have Spacey installed and a working Julia REPL. If `using Spacey` errors with "package not found," install it first:
 
 ```julia
 julia> using Pkg
@@ -40,21 +40,21 @@ If you prefer to specify the three vectors individually, that works too:
 julia> u = [1.0, 0, 0]; v = [0, 1.0, 0]; w = [0, 0, 1.0];
 ```
 
-Both forms work as input to `pointGroup`; we'll use both below.
+Both forms work as input to `pointgroup`; we'll use both below.
 
-## 3. Call `pointGroup`
+## 3. Call `pointgroup`
 
-`pointGroup` returns a `Vector{Matrix{Int}}` — each entry is one symmetry operation, expressed as an integer matrix in the lattice basis. (If you need the same operations as Cartesian rotations, pass the result through `toCartesian`; we'll do that below.)
+`pointgroup` returns a `Vector{Matrix{Int}}` — each entry is one symmetry operation, expressed as an integer matrix in the lattice basis. (If you need the same operations as Cartesian rotations, pass the result through `to_cartesian`; we'll do that below.)
 
 For just the *order* of the group (the count of operations) we want `length(LG)`:
 
 ```jldoctest tut1
-julia> LG = pointGroup(A);
+julia> LG = pointgroup(A);
 
 julia> length(LG)
 48
 
-julia> length(pointGroup(u, v, w))    # same answer using the three-vector form
+julia> length(pointgroup(u, v, w))    # same answer using the three-vector form
 48
 ```
 
@@ -67,7 +67,7 @@ julia> Matrix{Int}(I, 3, 3) in LG
 true
 ```
 
-Note that `LG[1]` is *not* guaranteed to be the identity. `pointGroup` returns the 48 ops in an unspecified order, so the identity might be at any index. (`spacegroup` is different — it does sort the identity to index 1.) If you need to retrieve a specific op, look it up by what the matrix is rather than by where it sits in the list — for the identity, the test `Matrix{Int}(I, 3, 3) in LG` above; for any other op, `findfirst(==(target), LG)`.
+Note that `LG[1]` is *not* guaranteed to be the identity. `pointgroup` returns the 48 ops in an unspecified order, so the identity might be at any index. (`spacegroup` is different — it does sort the identity to index 1.) If you need to retrieve a specific op, look it up by what the matrix is rather than by where it sits in the list — for the identity, the test `Matrix{Int}(I, 3, 3) in LG` above; for any other op, `findfirst(==(target), LG)`.
 
 ## 4. Try a tetragonal lattice
 
@@ -78,7 +78,7 @@ julia> A_tet = [1.0  0    0;
                 0    1.0  0;
                 0    0    1.5];
 
-julia> length(pointGroup(A_tet))
+julia> length(pointgroup(A_tet))
 16
 ```
 
@@ -91,7 +91,7 @@ julia> A_almost_cubic = [1.0  0    0;
                          0    1.0  0;
                          0    0    1.0+1e-15];
 
-julia> length(pointGroup(A_almost_cubic))
+julia> length(pointgroup(A_almost_cubic))
 48
 ```
 
@@ -99,8 +99,8 @@ At a 1e-15 distortion (well below `tol`), Spacey still sees this as cubic. That'
 
 ## What you learned
 
-- `pointGroup(A)` accepts a 3×3 matrix or three basis vectors.
-- It returns a `Vector{Matrix{Int}}` of integer-matrix lattice operations. For Cartesian rotations of the same ops, use `toCartesian(LG, A)`.
+- `pointgroup(A)` accepts a 3×3 matrix or three basis vectors.
+- It returns a `Vector{Matrix{Int}}` of integer-matrix lattice operations. For Cartesian rotations of the same ops, use `to_cartesian(LG, A)`.
 - A simple cubic lattice has 48 symmetries; a tetragonal lattice has 16.
 - The number is intrinsic to the *lattice geometry* — atom positions don't enter at this level.
 

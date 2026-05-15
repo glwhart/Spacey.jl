@@ -217,14 +217,14 @@ The matching `hash` method makes ops safe as `Set` and `Dict` keys. This is the 
 
 ## 6. Convert to Cartesian form
 
-`spacegroup` returns ops in the user's lattice coordinates. To get the Cartesian rotation `R_c` and translation `τ_c` (e.g., for plotting or for combining with other Cartesian transforms), use [`toCartesian`](../reference/space-groups.md):
+`spacegroup` returns ops in the user's lattice coordinates. To get the Cartesian rotation `R_c` and translation `τ_c` (e.g., for plotting or for combining with other Cartesian transforms), use [`to_cartesian`](../reference/space-groups.md):
 
 ```jldoctest
 julia> using Spacey, LinearAlgebra
 
 julia> A = Matrix{Float64}(I, 3, 3);
 
-julia> R_cart, τ_cart = toCartesian(one(SpacegroupOp), A);
+julia> R_cart, τ_cart = to_cartesian(one(SpacegroupOp), A);
 
 julia> R_cart
 3×3 Matrix{Float64}:
@@ -243,6 +243,6 @@ The result is a `Tuple{Matrix{Float64},Vector{Float64}}`, **not** a `SpacegroupO
 
 ## See also
 
-- Reference: [`SpacegroupOp`](../reference/space-groups.md), [`toCartesian`](../reference/space-groups.md)
+- Reference: [`SpacegroupOp`](../reference/space-groups.md), [`to_cartesian`](../reference/space-groups.md)
 - How-to: [Find a space group](find-spacegroup.md)
 - Explanation: [Canonicalizing τ](../explanation/canonicalizing-tau.md)

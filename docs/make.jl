@@ -14,7 +14,7 @@ makedocs(
     ),
     modules  = [Spacey],
     # Only enforce that *exported* symbols appear in @docs/@autodocs blocks.
-    # Spacey has a handful of internal helpers with docstrings (e.g. avgVecOverOps)
+    # Spacey has a handful of internal helpers with docstrings (e.g. avg_vec_over_ops)
     # that we don't want to surface in the user-facing API; checkdocs=:exports
     # lets them keep their docstrings without forcing them into the reference.
     checkdocs = :exports,

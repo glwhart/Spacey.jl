@@ -59,28 +59,28 @@ All package code lives in the single file `src/Spacey.jl`. There is no code spli
 
 | Function | Purpose |
 |---|---|
-| `pointGroup(u, v, w; tol=0.01, verify_stable=false)` | **Public point-group API.** Accepts three vectors or a 3×3 matrix; thin wrapper over `Spacey.pointGroup_robust` with the same defaults. |
-| `pointGroup(A; tol=0.01, verify_stable=false)` | Matrix-form of the same. |
-| `snapToSymmetry_SVD(u, v, w, ops)` | Snap noisy lattice to exact symmetry via SVD |
-| `isagroup(members)` | Verify a set of matrices forms a group |
+| `pointgroup(u, v, w; tol=0.01, verify_stable=false)` | **Public point-group API.** Accepts three vectors or a 3×3 matrix; thin wrapper over `Spacey.pointgroup_robust` with the same defaults. |
+| `pointgroup(A; tol=0.01, verify_stable=false)` | Matrix-form of the same. |
+| `snap_to_symmetry_svd(u, v, w, ops)` | Snap noisy lattice to exact symmetry via SVD |
+| `is_group(members)` | Verify a set of matrices forms a group |
 | `Crystal(A, r, types; coords)` | Construct a crystal (required `coords` kwarg: `:fractional` or `:cartesian`) |
 | `spacegroup(c; lattice_tol=0.01, pos_tol=default_pos_tol(c), verify_stable=false)` | Find all `(R, τ)` space-group operations; opt-in stability check |
-| `isSpacegroupOp(R, τ, c; tol)` | Check if `(R, τ)` is a symmetry of crystal `c` |
+| `is_spacegroup_op(R, τ, c; tol)` | Check if `(R, τ)` is a symmetry of crystal `c` |
 | `fractional(c)`, `cartesian(c)` | Atomic positions in the respective basis |
 | `default_pos_tol(c)` | Default position tolerance: `0.01·(V/N)^(1/3)` |
 | `crystal_system(A)` / `crystal_system(c)` | Identify Bravais system from lattice holohedry (one of `:triclinic`, `:monoclinic`, `:orthorhombic`, `:tetragonal`, `:trigonal`, `:hexagonal`, `:cubic`) |
-| `toCartesian(op, A)` | Convert a `SpacegroupOp` to Cartesian `(R, τ)` tuple |
+| `to_cartesian(op, A)` | Convert a `SpacegroupOp` to Cartesian `(R, τ)` tuple |
 
-`pointGroup` returns a tuple `(LG, G)` where `LG` contains operations in lattice coordinates and `G` contains Cartesian rotations. These are related by `A * LG[i] * inv(A) == G[i]`.
+`pointgroup` returns a tuple `(LG, G)` where `LG` contains operations in lattice coordinates and `G` contains Cartesian rotations. These are related by `A * LG[i] * inv(A) == G[i]`.
 
 Internal point-group variants kept inside the package (not exported, reach via `Spacey.<name>`):
-- `Spacey.pointGroup_robust` — the function `pointGroup` delegates to. Same `(LG, G)` return.
-- `Spacey.pointGroup_fast` — synthetic / clean input, production speed; strict tolerance, no `tol` knob; returns just integer matrices.
-- `Spacey.pointGroup_simple` — brute-force validation finder; returns just Cartesian rotations.
+- `Spacey.pointgroup_robust` — the function `pointgroup` delegates to. Same `(LG, G)` return.
+- `Spacey.pointgroup_fast` — synthetic / clean input, production speed; strict tolerance, no `tol` knob; returns just integer matrices.
+- `Spacey.pointgroup_simple` — brute-force validation finder; returns just Cartesian rotations.
 
 `spacegroup(c)` returns a `Vector{SpacegroupOp}` with `R::Matrix{Int}` and `τ::Vector{Float64}`, both in the user's original basis. Identity is guaranteed at index 1; remaining order is unspecified. The struct supports composition (`*`), inversion (`inv`), application to a fractional position (`op(r)`), and mod-1 equality (via canonicalized `τ`).
 
-### Core Algorithm (pointGroup → Spacey.pointGroup_robust)
+### Core Algorithm (pointgroup → Spacey.pointgroup_robust)
 
 1. **Minkowski-reduce** the input basis (delegates to `MinkowskiReduction.jl`) — this is provably sufficient to define the candidate search space.
 2. **Generate candidates**: all integer-coefficient vectors from the 27-point {-1,0,1}³ grid applied to the reduced basis.
@@ -93,9 +93,9 @@ Key implementation detail: inputs are normalized by `∛|det(A)|` before compari
 ### Validation Strategy
 
 Three algorithm variants exist specifically for cross-validation (all internal — reach via `Spacey.<name>`):
-- `Spacey.pointGroup_simple`: brute-force over all integer matrices in [-1,1]³ — slow but obviously correct
-- `Spacey.pointGroup_fast`: optimized filter pipeline, strict tolerances — production speed
-- `Spacey.pointGroup_robust`: tolerance-tunable, designed for real-world noisy input (this is what the public `pointGroup` delegates to)
+- `Spacey.pointgroup_simple`: brute-force over all integer matrices in [-1,1]³ — slow but obviously correct
+- `Spacey.pointgroup_fast`: optimized filter pipeline, strict tolerances — production speed
+- `Spacey.pointgroup_robust`: tolerance-tunable, designed for real-world noisy input (this is what the public `pointgroup` delegates to)
 
 Tests verify all three agree on exact (non-noisy) inputs for all 14 Bravais lattice types.
 
@@ -110,11 +110,11 @@ Tests verify all three agree on exact (non-noisy) inputs for all 14 Bravais latt
 - Snap-to-symmetry: verifies volume conservation and correct group size after snapping
 - Parametric sweep: (tolerance, noise level) grid over all Bravais types
 - **Near-boundary tetragonal**: pins point-group over-promotion at loose `tol` and the `verify_stable` warning (see `test/nearMissBoundary.jl` for the diagnostic heatmap)
-- **Crystal/space-group infrastructure** (Phase 1): `Crystal` constructor validation, `isSpacegroupOp` trivial cases, `default_pos_tol` formula, helper accessors
-- **`SpacegroupOp` methods** (Phase 2): composition, inverse, callable, mod-1 equality, `toCartesian`
+- **Crystal/space-group infrastructure** (Phase 1): `Crystal` constructor validation, `is_spacegroup_op` trivial cases, `default_pos_tol` formula, helper accessors
+- **`SpacegroupOp` methods** (Phase 2): composition, inverse, callable, mod-1 equality, `to_cartesian`
 - **`spacegroup` Phase 2 core cases**: simple cubic, tetragonal, orthorhombic, triclinic, CsCl
 - **`spacegroup` Phase 3 known crystals**: NaCl (192), diamond (192), HCP (24)
-- **`spacegroup` AFLOW Part 1 (seed)**: hand-curated 14-prototype subset with structural sub-checks (closure, isSpacegroupOp cross-check, non-symmorphic signatures)
+- **`spacegroup` AFLOW Part 1 (seed)**: hand-curated 14-prototype subset with structural sub-checks (closure, is_spacegroup_op cross-check, non-symmorphic signatures)
 - **`spacegroup` AFLOW Parts 1, 2, 3 (full corpus)**: every prototype from the three published AFLOW papers (286 + 299 + 510 = 1095) auto-generated by `tools/generate_aflow_tests.jl` and tested against the order encoded in the prototype label. Deviations are flipped to `@test_broken` to pin current behavior
 - **`crystal_system`**: 14-Bravais smoke test plus AFLOW cross-check on all three parts (independent invariant: lattice holohedry order maps to crystal system)
 - **Phase 4 near-boundary crystal**: BaTiO₃-style ferroelectric, pins `verify_stable` warning behavior for `spacegroup` (heatmap in `test/nearMissBoundaryCrystal.jl`)
@@ -131,7 +131,7 @@ GitHub Actions runs tests on Ubuntu, macOS, and Windows with Julia 1.11 (x64). C
 
 ## Key Dependencies
 
-- `StatsBase`: used for averaging in `snapToSymmetry_avg`
+- `StatsBase`: used for averaging in `snap_to_symmetry_avg`
 - `LinearAlgebra`: core matrix operations throughout
 
 ## MinkowskiReduction.jl
@@ -157,18 +157,18 @@ The vector form always returns 4 values. The matrix form drops the iteration cou
 | Function | Purpose |
 |---|---|
 | `isMinkReduced(U,V,W)` or `isMinkReduced(M)` | Verify a basis is fully reduced (useful for assertions) |
-| `orthogonalityDefect(a,b,c)` | `∏‖vᵢ‖ / |det(A)|` — ≥ 1, equality iff the basis is orthogonal. Distinct from Spacey's internal `aspectRatio`: see note below. |
+| `orthogonalityDefect(a,b,c)` | `∏‖vᵢ‖ / |det(A)|` — ≥ 1, equality iff the basis is orthogonal. Distinct from Spacey's internal `aspect_ratio`: see note below. |
 | `DeviousMat(n)` | Generate an adversarial unimodular 3×3 matrix requiring many reduction steps; useful for stress-testing |
 | `RandUnimodMat3(k=10)` | Random unimodular 3×3 matrix; use to generate random-but-valid lattice transformations in tests |
 | `RandUnimodMat2(n)` | Same for 2×2 |
 | `isPermutationMatrix(M)` | Check if M is a signed permutation of the identity |
 | `GaussReduce(U,V)` | 2D Gauss reduction (used internally by `minkReduce`) |
 
-**`orthogonalityDefect` vs `aspectRatio` — these are NOT analogous.** They measure different things and a basis can score badly on one while scoring perfectly on the other:
+**`orthogonalityDefect` vs `aspect_ratio` — these are NOT analogous.** They measure different things and a basis can score badly on one while scoring perfectly on the other:
 
 - `orthogonalityDefect = ∏‖vᵢ‖ / |det(A)|` measures **angular** non-orthogonality. Equal to 1 (the minimum) iff the basis vectors are mutually perpendicular, regardless of their lengths.
-- `aspectRatio = max‖vᵢ‖ / min‖vᵢ‖` (after Minkowski reduction) measures **length disparity** between basis vectors, regardless of the angles between them.
+- `aspect_ratio = max‖vᵢ‖ / min‖vᵢ‖` (after Minkowski reduction) measures **length disparity** between basis vectors, regardless of the angles between them.
 
-Counter-example: the basis `(1,0,0), (0,1,0), (0,0,1000)` has `orthogonalityDefect = 1` (perfectly orthogonal) but `aspectRatio = 1000` (extremely elongated). Conversely, three equal-length but skewed vectors can have `aspectRatio = 1` and a large `orthogonalityDefect`.
+Counter-example: the basis `(1,0,0), (0,1,0), (0,0,1000)` has `orthogonalityDefect = 1` (perfectly orthogonal) but `aspect_ratio = 1000` (extremely elongated). Conversely, three equal-length but skewed vectors can have `aspect_ratio = 1` and a large `orthogonalityDefect`.
 
-For Spacey's purposes the two are not symmetric concerns. Spacey calls `minkReduce` before any symmetry analysis, and Minkowski reduction is exactly the operation that drives `orthogonalityDefect` down to whatever the lattice allows — so a poor pre-reduction defect is not a problem the user has to manage. Aspect ratio, by contrast, is a property of the *lattice itself* (e.g. a tetragonal cell with c ≫ a stays elongated no matter how it is reduced) and is what compresses the integer-grid filter's discriminative power. That's why `Spacey.pointGroup_robust` warns on `aspectRatio > 100` but does not warn on `orthogonalityDefect`.
+For Spacey's purposes the two are not symmetric concerns. Spacey calls `minkReduce` before any symmetry analysis, and Minkowski reduction is exactly the operation that drives `orthogonalityDefect` down to whatever the lattice allows — so a poor pre-reduction defect is not a problem the user has to manage. Aspect ratio, by contrast, is a property of the *lattice itself* (e.g. a tetragonal cell with c ≫ a stays elongated no matter how it is reduced) and is what compresses the integer-grid filter's discriminative power. That's why `Spacey.pointgroup_robust` warns on `aspect_ratio > 100` but does not warn on `orthogonalityDefect`.

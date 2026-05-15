@@ -32,31 +32,31 @@ function LG_G_test(LG,G,A)
     return all([norm(A*lg*inv(A)-g) for (lg,g) ∈ zip(LG,G)] .< 5e-15)
 end
 
-@testset "pointGroup on the 14 Bravais lattices" begin
+@testset "pointgroup on the 14 Bravais lattices" begin
     for (name, (A,nops)) ∈ BravaisLatticeList
         println(name, ",  nOps: ", nops)
         A = minkReduce(A)
-        LG = pointGroup(A)
+        LG = pointgroup(A)
         @test length(LG) == nops
-        @test isagroup(LG)
-        # toCartesian gives back the Cartesian rotations and they form a group too
+        @test is_group(LG)
+        # to_cartesian gives back the Cartesian rotations and they form a group too
         # (the relationship `G = A·LG·A⁻¹` preserves group structure).
-        G = toCartesian(LG, A)
-        @test isagroup(G)
+        G = to_cartesian(LG, A)
+        @test is_group(G)
         @test all([norm(A*lg*inv(A) - g) for (lg, g) ∈ zip(LG, G)] .< 5e-15)
     end
 end
 
-@testset "pointGroup auto_reduce" begin
+@testset "pointgroup auto_reduce" begin
     # Non-Mink-reduced FCC basis (same lattice as ([0.5 0.5 0; 0.5 0 0.5; 0 0.5 0.5])
     # but with a longer first column).
     A = [0.0 0.5 1.0; 0.5 0.0 1.0; 0.5 0.5 1.0]
     @test !isMinkReduced(A)
 
     # Default (auto_reduce=true): silently reduces and returns ops in the user's basis.
-    LG = pointGroup(A)
+    LG = pointgroup(A)
     @test length(LG) == 48
-    @test isagroup(LG)
+    @test is_group(LG)
     @test all(eltype(M) <: Integer for M in LG)
     # Ops live in the *input* basis: A · LG · inv(A) must be a Cartesian rotation.
     for M in LG
@@ -67,16 +67,16 @@ end
 
     # Three-vector form behaves identically.
     u, v, w = eachcol(A)
-    @test length(pointGroup(u, v, w)) == 48
+    @test length(pointgroup(u, v, w)) == 48
 
     # auto_reduce=false preserves the strict pre-v0.8 behavior: error on non-reduced input.
-    @test_throws ErrorException pointGroup(A; auto_reduce=false)
-    @test_throws ErrorException pointGroup(u, v, w; auto_reduce=false)
+    @test_throws ArgumentError pointgroup(A; auto_reduce=false)
+    @test_throws ArgumentError pointgroup(u, v, w; auto_reduce=false)
 
     # On already-reduced input, auto_reduce=true and =false agree (sets, not order).
     A_red = minkReduce(A)
-    LG_auto = Set(pointGroup(A_red))
-    LG_strict = Set(pointGroup(A_red; auto_reduce=false))
+    LG_auto = Set(pointgroup(A_red))
+    LG_strict = Set(pointgroup(A_red; auto_reduce=false))
     @test LG_auto == LG_strict
 end
 
@@ -117,7 +117,7 @@ end
     # equivalent to the original.
     for (_, (A, _nops)) ∈ BravaisLatticeList
         Ar = minkReduce(A)
-        for op in pointGroup(Ar)
+        for op in pointgroup(Ar)
             @test is_equiv_lattice(Ar, Ar * op)
         end
     end
@@ -309,83 +309,83 @@ end
     @test c5.types == [:X1, :X2]
 end
 
-@testset "pointGroup_simple, random rotations" begin
+@testset "pointgroup_simple, random rotations" begin
     u = [1, 0, 0]
     v = [0.5, √3 / 2, 0]
     w = [0, 0, √(8 / 3)]
-    @test length(Spacey.pointGroup_simple(u, v, w)) == 24
-    #@test all(abs.(det.(Spacey.pointGroup_robust(u,v,w)[2])).==1.0)
+    @test length(Spacey.pointgroup_simple(u, v, w)) == 24
+    #@test all(abs.(det.(Spacey.pointgroup_robust(u,v,w)[2])).==1.0)
     # Add a bit of noise
-    @test length(Spacey.pointGroup_simple(u, v.+[0,1e-9,0], w)) == 24
+    @test length(Spacey.pointgroup_simple(u, v.+[0,1e-9,0], w)) == 24
     # A bit more noise
-    @test length(Spacey.pointGroup_simple(u, v.+[0,1e-8,0], w)) ≠ 24
+    @test length(Spacey.pointgroup_simple(u, v.+[0,1e-8,0], w)) ≠ 24
     #ideal hex lattice, 120° between basal plane vectors
     a = -u + v
     b = v
     c = w
-    @test length(Spacey.pointGroup_simple(a, b, c)) == 24
+    @test length(Spacey.pointgroup_simple(a, b, c)) == 24
     # simple cubic lattice in unique orientation
-    d, e, f = Spacey.threeDrotation([1, 0, 0], [0, 1, 0], [0, 0, 1], π / 3, π / 5, π / 7)
-    @test length(Spacey.pointGroup_simple(d, e, f)) == 48
+    d, e, f = Spacey.rotate_basis_3d([1, 0, 0], [0, 1, 0], [0, 0, 1], π / 3, π / 5, π / 7)
+    @test length(Spacey.pointgroup_simple(d, e, f)) == 48
     # hexagonal lattice in unique orientation
-    g, h, i = Spacey.threeDrotation([1, 0, 0], [0.5, √3 / 2, 0], [0, 0, √(8 / 3)], π / 7, π / 11, π / 3)
-    @test length(Spacey.pointGroup_simple(g, h, i)) == 24
+    g, h, i = Spacey.rotate_basis_3d([1, 0, 0], [0.5, √3 / 2, 0], [0, 0, √(8 / 3)], π / 7, π / 11, π / 3)
+    @test length(Spacey.pointgroup_simple(g, h, i)) == 24
 end
 
-@testset "pointGroup_fast, small noise, large aspect ratios" begin
+@testset "pointgroup_fast, small noise, large aspect ratios" begin
     # # Rhombohedral case
     u = [1, 1, 2]
     v = [1, 2, 1]
     w = [2, 1, 1]
-    u, v, w = Spacey.threeDrotation(u, v, w, π / 3, π / 5, π / 7)
-    @test length(Spacey.pointGroup_fast(u, v, w)) == 12
+    u, v, w = Spacey.rotate_basis_3d(u, v, w, π / 3, π / 5, π / 7)
+    @test length(Spacey.pointgroup_fast(u, v, w)) == 12
 
     # Cases of small tiny noise in input
     ϵ = 1.0e-9; u = [1, 0, ϵ]; v = [ϵ,1,0]; w = [0,0,1]
-    @test length(Spacey.pointGroup_fast(u,v,w))==48
+    @test length(Spacey.pointgroup_fast(u,v,w))==48
     ϵ = 1.0e-7; u = [1, 0, ϵ]; v = [ϵ,1,0]; w = [0,0,1]
-    @test length(Spacey.pointGroup_fast(u,v,w))≠48
+    @test length(Spacey.pointgroup_fast(u,v,w))≠48
     # High aspect ratio cases
     a = 2^25; u = [1, 0, 0]; v = [0,a,0];  w = [0,0,1]
-    @test length(Spacey.pointGroup_fast(u,v,w))==16
+    @test length(Spacey.pointgroup_fast(u,v,w))==16
     a = 2^26; u = [1, 0, 0]; v = [0,a,0];  w = [0,0,1]
-    @test length(Spacey.pointGroup_fast(u,v,w))≠16
+    @test length(Spacey.pointgroup_fast(u,v,w))≠16
 
     # Simple cubic example of snap function, ~1% noise
     a1 = [1+.01,0,0]; a2 = [0.,1-.01,0]; a3 = [0,0,1-.001];
     u,v,w = minkReduce(a1,a2,a3)
-    ops = Spacey.pointGroup_robust(u,v,w;tol=5e-2)
-    @test isagroup(ops)
-    a,b,c,iops,rops = snapToSymmetry_SVD(u,v,w,ops)
+    ops = Spacey.pointgroup_robust(u,v,w;tol=5e-2)
+    @test is_group(ops)
+    a,b,c,iops,rops = snap_to_symmetry_svd(u,v,w,ops)
     @test det([a b c])≈det([a1 a2 a3])
     @test norm(a)≈norm(b)≈norm(c)
     @test length(iops)==48
-    @test isagroup(rops)
+    @test is_group(rops)
     @test LG_G_test(iops,rops,[a b c])
 
     # Simple tetragonal example of snap
     a1 = [1+.01,0,0]; a2 = [0.,1-.01,0]; a3 = [0,0,1.5];
     u,v,w = minkReduce(a1,a2,a3)
-    ops = Spacey.pointGroup_robust(u,v,w;tol=5e-2)
-    @test isagroup(ops)
-    a,b,c,iops,rops = snapToSymmetry_SVD(u,v,w,ops)
+    ops = Spacey.pointgroup_robust(u,v,w;tol=5e-2)
+    @test is_group(ops)
+    a,b,c,iops,rops = snap_to_symmetry_svd(u,v,w,ops)
     @test length(iops)==16
     @test norm(a)≈norm(b)
     @test det([a b c])≈det([a1 a2 a3])
-    @test isagroup(iops)
-    @test isagroup(rops)
+    @test is_group(iops)
+    @test is_group(rops)
     @test LG_G_test(iops,rops,[a b c])
 
     # Simple orthorhombic example of snap
     println("Orthorhombic example of snap")
     a1 = [1,0.01,-.005]; a2 = [0.001,2,-0.01]; a3 = [0.02,-0.003,1.5];
     u,v,w = minkReduce(a1,a2,a3)
-    ops = Spacey.pointGroup_robust(u,v,w;tol=5e-2)
-    a,b,c,iops,rops = snapToSymmetry_SVD(u,v,w,ops)
+    ops = Spacey.pointgroup_robust(u,v,w;tol=5e-2)
+    a,b,c,iops,rops = snap_to_symmetry_svd(u,v,w,ops)
     @test length(iops)==8
     @test det([a b c])≈det([a1 a2 a3])
-    @test isagroup(iops)
-    @test isagroup(rops)
+    @test is_group(iops)
+    @test is_group(rops)
     @test LG_G_test(iops,rops,[a b c])
 
 
@@ -393,28 +393,28 @@ end
     a1 = [1/16 - .0001, .001, .0001]
     a2 = [-0.001, 16-.0001, -.0001]
     a3 = [-.0001, .0001, 1.51]
-    ops = pointGroup(minkReduce(hcat(a1,a2,a3)))
+    ops = pointgroup(minkReduce(hcat(a1,a2,a3)))
     @test length(ops)==8
 
     println("Example of large aspect ratio: 500 (should still succeed)")
     a1 = [1/10 - .0001, .001, .0001]
     a2 = [-0.001, 50-.0001, -.0001]
     a3 = [-.0001, .0001, 1.51]
-    ops = pointGroup(minkReduce(hcat(a1,a2,a3)))
+    ops = pointgroup(minkReduce(hcat(a1,a2,a3)))
     @test length(ops)==8
 
     println("Example of large aspect ratio: 512 (fails, even with large tolerance)")
     a1 = [1/16 - .0001, .001, .0001]
     a2 = [-0.001, 32-.0001, -.0001]
     a3 = [-.0001, .0001, 1.51]
-    ops = Spacey.pointGroup_robust(minkReduce(a1,a2,a3)[1:3]...;tol=9e-1)
+    ops = Spacey.pointgroup_robust(minkReduce(a1,a2,a3)[1:3]...;tol=9e-1)
     @test length(ops)==4
 
     println("Example of large aspect ratio: 1024 (fails, even with large tolerance)")
     a1 = [1/32 - .0001, .001, .0001]
     a2 = [-0.001, 32-.0001, -.0001]
     a3 = [-.0001, .0001, 1.51]
-    ops = Spacey.pointGroup_robust(minkReduce(a1,a2,a3)[1:3]...;tol=9e-1)
+    ops = Spacey.pointgroup_robust(minkReduce(a1,a2,a3)[1:3]...;tol=9e-1)
     @test length(ops)==4
 
 
@@ -422,7 +422,7 @@ end
     a1 = [1/32 - .0001, .00001, .00001]
     a2 = [-0.0001, 32-.0001, -.00001]
     a3 = [-.0001, .00001, 1.51]
-    ops = Spacey.pointGroup_robust(minkReduce(a1,a2,a3)[1:3]...;tol=1e-1)
+    ops = Spacey.pointgroup_robust(minkReduce(a1,a2,a3)[1:3]...;tol=1e-1)
     @test length(ops)==8
 end
 
@@ -437,7 +437,7 @@ end
             for ε ∈ plim
                 if tol < 12*ε/a; break; end # Anything less than 5*ε/a will fail for many cases. Slight tetragonal distortions from bcc/fcc will be found as cubic if tol is too big or distortion is too small.
                 Atest =  hcat(minkReduce(eachcol(A*a + (2*rand(3,3).-1)*ε*a)...)[1:3]...)
-                nSuccess = count([length(pointGroup(Atest;tol=tol))==nops for _ ∈ 1:Navg])
+                nSuccess = count([length(pointgroup(Atest;tol=tol))==nops for _ ∈ 1:Navg])
                 if nSuccess != Navg
                     @show Atest
                     error("Pointgroup size is not $nops.  tol: ", tol, "  ε: ", ε,"  nSuccess: ", nSuccess)
@@ -455,7 +455,7 @@ end
 
 @testset "Near-boundary tetragonal" begin
     # A = diag(1, 1, 1+ε) is genuinely tetragonal for ε > 0 (16 ops). At tol ≫ ε,
-    # pointGroup_robust over-promotes to cubic (48) because the cubic-only ops
+    # pointgroup_robust over-promotes to cubic (48) because the cubic-only ops
     # (e.g. 3-folds about body diagonals) have integer-matrix residuals of O(ε)
     # and pass the tol filter. See research.md §2.1 and test/nearMissBoundary.jl.
     for ε ∈ [1e-3, 1e-5, 1e-8]
@@ -463,11 +463,11 @@ end
         u, v, w = minkReduce(eachcol(A)...)[1:3]
         tight_tol = ε / 100
         loose_tol = 100 * ε
-        @test length(Spacey.pointGroup_simple(u, v, w)) == 16
-        @test length(Spacey.pointGroup_robust(u, v, w; tol=tight_tol)) == 16
-        @test length(Spacey.pointGroup_robust(u, v, w; tol=loose_tol)) == 48
-        @test_logs (:warn, r"near a symmetry boundary") match_mode=:any Spacey.pointGroup_robust(u, v, w; tol=loose_tol, verify_stable=true)
-        @test length(Spacey.pointGroup_robust(u, v, w; tol=tight_tol, verify_stable=true)) == 16
+        @test length(Spacey.pointgroup_simple(u, v, w)) == 16
+        @test length(Spacey.pointgroup_robust(u, v, w; tol=tight_tol)) == 16
+        @test length(Spacey.pointgroup_robust(u, v, w; tol=loose_tol)) == 48
+        @test_logs (:warn, r"near a symmetry boundary") match_mode=:any Spacey.pointgroup_robust(u, v, w; tol=loose_tol, verify_stable=true)
+        @test length(Spacey.pointgroup_robust(u, v, w; tol=tight_tol, verify_stable=true)) == 16
     end
 end
 
@@ -510,21 +510,21 @@ end
 
     # Validation errors
     @test_throws Exception Crystal(A, r, [1])                             # missing coords
-    @test_throws ErrorException Crystal(A, r, [1]; coords=:oops)         # bad coords
-    @test_throws ErrorException Crystal([1.0 0.0; 0.0 1.0], r, [1]; coords=:fractional)  # A not 3×3
-    @test_throws ErrorException Crystal(A, [0.0 0.0; 0.0 0.0], [1, 2]; coords=:fractional)  # r rows
-    @test_throws ErrorException Crystal(A, r, [1, 2]; coords=:fractional) # types length mismatch
+    @test_throws ArgumentError Crystal(A, r, [1]; coords=:oops)         # bad coords
+    @test_throws ArgumentError Crystal([1.0 0.0; 0.0 1.0], r, [1]; coords=:fractional)  # A not 3×3
+    @test_throws ArgumentError Crystal(A, [0.0 0.0; 0.0 0.0], [1, 2]; coords=:fractional)  # r rows
+    @test_throws ArgumentError Crystal(A, r, [1, 2]; coords=:fractional) # types length mismatch
 
     # Empty crystal rejected (no atoms)
     empty_r = Matrix{Float64}(undef, 3, 0)
-    @test_throws ErrorException Crystal(A, empty_r, Int[]; coords=:fractional)
+    @test_throws ArgumentError Crystal(A, empty_r, Int[]; coords=:fractional)
 
     # Singular A rejected (coplanar basis vectors: rank 2, det = 0)
     A_sing = [1.0 0.0 1.0; 0.0 1.0 1.0; 0.0 0.0 0.0]
-    @test_throws ErrorException Crystal(A_sing, r, [1]; coords=:fractional)
+    @test_throws ArgumentError Crystal(A_sing, r, [1]; coords=:fractional)
     # Same test at a different scale — the check is scale-invariant
-    @test_throws ErrorException Crystal(1e6 .* A_sing, r, [1]; coords=:fractional)
-    @test_throws ErrorException Crystal(1e-6 .* A_sing, r, [1]; coords=:fractional)
+    @test_throws ArgumentError Crystal(1e6 .* A_sing, r, [1]; coords=:fractional)
+    @test_throws ArgumentError Crystal(1e-6 .* A_sing, r, [1]; coords=:fractional)
 end
 
 @testset "fractional / cartesian / default_pos_tol" begin
@@ -545,7 +545,7 @@ end
     @test default_pos_tol(c2) ≈ 0.01 * (1/2)^(1/3)
 end
 
-@testset "isSpacegroupOp: Phase 1 trivial cases" begin
+@testset "is_spacegroup_op: Phase 1 trivial cases" begin
     A = Matrix{Float64}(I, 3, 3)
     r = reshape([0.0, 0.0, 0.0], 3, 1)
     c = Crystal(A, r, [1]; coords=:fractional)
@@ -553,42 +553,42 @@ end
     I3 = Matrix{Int}(I, 3, 3)
 
     # Identity op
-    @test isSpacegroupOp(I3, [0.0, 0.0, 0.0], c; tol=tol)
+    @test is_spacegroup_op(I3, [0.0, 0.0, 0.0], c; tol=tol)
 
     # Pure lattice translation (should fold to identity mod 1)
-    @test isSpacegroupOp(I3, [1.0, 0.0, 0.0], c; tol=tol)
-    @test isSpacegroupOp(I3, [-1.0, 2.0, -3.0], c; tol=tol)
+    @test is_spacegroup_op(I3, [1.0, 0.0, 0.0], c; tol=tol)
+    @test is_spacegroup_op(I3, [-1.0, 2.0, -3.0], c; tol=tol)
 
     # 4-fold rotation about z — preserves (0,0,0)
     R4 = [0 -1 0; 1 0 0; 0 0 1]
-    @test isSpacegroupOp(R4, [0.0, 0.0, 0.0], c; tol=tol)
+    @test is_spacegroup_op(R4, [0.0, 0.0, 0.0], c; tol=tol)
 
     # Non-trivial translation that leaves the atom's image unmatched
-    @test !isSpacegroupOp(I3, [0.5, 0.0, 0.0], c; tol=tol)
+    @test !is_spacegroup_op(I3, [0.5, 0.0, 0.0], c; tol=tol)
 
     # CsCl: Cs at (0,0,0), Cl at (½,½,½), full Pm3̄m
     c_cscl = Crystal(A, [0.0 0.5; 0.0 0.5; 0.0 0.5], [:Cs, :Cl]; coords=:fractional)
-    @test isSpacegroupOp(I3, [0.0, 0.0, 0.0], c_cscl; tol=tol)
-    @test isSpacegroupOp(R4, [0.0, 0.0, 0.0], c_cscl; tol=tol)
-    @test isSpacegroupOp(-I3, [0.0, 0.0, 0.0], c_cscl; tol=tol)  # inversion
+    @test is_spacegroup_op(I3, [0.0, 0.0, 0.0], c_cscl; tol=tol)
+    @test is_spacegroup_op(R4, [0.0, 0.0, 0.0], c_cscl; tol=tol)
+    @test is_spacegroup_op(-I3, [0.0, 0.0, 0.0], c_cscl; tol=tol)  # inversion
 
     # Type-preservation: (I, (½,½,½)) maps Cs→Cl and Cl→Cs.
     # Should be false because types don't match after the map.
-    @test !isSpacegroupOp(I3, [0.5, 0.5, 0.5], c_cscl; tol=tol)
+    @test !is_spacegroup_op(I3, [0.5, 0.5, 0.5], c_cscl; tol=tol)
 
     # Asymmetric two-atom crystal: only identity is a symmetry
     c_asym = Crystal(A, [0.0 0.3; 0.0 0.7; 0.0 0.2], [:A, :B]; coords=:fractional)
-    @test isSpacegroupOp(I3, [0.0, 0.0, 0.0], c_asym; tol=tol)
-    @test !isSpacegroupOp(R4, [0.0, 0.0, 0.0], c_asym; tol=tol)
-    @test !isSpacegroupOp(-I3, [0.0, 0.0, 0.0], c_asym; tol=tol)
+    @test is_spacegroup_op(I3, [0.0, 0.0, 0.0], c_asym; tol=tol)
+    @test !is_spacegroup_op(R4, [0.0, 0.0, 0.0], c_asym; tol=tol)
+    @test !is_spacegroup_op(-I3, [0.0, 0.0, 0.0], c_asym; tol=tol)
 
     # Default tol kwarg path (no explicit tol)
-    @test isSpacegroupOp(I3, [0.0, 0.0, 0.0], c_cscl)
-    @test !isSpacegroupOp(I3, [0.5, 0.5, 0.5], c_cscl)
+    @test is_spacegroup_op(I3, [0.0, 0.0, 0.0], c_cscl)
+    @test !is_spacegroup_op(I3, [0.5, 0.5, 0.5], c_cscl)
 
     # R / τ shape validation
-    @test_throws ErrorException isSpacegroupOp([1 0; 0 1], [0.0, 0.0, 0.0], c; tol=tol)
-    @test_throws ErrorException isSpacegroupOp(I3, [0.0, 0.0], c; tol=tol)
+    @test_throws ArgumentError is_spacegroup_op([1 0; 0 1], [0.0, 0.0, 0.0], c; tol=tol)
+    @test_throws ArgumentError is_spacegroup_op(I3, [0.0, 0.0], c; tol=tol)
 
     # Pure-translation symmetry (R = I but τ ≠ 0, and the result is TRUE).
     # Two same-type atoms at (¼,0,0) and (¾,0,0) are exchanged by τ = (½,0,0).
@@ -597,15 +597,15 @@ end
     # must claim atom 2, then image of atom 2 must claim atom 1 — skipping
     # the already-claimed atom 2 en route.
     c_halftrans = Crystal(A, [0.25 0.75; 0.0 0.0; 0.0 0.0], [:A, :A]; coords=:fractional)
-    @test isSpacegroupOp(I3, [0.5, 0.0, 0.0], c_halftrans; tol=tol)
-    @test isSpacegroupOp(I3, [-0.5, 0.0, 0.0], c_halftrans; tol=tol)
-    @test !isSpacegroupOp(I3, [0.0, 0.5, 0.0], c_halftrans; tol=tol)
+    @test is_spacegroup_op(I3, [0.5, 0.0, 0.0], c_halftrans; tol=tol)
+    @test is_spacegroup_op(I3, [-0.5, 0.0, 0.0], c_halftrans; tol=tol)
+    @test !is_spacegroup_op(I3, [0.0, 0.5, 0.0], c_halftrans; tol=tol)
 
     # Mod-1 boundary: atom at 0, translation of (1 − 1e-12) — image sits at
     # ≈ 0.999999999999 after the wrap. The signed-diff formula must bring
     # |Δ| back near 0. Catches sign typos in `mod.(Δ .+ 0.5, 1.0) .- 0.5`.
-    @test isSpacegroupOp(I3, [1.0 - 1e-12, 0.0, 0.0], c; tol=1e-8)
-    @test isSpacegroupOp(I3, [-1.0 + 1e-12, 0.0, 0.0], c; tol=1e-8)
+    @test is_spacegroup_op(I3, [1.0 - 1e-12, 0.0, 0.0], c; tol=1e-8)
+    @test is_spacegroup_op(I3, [-1.0 + 1e-12, 0.0, 0.0], c; tol=1e-8)
 end
 
 @testset "SpacegroupOp methods" begin
@@ -657,20 +657,20 @@ end
     @test SpacegroupOp(I3, [0.0, 0.0, 0.0]) != SpacegroupOp(I3, [0.5, 0.0, 0.0])
     @test SpacegroupOp(R1, [0.0, 0.0, 0.0]) != SpacegroupOp(I3, [0.0, 0.0, 0.0])
 
-    # toCartesian on identity through a non-diagonal A
+    # to_cartesian on identity through a non-diagonal A
     A = [1.0 0.3 0.0; 0.0 1.1 0.0; 0.0 0.0 1.5]
-    Rc, τc = toCartesian(one(SpacegroupOp), A)
+    Rc, τc = to_cartesian(one(SpacegroupOp), A)
     @test Rc ≈ Matrix{Float64}(I, 3, 3)
     @test τc ≈ zeros(3)
 
-    # toCartesian on a non-trivial op: the Cartesian R must equal the
+    # to_cartesian on a non-trivial op: the Cartesian R must equal the
     # rotation "A applied to lattice coords then A⁻¹ back".
-    Rc2, τc2 = toCartesian(SpacegroupOp(R1, [0.5, 0.0, 0.0]), A)
+    Rc2, τc2 = to_cartesian(SpacegroupOp(R1, [0.5, 0.0, 0.0]), A)
     @test Rc2 ≈ A * R1 * inv(A)
     @test τc2 ≈ A * [0.5, 0.0, 0.0]
 
     # inv validation: a non-unimodular R should error
-    @test_throws ErrorException inv(SpacegroupOp([2 0 0; 0 1 0; 0 0 1], zeros(3)))
+    @test_throws ArgumentError inv(SpacegroupOp([2 0 0; 0 1 0; 0 0 1], zeros(3)))
 end
 
 @testset "spacegroup: Phase 2 core cases" begin
@@ -710,12 +710,12 @@ end
     @test length(ops_cscl) == 48
     @test all(op.τ ≈ zeros(3) for op in ops_cscl)
 
-    # 4.2.7 Every returned op passes isSpacegroupOp (cross-check)
+    # 4.2.7 Every returned op passes is_spacegroup_op (cross-check)
     for op in ops
-        @test isSpacegroupOp(op.R, op.τ, c_sc)
+        @test is_spacegroup_op(op.R, op.τ, c_sc)
     end
     for op in ops_cscl
-        @test isSpacegroupOp(op.R, op.τ, c_cscl)
+        @test is_spacegroup_op(op.R, op.τ, c_cscl)
     end
 
     # 4.2.8 Group closure: op1 * op2 ∈ ops (spot check)
@@ -766,7 +766,7 @@ end
     end
     # Every op must be a valid symmetry
     for op in ops_nacl
-        @test isSpacegroupOp(op.R, op.τ, c_nacl)
+        @test is_spacegroup_op(op.R, op.τ, c_nacl)
     end
     # NaCl's 4 pure-translation ops (R = I, τ = FCC centering) must be
     # present with R = I.
@@ -794,7 +794,7 @@ end
     @test length(ops_diamond) == 192
     @test ops_diamond[1] == one(SpacegroupOp)
     for op in ops_diamond
-        @test isSpacegroupOp(op.R, op.τ, c_diamond)
+        @test is_spacegroup_op(op.R, op.τ, c_diamond)
     end
     # Non-symmorphic signature: some ops have τ ≉ any FCC centering.
     # FCC centerings are (0,0,0), (½,½,0), (½,0,½), (0,½,½).
@@ -822,7 +822,7 @@ end
     @test length(ops_hcp) == 24
     @test ops_hcp[1] == one(SpacegroupOp)
     for op in ops_hcp
-        @test isSpacegroupOp(op.R, op.τ, c_hcp_crystal)
+        @test is_spacegroup_op(op.R, op.τ, c_hcp_crystal)
     end
     # Non-symmorphic signature: at least one op has τ with a ½ in the c
     # direction (the 6₃ screw translates by c/2 along c).
@@ -865,7 +865,7 @@ end
         @test length(ops) == 24
         @test ops[1] == one(SpacegroupOp)
         for op in ops
-            @test isSpacegroupOp(op.R, op.τ, c_pyrite)
+            @test is_spacegroup_op(op.R, op.τ, c_pyrite)
         end
         # Non-symmorphic signature: at least one op with a non-zero τ
         # component at 1/2 (Pa-3 has (½,0,½)-style glide translations).
@@ -885,13 +885,13 @@ end
         Crystal(collect(transpose(A_rows)), r_cols, types; coords=:fractional)
 
     # Common spot-check: length matches, identity at index 1, every op
-    # passes isSpacegroupOp, closure spot check.
+    # passes is_spacegroup_op, closure spot check.
     function check_spacegroup!(c::Crystal, expected_order::Int)
         ops = spacegroup(c)
         @test length(ops) == expected_order
         @test ops[1] == one(SpacegroupOp)
         for op in ops
-            @test isSpacegroupOp(op.R, op.τ, c)
+            @test is_spacegroup_op(op.R, op.τ, c)
         end
         for _ in 1:5
             a, b = rand(ops), rand(ops)
@@ -1373,19 +1373,19 @@ end
 
     R_I = Matrix{Int}(I, 3, 3); τ_zero = zeros(3)
 
-    # pointGroup — matrix and three-vector forms
-    @test alloc(pointGroup, A_cubic)              ≤ 1_500_000   # baseline ≈ 485 KB
-    @test alloc(pointGroup, u_hcp, v_hcp, w_hcp)  ≤   600_000   # baseline ≈ 176 KB
+    # pointgroup — matrix and three-vector forms
+    @test alloc(pointgroup, A_cubic)              ≤ 1_500_000   # baseline ≈ 485 KB
+    @test alloc(pointgroup, u_hcp, v_hcp, w_hcp)  ≤   600_000   # baseline ≈ 176 KB
 
-    # crystal_system — wraps pointGroup so should be ~ same
+    # crystal_system — wraps pointgroup so should be ~ same
     @test alloc(crystal_system, A_cubic)          ≤ 1_500_000   # baseline ≈ 489 KB
 
-    # spacegroup — bigger because it iterates the full LG and does isSpacegroupOp per τ
+    # spacegroup — bigger because it iterates the full LG and does is_spacegroup_op per τ
     @test alloc(spacegroup, c_NaCl)               ≤ 4_000_000   # baseline ≈ 1.75 MB
     @test alloc(spacegroup, c_diamond)            ≤ 4_000_000   # baseline ≈ 1.82 MB
     @test alloc(spacegroup, c_BaTiO3)             ≤ 2_000_000   # baseline ≈ 659 KB
 
-    # isSpacegroupOp — small per-call cost
-    @test alloc(isSpacegroupOp, R_I, τ_zero, c_NaCl) ≤ 4_096    # baseline ≈ 1.2 KB
+    # is_spacegroup_op — small per-call cost
+    @test alloc(is_spacegroup_op, R_I, τ_zero, c_NaCl) ≤ 4_096    # baseline ≈ 1.2 KB
 end
 

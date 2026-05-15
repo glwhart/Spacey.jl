@@ -51,7 +51,7 @@ julia> crystal_system(c)
 
 ## Tune `lattice_tol`
 
-`crystal_system` accepts the same `lattice_tol` keyword as [`pointGroup`](../reference/point-groups.md), which it calls internally. Default is `0.01`. Loosen for noisy lattices; tighten if you suspect over-promotion (see [Detect tolerance-dependent answers](detect-tolerance-dependence.md)).
+`crystal_system` accepts the same `lattice_tol` keyword as [`pointgroup`](../reference/point-groups.md), which it calls internally. Default is `0.01`. Loosen for noisy lattices; tighten if you suspect over-promotion (see [Detect tolerance-dependent answers](detect-tolerance-dependence.md)).
 
 ```jldoctest
 julia> using Spacey

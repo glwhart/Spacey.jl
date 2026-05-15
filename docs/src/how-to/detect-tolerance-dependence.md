@@ -1,6 +1,6 @@
 # Detect tolerance-dependent answers
 
-Both [`pointGroup`](../reference/point-groups.md) and [`spacegroup`](../reference/space-groups.md) accept a `verify_stable=true` keyword. When set, the algorithm runs twice — once at the requested tolerance, once again at 1/1000 of it — and emits a `@warn` if the operation count differs between the two runs. A difference means the answer depends on the tolerance: the lattice (or atomic positions) is near a symmetry boundary.
+Both [`pointgroup`](../reference/point-groups.md) and [`spacegroup`](../reference/space-groups.md) accept a `verify_stable=true` keyword. When set, the algorithm runs twice — once at the requested tolerance, once again at 1/1000 of it — and emits a `@warn` if the operation count differs between the two runs. A difference means the answer depends on the tolerance: the lattice (or atomic positions) is near a symmetry boundary.
 
 This setting provides a guard against silent over-promotion (finding a symmetry that is too high). Use it when you cannot personally vouch for the input's noise level.
 
@@ -19,7 +19,7 @@ julia> using Spacey
 
 julia> u = [1.0, 0, 0]; v = [0, 1.0, 0]; w = [0, 0, 1.0];   # exact cubic
 
-julia> length(pointGroup(u, v, w; verify_stable=true))   # silent: 48 at all tols
+julia> length(pointgroup(u, v, w; verify_stable=true))   # silent: 48 at all tols
 48
 ```
 
@@ -31,8 +31,8 @@ julia> ε = 1e-3;
 julia> u = [1.0, 0, 0]; v = [0, 1.0, 0]; w = [0, 0, 1+ε];   # tetragonal, 16 ops at tight tol
 
 julia> # at loose tol, this looks cubic (48 ops) — the warning catches the disagreement
-julia> pointGroup(u, v, w; tol=0.1, verify_stable=true);
-┌ Warning: pointGroup_robust: group size depends on tolerance — lattice is near a symmetry boundary.
+julia> pointgroup(u, v, w; tol=0.1, verify_stable=true);
+┌ Warning: pointgroup_robust: group size depends on tolerance — lattice is near a symmetry boundary.
 │   tol = 0.1
 │   group_at_tol = 48
 │   tight_tol = 0.0001
@@ -106,6 +106,6 @@ julia> length(spacegroup(c; verify_stable=true))   # 24 ops (T_d), no warning
 
 ## See also
 
-- Reference: [`pointGroup`](../reference/point-groups.md), [`spacegroup`](../reference/space-groups.md)
+- Reference: [`pointgroup`](../reference/point-groups.md), [`spacegroup`](../reference/space-groups.md)
 - How-to: [Find a point group](find-pointgroup.md), [Find a space group](find-spacegroup.md), [Handle noisy real-world data](handle-noisy-data.md)
 - Explanation: [Over-promotion](../explanation/over-promotion.md)

@@ -18,7 +18,7 @@ julia> using Pkg; Pkg.add(url="https://github.com/glwhart/Spacey.jl")
 
 julia> using Spacey
 
-julia> LG = pointGroup([1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0]);
+julia> LG = pointgroup([1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0]);
 
 julia> length(LG)   # 48 — the cubic point group
 48
@@ -30,7 +30,7 @@ If that runs and prints `48`, the package is loaded and working.
 
 - **Provably complete symmetry search.** Spacey's algorithm is exhaustive over a finite, small set of integer matrices (27 candidate vectors per basis vector, never more) thanks to the Minkowski-reduction theorem — see [Why Minkowski reduction](explanation/why-minkowski.md). Other tools use either iterative tightening (spglib, AFLOW-SYM) or hard-coded large search windows (VASP); both have failure modes that Spacey's approach avoids.
 - **Two-tolerance design.** A relative `tol` for lattice geometry and an absolute `pos_tol` for atomic positions. They scale with different physical noise sources and shouldn't be conflated. See [Tolerances](explanation/tolerances.md).
-- **`verify_stable` for tolerance-dependent answers.** Pass `verify_stable=true` to either `pointGroup` or `spacegroup` and Spacey re-runs at 1/1000 the requested tolerance, warning if the answer changes. Catches over-promotion (silently reporting higher symmetry than the structure has) without committing the user to a tighter answer than they asked for. See [Over-promotion](explanation/over-promotion.md).
+- **`verify_stable` for tolerance-dependent answers.** Pass `verify_stable=true` to either `pointgroup` or `spacegroup` and Spacey re-runs at 1/1000 the requested tolerance, warning if the answer changes. Catches over-promotion (silently reporting higher symmetry than the structure has) without committing the user to a tighter answer than they asked for. See [Over-promotion](explanation/over-promotion.md).
 - **Validated against the full AFLOW corpus.** 1095 prototypes from three published papers, checked on two independent invariants (op count + crystal system). See [Validation strategy](explanation/validation-strategy.md).
 
 ## What's *not* in scope

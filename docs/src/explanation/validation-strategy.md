@@ -10,23 +10,23 @@ Three internal point-group finders coexist in the package, deliberately:
 
 | Variant | What it does | Used as |
 |---|---|---|
-| `Spacey.pointGroup_simple` | Brute-force: iterates over every 3×3 matrix in `{-1, 0, 1}⁹` (= 19,683 candidates), keeps those that preserve the metric tensor with default `isapprox` | Reference truth — slow but obviously correct |
-| `Spacey.pointGroup_fast` | Optimized filtering pipeline, strict `isapprox` tolerance, no `tol` knob | Production speed for clean inputs |
-| `Spacey.pointGroup_robust` | Same pipeline as `_fast`, but with `tol`-controlled integer-matrix test and group-closure step | The version `pointGroup` delegates to (real-world inputs) |
+| `Spacey.pointgroup_simple` | Brute-force: iterates over every 3×3 matrix in `{-1, 0, 1}⁹` (= 19,683 candidates), keeps those that preserve the metric tensor with default `isapprox` | Reference truth — slow but obviously correct |
+| `Spacey.pointgroup_fast` | Optimized filtering pipeline, strict `isapprox` tolerance, no `tol` knob | Production speed for clean inputs |
+| `Spacey.pointgroup_robust` | Same pipeline as `_fast`, but with `tol`-controlled integer-matrix test and group-closure step | The version `pointgroup` delegates to (real-world inputs) |
 
 The test suite cross-checks all three on every clean (non-noisy) Bravais lattice — they must agree on the operation count for each of the 14 Bravais lattice prototypes. If any of the three drifts away from the others, that's an immediate signal: either a bug in the variant, or a regression in shared code.
 
-This is `pointGroup_simple`'s only purpose. It's slow (~100× slower than `_fast`), but its correctness is *transparent* — there's no tolerance, no integer test, no group closure — and it serves as the ground truth that the optimized paths must match.
+This is `pointgroup_simple`'s only purpose. It's slow (~100× slower than `_fast`), but its correctness is *transparent* — there's no tolerance, no integer test, no group closure — and it serves as the ground truth that the optimized paths must match.
 
 ## The 14-Bravais lattices hand-built panel
 
 For each of the 14 Bravais lattices, the test suite has a hand-curated representative basis with the expected operation count baked in (cubic = 48, hexagonal = 24, …). Each is exercised against:
 
-- All three `pointGroup` variants (must agree).
+- All three `pointgroup` variants (must agree).
 - Rotation invariance: applying an arbitrary 3D rotation to the basis must not change the operation count.
 - Small-noise tolerance: ~10⁻⁸ random perturbation must not crash or change the result.
 - High aspect ratio: `AR = 256, 500, 512, 1024` are explicitly tested.
-- Snap-to-symmetry round-trip: noisy lattice → `pointGroup` → `snapToSymmetry_SVD` → snapped basis → `pointGroup` again gives the same op count, with volume preserved.
+- Snap-to-symmetry round-trip: noisy lattice → `pointgroup` → `snap_to_symmetry_svd` → snapped basis → `pointgroup` again gives the same op count, with volume preserved.
 
 This panel is the first line of defense. A regression in any algorithm component will show up here before it hits the larger corpus tests below.
 
@@ -60,7 +60,7 @@ This is a deliberate design choice over either dropping the failing tests (loses
 
 Two heatmap diagnostics live in the test directory but aren't run as part of normal CI:
 
-- `test/nearMissBoundary.jl` plots a `(ε, tol)` heatmap of `pointGroup` operation counts on a tetragonal-near-cubic lattice, marking each cell with whether `verify_stable` would catch the over-promotion.
+- `test/nearMissBoundary.jl` plots a `(ε, tol)` heatmap of `pointgroup` operation counts on a tetragonal-near-cubic lattice, marking each cell with whether `verify_stable` would catch the over-promotion.
 - `test/nearMissBoundaryCrystal.jl` plots the same for `spacegroup` on a BaTiO₃-style ferroelectric, varying the Ti displacement and `pos_tol`.
 
 These are pinned by *unit tests* that exercise specific cells of the heatmap (a known over-promotion case fires the warning; a known stable case stays silent). The diagnostic itself produces a 2D table of marked cells when run interactively — the diagonal failure region (`tol ≈ ε`) is visually striking and, in the short term, the most direct evidence that `verify_stable` is doing what it claims.
@@ -91,6 +91,6 @@ For these classes, the best defense is the experienced reader spotting weirdness
 
 ## See also
 
-- Reference: [`pointGroup`](../reference/point-groups.md), [`spacegroup`](../reference/space-groups.md), [`crystal_system`](../reference/crystals.md)
+- Reference: [`pointgroup`](../reference/point-groups.md), [`spacegroup`](../reference/space-groups.md), [`crystal_system`](../reference/crystals.md)
 - Explanation: [Crystal system vs full Bravais](crystal-system-vs-bravais.md), [Over-promotion](over-promotion.md), [Canonicalizing τ](canonicalizing-tau.md)
 - External: [AFLOW Library of Crystallographic Prototypes](https://aflow.org/CrystalDatabase/) (Mehl 2017, Hicks 2019, Hicks 2021)

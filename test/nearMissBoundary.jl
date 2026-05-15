@@ -4,7 +4,7 @@ using LinearAlgebra
 using Printf
 
 # Near-miss boundary diagnostic. Three panels, each a (ε, tol) heatmap of the
-# group size reported by pointGroup_robust, marked against the truth and against
+# group size reported by pointgroup_robust, marked against the truth and against
 # what verify_stable (tight_tol = tol/1000) would detect.
 #
 # Legend:
@@ -42,8 +42,8 @@ function panel(label, basis_fn, truth_fn, εs, tols)
         print(@sprintf("%12.0e", ε))
         for t ∈ tols
             try
-                n_loose = length(Spacey.pointGroup_robust(u, v, w; tol=t))
-                n_tight = length(Spacey.pointGroup_robust(u, v, w; tol=t/1000))
+                n_loose = length(Spacey.pointgroup_robust(u, v, w; tol=t))
+                n_tight = length(Spacey.pointgroup_robust(u, v, w; tol=t/1000))
                 print(@sprintf("%9d%s", n_loose, mark(n_loose, n_tight, truth)))
             catch e
                 print(@sprintf("%10s", "err"))

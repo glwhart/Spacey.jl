@@ -2,37 +2,36 @@ module Spacey
 using MinkowskiReduction
 using LinearAlgebra
 using StatsBase
-export pointGroup, snapToSymmetry_SVD, isagroup,
-       Crystal, isSpacegroupOp, fractional, cartesian, default_pos_tol,
-       crystal_system, SpacegroupOp, toCartesian, spacegroup,
+export pointgroup, snap_to_symmetry_svd, is_group,
+       Crystal, is_spacegroup_op, fractional, cartesian, default_pos_tol,
+       crystal_system, SpacegroupOp, to_cartesian, spacegroup,
        is_equiv_lattice, is_derivative,
        is_primitive, make_primitive,
        read_poscar
 # Internal / not-exported (reach via `Spacey.<name>(...)`):
-# - `pointGroup_robust`, `pointGroup_fast`, `pointGroup_simple` — the
-#   public point-group entry point is `pointGroup` (which delegates to
+# - `pointgroup_robust`, `pointgroup_fast`, `pointgroup_simple` — the
+#   public point-group entry point is `pointgroup` (which delegates to
 #   `_robust`); `_fast` and `_simple` are validation/clean-input variants.
-# - `aspectRatio`, `threeDrotation` — diagnostic / test scaffolding.
-# - `snapToSymmetry_avg` — less-robust alternative to `snapToSymmetry_SVD`.
+# - `aspect_ratio`, `rotate_basis_3d` — diagnostic / test scaffolding.
+# - `snap_to_symmetry_avg` — less-robust alternative to `snap_to_symmetry_svd`.
 
 """
-    avgVecOverOps(vec, ops)
+    avg_vec_over_ops(vec, ops)
 
 Apply each operator in `ops` to `vec` and return the average over those images
 that lie within 10% of the input's norm. Used internally by
-[`snapToSymmetry_avg`](@ref).
+[`snap_to_symmetry_avg`](@ref).
 
 This is an internal helper; not exported.
 """
-function avgVecOverOps(vec,ops)
-     cands = [iop*vec for iop ∈ ops]
-     cands = filter(i->norm(i-vec)<.1*norm(vec),cands)
-     avgVec = sum(cands)/length(cands)
-     return avgVec
+function avg_vec_over_ops(vec, ops)
+    cands = [iop * vec for iop ∈ ops]
+    cands = filter(x -> norm(x - vec) < 0.1 * norm(vec), cands)
+    return sum(cands) / length(cands)
 end
 
 """
-    Spacey.snapToSymmetry_avg(v1, v2, v3, ops)
+    Spacey.snap_to_symmetry_avg(v1, v2, v3, ops)
 
 Snap three basis vectors `v1, v2, v3` to a higher-symmetry triple by averaging
 each vector over the images produced by `ops` (a vector of 3×3 lattice
@@ -40,33 +39,33 @@ operations). For each input vector, only images within 10% of its norm
 contribute to the average — this filters the operations whose action
 should fix that vector.
 
-Internal helper — not exported. Prefer [`snapToSymmetry_SVD`](@ref), which
+Internal helper — not exported. Prefer [`snap_to_symmetry_svd`](@ref), which
 uses singular value decomposition of the metric tensor and is generally
-more robust at high distortion. `snapToSymmetry_avg` is kept as a faster
-but less-robust alternative; reach it as `Spacey.snapToSymmetry_avg(...)`.
+more robust at high distortion. `snap_to_symmetry_avg` is kept as a faster
+but less-robust alternative; reach it as `Spacey.snap_to_symmetry_avg(...)`.
 Returns a tuple `(w1, w2, w3)`.
 """
-function snapToSymmetry_avg(v1,v2,v3,ops)
-     w1 = avgVecOverOps(v1,ops)
-     w2 = avgVecOverOps(v2,ops)
-     w3 = avgVecOverOps(v3,ops)
-     return w1,w2,w3
+function snap_to_symmetry_avg(v1, v2, v3, ops)
+    w1 = avg_vec_over_ops(v1, ops)
+    w2 = avg_vec_over_ops(v2, ops)
+    w3 = avg_vec_over_ops(v3, ops)
+    return w1, w2, w3
 end
 
 """
-    Spacey.snapToSymmetry_avg(M, ops)
+    Spacey.snap_to_symmetry_avg(M, ops)
 
-Matrix-form wrapper around `Spacey.snapToSymmetry_avg(v1, v2, v3, ops)`:
+Matrix-form wrapper around `Spacey.snap_to_symmetry_avg(v1, v2, v3, ops)`:
 treats the columns of `M` as the three basis vectors and returns the
 snapped vectors as a 3×3 matrix. Internal helper — not exported.
 """
-function snapToSymmetry_avg(M,ops)
-     res = snapToSymmetry_avg(M[:,1],M[:,2],M[:,3],ops)
-     return [res[1] res[2] res[3]]
+function snap_to_symmetry_avg(M, ops)
+    w1, w2, w3 = snap_to_symmetry_avg(eachcol(M)..., ops)
+    return [w1 w2 w3]
 end
 
 """
-    isagroup(members)
+    is_group(members)
 
 Return `true` if `members` (a vector of square matrices) is closed under matrix
 multiplication and contains no duplicates — i.e. forms a group.
@@ -84,23 +83,26 @@ finite case).
 ```jldoctest
 julia> using LinearAlgebra
 
-julia> isagroup([Matrix{Int}(I, 2, 2), -Matrix{Int}(I, 2, 2)])
+julia> is_group([Matrix{Int}(I, 2, 2), -Matrix{Int}(I, 2, 2)])
 true
 
-julia> isagroup([[0 1; 1 0]])         # not closed: M·M = I, which isn't in the set
+julia> is_group([[0 1; 1 0]])         # not closed: M·M = I, which isn't in the set
 false
 ```
 """
-function isagroup(members::AbstractVector{<:AbstractMatrix{<:Integer}})
+function is_group(members::AbstractVector{<:AbstractMatrix{<:Integer}})
+    # Integer matrices: `==` and `hash` are exact element-wise, so `unique`
+    # and `in` are O(n) via hashing.
+
     # 1) distinctness
     if length(unique(members)) < length(members)
         return false
     end
 
-    # 2) closure
+    # 2) closure (integer matrices: `C in members` uses exact `==`)
     for A in members, B in members
         C = A * B
-        if !(C in members)                  # relies on exact == underneath
+        if !(C in members)
             return false
         end
     end
@@ -110,19 +112,23 @@ end
 
 
 """
-    isagroup(members::AbstractVector{<:AbstractMatrix{<:AbstractFloat}};
+    is_group(members::AbstractVector{<:AbstractMatrix{<:AbstractFloat}};
              atol=1e-8, rtol=1e-8)
 
-Floating-point variant of [`isagroup`](@ref): uses `isapprox(...; atol, rtol)`
+Floating-point variant of [`is_group`](@ref): uses `isapprox(...; atol, rtol)`
 for distinctness and closure checks. See the integer-matrix method for the
 overall contract.
 """
-function isagroup(members::AbstractVector{<:AbstractMatrix{<:AbstractFloat}}; atol = 1e-8, rtol = 1e-8)
+function is_group(members::AbstractVector{<:AbstractMatrix{<:AbstractFloat}};
+                  atol = 1e-8, rtol = 1e-8)
+    # Float matrices: `isapprox` has no consistent hash, so we fall back to
+    # O(n²) pairwise comparison. This is why the integer and float methods
+    # diverge structurally.
     cmp(A, B) = isapprox(A, B; atol=atol, rtol=rtol)
     in_list(M, lst) = any(cmp(M, N) for N in lst)
 
     # 1) distinctness (approximate)
-    for (k, A) in enumerate(members), B in @view members[(k+1):end]
+    for (k, A) in enumerate(members), B in @view members[(k + 1):end]
         if cmp(A, B)
             return false
         end
@@ -262,19 +268,21 @@ struct Crystal{T}
     types::Vector{T}
     function Crystal{T}(A::AbstractMatrix{<:Real}, r::AbstractMatrix{<:Real},
                         types::AbstractVector{T}; coords::Symbol) where T
-        size(A) == (3, 3) || error("A must be 3×3")
-        size(r, 1) == 3 || error("r must have 3 rows (one per spatial dimension)")
-        size(r, 2) == length(types) ||
-            error("r has $(size(r,2)) columns but types has length $(length(types))")
-        size(r, 2) > 0 || error("empty crystal (no atoms) is not supported")
-        coords ∈ (:fractional, :cartesian) ||
-            error("coords must be :fractional or :cartesian (got $(repr(coords)))")
+        size(A) == (3, 3) || throw(ArgumentError("A must be 3×3"))
+        size(r, 1) == 3 ||
+            throw(ArgumentError("r must have 3 rows (one per spatial dimension)"))
+        size(r, 2) == length(types) || throw(ArgumentError(
+            "r has $(size(r, 2)) columns but types has length $(length(types))"))
+        size(r, 2) > 0 ||
+            throw(ArgumentError("empty crystal (no atoms) is not supported"))
+        coords ∈ (:fractional, :cartesian) || throw(ArgumentError(
+            "coords must be :fractional or :cartesian (got $(repr(coords)))"))
         A64 = Float64.(A)
         # Reject (near-)singular lattices. Scale-invariant test: compare |det|
         # to eps · ‖A‖³, i.e. the precision at which det is distinguishable
         # from zero for a matrix of this scale.
-        abs(det(A64)) > eps(Float64) * opnorm(A64)^3 ||
-            error("A is singular or near-singular (det = $(det(A64)))")
+        abs(det(A64)) > eps(Float64) * opnorm(A64)^3 || throw(ArgumentError(
+            "A is singular or near-singular (det = $(det(A64)))"))
         # Fold every position to the canonical interval [0, 1) per axis. This
         # applies whether the user supplied :fractional or :cartesian — in both
         # cases the stored representation is the equivalent atom inside the
@@ -320,7 +328,9 @@ list are ignored.
 
 The returned `Crystal` has `Symbol`-typed atom labels.
 
-# Examples
+# Extended help
+
+## Examples
 
 ```jldoctest
 julia> using Spacey
@@ -365,8 +375,8 @@ julia> length(spacegroup(c))   # NaCl conventional cell, Pm-3m centering
 """
 function read_poscar(path::AbstractString)
     lines = readlines(path)
-    length(lines) ≥ 8 ||
-        error("read_poscar: file too short to be a valid POSCAR ($(length(lines)) lines)")
+    length(lines) ≥ 8 || throw(ArgumentError(
+        "read_poscar: file too short to be a valid POSCAR ($(length(lines)) lines)"))
     idx = 2   # skip comment line
 
     # Line 2: scaling factor (single scalar).
@@ -402,8 +412,8 @@ function read_poscar(path::AbstractString)
         counts = parse.(Int, split(strip(lines[idx])))
         idx += 1
     end
-    length(species) == length(counts) ||
-        error("read_poscar: $(length(species)) species but $(length(counts)) counts")
+    length(species) == length(counts) || throw(ArgumentError(
+        "read_poscar: $(length(species)) species but $(length(counts)) counts"))
 
     # Optional "Selective dynamics" line — recognised by leading 'S' / 's'.
     if uppercase(first(strip(lines[idx]))) == 'S'
@@ -418,7 +428,8 @@ function read_poscar(path::AbstractString)
     elseif coord_char == 'C' || coord_char == 'K'
         :cartesian
     else
-        error("read_poscar: unrecognized coordinate type on line $(idx-1): \"$(strip(lines[idx-1]))\"")
+        throw(ArgumentError(
+            "read_poscar: unrecognized coordinate type on line $(idx - 1): \"$(strip(lines[idx - 1]))\""))
     end
 
     # Positions: N atoms, each line is `x y z [trailing flags ignored]`.
@@ -498,7 +509,7 @@ cartesian(c::Crystal) = c.A * c.r
 """
     default_pos_tol(c::Crystal)
 
-Default position-matching tolerance used by [`isSpacegroupOp`](@ref) and
+Default position-matching tolerance used by [`is_spacegroup_op`](@ref) and
 [`spacegroup`](@ref). Equal to `0.01 · (V/N)^(1/3)` where `V = |det(A)|` and
 `N` is the number of atoms — 1% of the characteristic atom separation,
 expressed in the same units as `c.A`. The formula is unit-agnostic, so it
@@ -548,7 +559,7 @@ Note: this reports the actual symmetry of the *lattice* Spacey sees.
 If lattice parameters coincidentally match a higher-symmetry relation
 (e.g. a ≈ b in an orthorhombic cell at default `lattice_tol`), the
 returned system may be higher than the nominal one — same behavior as
-[`pointGroup`](@ref).
+[`pointgroup`](@ref).
 
 # Examples
 ```jldoctest
@@ -567,7 +578,7 @@ julia> crystal_system([1.0 0 0; 0 1.2 0; 0 0 1.5])
 function crystal_system(A::AbstractMatrix{<:Real}; lattice_tol::Real=0.01)
     A_red = minkReduce(Float64.(A))
     u, v, w = eachcol(A_red)
-    LG = pointGroup_robust(u, v, w; tol=lattice_tol, auto_reduce=false)
+    LG = pointgroup_robust(u, v, w; tol=lattice_tol, auto_reduce=false)
     order = length(LG)
     order == 2  && return :triclinic
     order == 4  && return :monoclinic
@@ -582,7 +593,7 @@ end
 crystal_system(c::Crystal; kwargs...) = crystal_system(c.A; kwargs...)
 
 """
-    isSpacegroupOp(R, τ, c::Crystal; tol=default_pos_tol(c))
+    is_spacegroup_op(R, τ, c::Crystal; tol=default_pos_tol(c))
 
 Return `true` if the operation `(R, τ)` is a space-group symmetry of crystal
 `c` — that is, if applying `R` then translating by `τ` (all in fractional
@@ -604,17 +615,17 @@ julia> c = Crystal(A, reshape([0.0, 0.0, 0.0], 3, 1), [:X]; coords=:fractional);
 
 julia> I3 = Matrix{Int}(I, 3, 3);
 
-julia> isSpacegroupOp(I3, [0.0, 0.0, 0.0], c; tol=1e-8)
+julia> is_spacegroup_op(I3, [0.0, 0.0, 0.0], c; tol=1e-8)
 true
 
-julia> isSpacegroupOp(I3, [0.5, 0.0, 0.0], c; tol=1e-8)
+julia> is_spacegroup_op(I3, [0.5, 0.0, 0.0], c; tol=1e-8)
 false
 ```
 """
-function isSpacegroupOp(R::AbstractMatrix{<:Real}, τ::AbstractVector{<:Real},
-                        c::Crystal; tol::Real=default_pos_tol(c))
-    size(R) == (3, 3) || error("R must be 3×3")
-    length(τ) == 3 || error("τ must have length 3")
+function is_spacegroup_op(R::AbstractMatrix{<:Real}, τ::AbstractVector{<:Real},
+                          c::Crystal; tol::Real=default_pos_tol(c))
+    size(R) == (3, 3) || throw(ArgumentError("R must be 3×3"))
+    length(τ) == 3 || throw(ArgumentError("τ must have length 3"))
     N = size(c.r, 2)
     r_image = mod.(R * c.r .+ τ, 1.0)
     claimed = falses(N)
@@ -649,7 +660,7 @@ the periodic-boundary semantics a user expects.
 
 Returned by `spacegroup(c::Crystal)`. Compose with `*`, invert with `inv`,
 apply to a fractional position via `op(r)`, convert to Cartesian with
-`toCartesian(op, A)`.
+`to_cartesian(op, A)`.
 
 # Examples
 ```jldoctest
@@ -686,7 +697,7 @@ struct SpacegroupOp
     SpacegroupOp(R, τ) = new(R, _canonicalize_τ(τ))
 end
 
-function _canonicalize_τ(τ::AbstractVector, tol::Real=1e-6)
+function _canonicalize_τ(τ::AbstractVector; tol::Real=1e-6)
     out = Vector{Float64}(undef, length(τ))
     for i in eachindex(τ)
         x = mod(Float64(τ[i]), 1.0)
@@ -725,9 +736,9 @@ Base.:*(a::SpacegroupOp, b::SpacegroupOp) =
 function Base.inv(op::SpacegroupOp)
     Rinv_f = inv(Float64.(op.R))
     Rinv = round.(Int, Rinv_f)
-    maximum(abs, Rinv_f .- Rinv) < 1e-8 ||
-        error("inv(SpacegroupOp): R⁻¹ is not integer (det(R) ≠ ±1?)")
-    SpacegroupOp(Rinv, -Rinv * op.τ)
+    maximum(abs, Rinv_f .- Rinv) < 1e-8 || throw(ArgumentError(
+        "inv(SpacegroupOp): R⁻¹ is not integer (det(R) ≠ ±1?)"))
+    return SpacegroupOp(Rinv, -Rinv * op.τ)
 end
 
 # Apply to a fractional position vector (callable struct)
@@ -751,7 +762,7 @@ Base.show(io::IO, op::SpacegroupOp) =
     print(io, "SpacegroupOp(R = ", op.R, ", τ = ", op.τ, ")")
 
 """
-    toCartesian(op::SpacegroupOp, A::AbstractMatrix)
+    to_cartesian(op::SpacegroupOp, A::AbstractMatrix)
 
 Convert a lattice-coordinate space-group operation to its Cartesian form.
 Returns the tuple `(R_cart, τ_cart) = (A·R·A⁻¹, A·τ)` where `A` is the lattice
@@ -767,7 +778,7 @@ julia> using LinearAlgebra
 
 julia> A = Matrix{Float64}(I, 3, 3);
 
-julia> R_cart, τ_cart = toCartesian(one(SpacegroupOp), A);
+julia> R_cart, τ_cart = to_cartesian(one(SpacegroupOp), A);
 
 julia> R_cart
 3×3 Matrix{Float64}:
@@ -782,19 +793,19 @@ julia> τ_cart
  0.0
 ```
 """
-toCartesian(op::SpacegroupOp, A::AbstractMatrix) =
+to_cartesian(op::SpacegroupOp, A::AbstractMatrix) =
     (A * op.R * inv(A), A * op.τ)
 
 """
-    toCartesian(op::AbstractMatrix{<:Integer}, A::AbstractMatrix)
-    toCartesian(LG::AbstractVector{<:AbstractMatrix{<:Integer}}, A::AbstractMatrix)
+    to_cartesian(op::AbstractMatrix{<:Integer}, A::AbstractMatrix)
+    to_cartesian(LG::AbstractVector{<:AbstractMatrix{<:Integer}}, A::AbstractMatrix)
 
 Convert a lattice-coordinate point-group operation (a single integer
-matrix) — or a whole vector of them, like the result of [`pointGroup`](@ref) —
+matrix) — or a whole vector of them, like the result of [`pointgroup`](@ref) —
 to Cartesian rotation form. Returns `A · op · inv(A)` for the single-op
 method and `[A · op · inv(A) for op in LG]` for the vector method.
 
-These overloads exist because `pointGroup` returns just the integer-matrix
+These overloads exist because `pointgroup` returns just the integer-matrix
 form (since v0.8); use these helpers if you need the Cartesian rotations.
 
 # Examples
@@ -803,9 +814,9 @@ julia> using Spacey, LinearAlgebra
 
 julia> A = Matrix{Float64}(I, 3, 3);
 
-julia> LG = pointGroup(A);
+julia> LG = pointgroup(A);
 
-julia> G = toCartesian(LG, A);   # Cartesian rotations of the cubic point group
+julia> G = to_cartesian(LG, A);   # Cartesian rotations of the cubic point group
 
 julia> length(G)
 48
@@ -817,13 +828,13 @@ julia> G[findfirst(==(Matrix{Int}(I, 3, 3)), LG)]   # identity in Cartesian
  0.0  0.0  1.0
 ```
 """
-toCartesian(op::AbstractMatrix{<:Integer}, A::AbstractMatrix) = A * op * inv(A)
+to_cartesian(op::AbstractMatrix{<:Integer}, A::AbstractMatrix) = A * op * inv(A)
 
-toCartesian(LG::AbstractVector{<:AbstractMatrix{<:Integer}}, A::AbstractMatrix) =
+to_cartesian(LG::AbstractVector{<:AbstractMatrix{<:Integer}}, A::AbstractMatrix) =
     [A * op * inv(A) for op in LG]
 
 """
-    Spacey.threeDrotation(u, v, w, α, β, γ)
+    Spacey.rotate_basis_3d(u, v, w, α, β, γ)
 
 Rotate the basis vectors `u, v, w` by Euler angles `α, β, γ` (the
 yaw–pitch–roll convention used in test scaffolding). Returns the rotated
@@ -831,7 +842,7 @@ triple `(u', v', w')` as a tuple of three vectors.
 
 Internal helper — not exported. Used by tests to verify that
 symmetry-finding routines are invariant under arbitrary lattice
-orientation. Reach as `Spacey.threeDrotation(...)`.
+orientation. Reach as `Spacey.rotate_basis_3d(...)`.
 
 The rotation matrix is built from successive rotations about the z, y, and
 z axes (matching the order in the formula). For zero angles the identity
@@ -839,7 +850,7 @@ is returned.
 
 # Examples
 ```jldoctest
-julia> u, v, w = Spacey.threeDrotation([1.0,0,0], [0,1.0,0], [0,0,1.0], 0.0, 0.0, 0.0);
+julia> u, v, w = Spacey.rotate_basis_3d([1.0,0,0], [0,1.0,0], [0,0,1.0], 0.0, 0.0, 0.0);
 
 julia> u
 3-element Vector{Float64}:
@@ -848,17 +859,17 @@ julia> u
  0.0
 ```
 """
-function threeDrotation(u,v,w,α,β,γ)
-A = [u v w]
-R = [[cos(α)cos(β) cos(α)sin(β)sin(γ)-sin(α)cos(γ) cos(α)sin(β)cos(γ)+sin(α)sin(γ)];
-     [sin(α)cos(β) sin(α)sin(β)sin(γ)+cos(α)cos(γ) sin(α)sin(β)cos(γ)-cos(α)sin(γ)];
-     [-sin(β)      cos(β)sin(γ)                    cos(β)cos(γ)                   ]]
-A = R*A
-return A[:,1],A[:,2],A[:,3] 
+function rotate_basis_3d(u, v, w, α, β, γ)
+    A = [u v w]
+    R = [cos(α)cos(β)  cos(α)sin(β)sin(γ) - sin(α)cos(γ)  cos(α)sin(β)cos(γ) + sin(α)sin(γ);
+         sin(α)cos(β)  sin(α)sin(β)sin(γ) + cos(α)cos(γ)  sin(α)sin(β)cos(γ) - cos(α)sin(γ);
+         -sin(β)       cos(β)sin(γ)                       cos(β)cos(γ)]
+    A = R * A
+    return A[:, 1], A[:, 2], A[:, 3]
 end
 
 """
-    Spacey.pointGroup_simple(a1, a2, a3, debug=false)
+    Spacey.pointgroup_simple(a1, a2, a3; debug=false)
 
 Brute-force enumeration of the point group of a 3D lattice. Iterates over
 every 3×3 candidate matrix with entries in `{-1, 0, 1}` (3⁹ = 19683
@@ -866,8 +877,8 @@ matrices), retains those whose action on the basis preserves the metric
 tensor, and returns the survivors as Cartesian rotations.
 
 Internal — not exported. The simplest correct implementation; used to
-validate the more efficient `Spacey.pointGroup_fast` and the public
-[`pointGroup`](@ref) (which delegates to `Spacey.pointGroup_robust`).
+validate the more efficient `Spacey.pointgroup_fast` and the public
+[`pointgroup`](@ref) (which delegates to `Spacey.pointgroup_robust`).
 It performs strict (`isapprox` with default tolerance) equality checks,
 so it is most reliable on noiseless / synthetic input.
 
@@ -880,40 +891,39 @@ julia> using Spacey
 
 julia> u = [1.0, 0, 0]; v = [0.5, √3/2, 0]; w = [0.0, 0, √(8/3)];
 
-julia> length(Spacey.pointGroup_simple(u, v, w))
+julia> length(Spacey.pointgroup_simple(u, v, w))
 24
 ```
 """
-function pointGroup_simple(a1,a2,a3,debug=false)
-u,v,w = minkReduce(a1,a2,a3)
-A = [u v w] # Put the lattice vectors as columns in matrix A
-B = inv(A)*transpose(inv(A)) # Use this for checking for orthogonality
-# A list of all possible lattice vectors in a rotated basis
-c = [A*[i;j;k] for i ∈ (-1,0,1) for j ∈ (-1,0,1) for k ∈ (-1,0,1)]
-# A list of all possible bases, (i.e., all combinations of c vectors)
-R = [[i j k] for i ∈ c for j ∈ c for k ∈ c]
-RT = [transpose(i) for i ∈ R]
-# This is the U^T*U, where U transforms original basis to candidate basis
-T = [R[i]*B*RT[i] for i ∈ 1:length(R)]
-if debug return T end
-# If T==identity then the U was a symmetry of the lattice
-idx = findall([t≈I(3) for t ∈ T].==true)
-Ai = inv(A)
-ops = [Ai*R[i] for i in idx]
-return ops
+function pointgroup_simple(a1, a2, a3; debug::Bool=false)
+    u, v, w = minkReduce(a1, a2, a3)
+    A = [u v w]                       # Put the lattice vectors as columns in matrix A
+    B = inv(A) * transpose(inv(A))    # Use this for checking for orthogonality
+    # A list of all possible lattice vectors in a rotated basis
+    c = [A * [i; j; k] for i ∈ (-1, 0, 1) for j ∈ (-1, 0, 1) for k ∈ (-1, 0, 1)]
+    # A list of all possible bases, (i.e., all combinations of c vectors)
+    R = [[x y z] for x ∈ c for y ∈ c for z ∈ c]
+    RT = [transpose(M) for M ∈ R]
+    # This is the U^T*U, where U transforms original basis to candidate basis
+    T = [R[i] * B * RT[i] for i in eachindex(R)]
+    if debug return T end
+    # If T==identity then the U was a symmetry of the lattice
+    idx = findall(t ≈ I(3) for t ∈ T)
+    Ai = inv(A)
+    return [Ai * R[i] for i in idx]
 end
 
 
 """
-    Spacey.pointGroup_fast(a1, a2, a3)
+    Spacey.pointgroup_fast(a1, a2, a3)
 
 Production-speed point-group finder for an exact / noiseless 3D lattice.
-Faster than `Spacey.pointGroup_simple` by filtering candidate basis
+Faster than `Spacey.pointgroup_simple` by filtering candidate basis
 combinations by length and volume before checking orthogonality, but uses
 strict `isapprox` tolerance and so is best suited to clean inputs.
 
 Internal — not exported. For real-world (noisy) input use the public
-[`pointGroup`](@ref), which exposes a tolerance keyword.
+[`pointgroup`](@ref), which exposes a tolerance keyword.
 
 Returns operations as integer matrices in lattice coordinates.
 
@@ -923,56 +933,54 @@ julia> using Spacey
 
 julia> u = [1.0, 0, 0]; v = [0.5, √3/2, 0]; w = [0.0, 0, √(8/3)];
 
-julia> length(Spacey.pointGroup_fast(u, v, w))
+julia> length(Spacey.pointgroup_fast(u, v, w))
 24
 ```
 """
-function pointGroup_fast(a1,a2,a3)
-u,v,w = minkReduce(a1,a2,a3) # Always do this first, algorithm assumes reduced basis
-A = [u v w] # Define a matrix with input vectors as columns
-Ai = inv(A) 
-AiAiT = Ai*transpose(Ai) # Use this for checking for orthogonality
-norms=norm.([u,v,w]) # Compute the norms of the three input vectors
-vol = abs(u×v⋅w) # Volume of the parallelipiped formed by the basis vectors
+function pointgroup_fast(a1, a2, a3)
+    u, v, w = minkReduce(a1, a2, a3)   # Always do this first, algorithm assumes reduced basis
+    A = [u v w]                        # Define a matrix with input vectors as columns
+    Ai = inv(A)
+    AiAiT = Ai * transpose(Ai)         # Use this for checking for orthogonality
+    norms = norm.([u, v, w])           # Compute the norms of the three input vectors
+    vol = abs(u × v ⋅ w)               # Volume of the parallelipiped formed by the basis vectors
 
-
-# A list of all possible lattice vectors in a rotated basis 
-# These are lattice points from the vertices of the 8 cells with a corner at the origin)
-# There are 27 of these (==3^3)
-c = [A*[i,j,k] for i ∈ (-1,0,1) for j ∈ (-1,0,1) for k ∈ (-1,0,1)]
-# Now keep only those vectors that have a norm matching one of the input vectors
-# efficiency: Gather three groups, according to length. This limits the candidates even more
-c1 = c[findall([norm(i)≈norms[1] for i ∈ c])] # All vectors with first norm
-c2 = c[findall([norm(i)≈norms[2] for i ∈ c])] # All vectors with second norm
-c3 = c[findall([norm(i)≈norms[3] for i ∈ c])] # All vectors with third norm
-# Construct all possible bases, (i.e., all combinations of c vectors), skip duplicate vectors
-R = [[i j k] for i ∈ c1 for j ∈ c2 if !(i≈j) for k ∈ c3 if !(i≈k) && !(j≈k)]
-R = R[findall([abs(det(r))≈vol for r in R])] # Delete candidate bases with the wrong volume
-# The cross product is slightly (<1%) faster
-#R = R[findall([abs(r[1]×r[2]⋅r[3])≈vol for r in R])] # Delete candidate bases with the wrong volume
-RT = [transpose(i) for i ∈ R]
-# This is the Uᵀ ̇U, where U transforms original basis to candidate basis
-# If Tᵢ==identity then the U was a symmetry of the lattice
-T = [R[i]*AiAiT*RT[i] for i ∈ 1:length(R)]
-# Indices of candidate T's that match the identity
-idx = findall([t≈I(3) for t ∈ T])
-# Convert the transformations to integer matrices (formally they should be)
-ops = [round.(Int,Ai*R[i]) for i in idx]
-return ops
+    # A list of all possible lattice vectors in a rotated basis
+    # These are lattice points from the vertices of the 8 cells with a corner at the origin)
+    # There are 27 of these (==3^3)
+    c = [A * [i, j, k] for i ∈ (-1, 0, 1) for j ∈ (-1, 0, 1) for k ∈ (-1, 0, 1)]
+    # Now keep only those vectors that have a norm matching one of the input vectors
+    # efficiency: Gather three groups, according to length. This limits the candidates even more
+    c1 = c[findall(norm(x) ≈ norms[1] for x ∈ c)]   # All vectors with first norm
+    c2 = c[findall(norm(x) ≈ norms[2] for x ∈ c)]   # All vectors with second norm
+    c3 = c[findall(norm(x) ≈ norms[3] for x ∈ c)]   # All vectors with third norm
+    # Construct all possible bases, (i.e., all combinations of c vectors), skip duplicate vectors
+    R = [[x y z] for x ∈ c1 for y ∈ c2 if !(x ≈ y) for z ∈ c3 if !(x ≈ z) && !(y ≈ z)]
+    R = R[findall(abs(det(r)) ≈ vol for r in R)]    # Delete candidate bases with the wrong volume
+    # The cross product is slightly (<1%) faster
+    #R = R[findall([abs(r[1]×r[2]⋅r[3])≈vol for r in R])] # Delete candidate bases with the wrong volume
+    RT = [transpose(M) for M ∈ R]
+    # This is the Uᵀ ̇U, where U transforms original basis to candidate basis
+    # If Tᵢ==identity then the U was a symmetry of the lattice
+    T = [R[i] * AiAiT * RT[i] for i in eachindex(R)]
+    # Indices of candidate T's that match the identity
+    idx = findall(t ≈ I(3) for t ∈ T)
+    # Convert the transformations to integer matrices (formally they should be)
+    return [round.(Int, Ai * R[i]) for i in idx]
 end
 
 """
-    Spacey.pointGroup_robust(u, v, w; tol=0.01, verify_stable=false, auto_reduce=true)
+    Spacey.pointgroup_robust(u, v, w; tol=0.01, verify_stable=false, auto_reduce=true)
 
 Tolerance-tunable point-group finder for noisy real-world input. Returns
 a `Vector{Matrix{Int}}` of the lattice-coordinate symmetry operations —
-the same form the public [`pointGroup`](@ref) returns. For Cartesian
-rotations, pass the result through [`toCartesian`](@ref).
+the same form the public [`pointgroup`](@ref) returns. For Cartesian
+rotations, pass the result through [`to_cartesian`](@ref).
 
-Internal — not exported. The public entry point [`pointGroup`](@ref) is a
+Internal — not exported. The public entry point [`pointgroup`](@ref) is a
 thin wrapper around this function (with the same defaults). Reach this
 form directly only when explicitly disambiguating between point-group
-variants (e.g. comparing against `Spacey.pointGroup_fast`).
+variants (e.g. comparing against `Spacey.pointgroup_fast`).
 
 # Keyword arguments
 - `tol::Real=0.01` — relative tolerance applied to the (volume-normalized)
@@ -1005,99 +1013,100 @@ julia> using Spacey
 
 julia> u = [1.0, 0, 0]; v = [0, 1.0, 0]; w = [0, 0, 1.0];
 
-julia> length(Spacey.pointGroup_robust(u, v, w))
+julia> length(Spacey.pointgroup_robust(u, v, w))
 48
 ```
 """
-function pointGroup_robust(u, v, w; tol=0.01, verify_stable::Bool=false,
+function pointgroup_robust(u, v, w; tol=0.01, verify_stable::Bool=false,
                                     auto_reduce::Bool=true)
-# Handle the input basis: either reduce it ourselves (default) or verify the
-# caller's reduced-basis assertion. When auto-reducing we keep the change-of-
-# basis matrix so we can map the operations back to the user's basis at the end.
-local U_basis::Matrix{Int}, Uinv_basis::Matrix{Int}
-needs_basis_change = false
-if auto_reduce
-    A_orig = hcat(u, v, w)
-    u, v, w = minkReduce(u, v, w)[1:3]
-    A_red = hcat(u, v, w)
-    # A_orig = A_red · U_basis where U_basis is unimodular (both bases span the
-    # same lattice). Round to absorb floating-point noise.
-    U_basis = round.(Int, inv(A_red) * A_orig)
-    Uinv_basis = round.(Int, inv(Float64.(U_basis)))
-    abs(det(U_basis)) == 1 ||
-        error("Mink reduction yielded a non-unimodular change-of-basis (det = $(det(U_basis))).")
-    needs_basis_change = U_basis != Matrix{Int}(I, 3, 3)
-else
-    # Mink reduction can change the basis even when the basis is already reduced (degenerate cases). So don't do it here. But do check that no reduction is needed.
-    if !(orthogonalityDefect(u,v,w)≈orthogonalityDefect(minkReduce(u,v,w)[1:3]...))
-        error("Input basis for 'pointGroup' is not Minkowski-reduced. Either pass `auto_reduce=true` (the default) or run `minkReduce` first.")
+    # Handle the input basis: either reduce it ourselves (default) or verify the
+    # caller's reduced-basis assertion. When auto-reducing we keep the change-of-
+    # basis matrix so we can map the operations back to the user's basis at the end.
+    local U_basis::Matrix{Int}, Uinv_basis::Matrix{Int}
+    needs_basis_change = false
+    if auto_reduce
+        A_orig = hcat(u, v, w)
+        u, v, w = minkReduce(u, v, w)[1:3]
+        A_red = hcat(u, v, w)
+        # A_orig = A_red · U_basis where U_basis is unimodular (both bases span the
+        # same lattice). Round to absorb floating-point noise.
+        U_basis = round.(Int, inv(A_red) * A_orig)
+        Uinv_basis = round.(Int, inv(Float64.(U_basis)))
+        abs(det(U_basis)) == 1 ||
+            error("Mink reduction yielded a non-unimodular change-of-basis (det = $(det(U_basis))).")
+        needs_basis_change = U_basis != Matrix{Int}(I, 3, 3)
+    else
+        # Mink reduction can change the basis even when the basis is already reduced (degenerate cases). So don't do it here. But do check that no reduction is needed.
+        if !(orthogonalityDefect(u, v, w) ≈ orthogonalityDefect(minkReduce(u, v, w)[1:3]...))
+            throw(ArgumentError(
+                "Input basis for 'pointgroup' is not Minkowski-reduced. Either pass `auto_reduce=true` (the default) or run `minkReduce` first."))
+        end
     end
-end
-inputVol = ∛(abs(u×v⋅w)) # Rescale the basis to have a volume of 1, avoid floating point issues
-u, v, w = u ./ inputVol, v ./ inputVol, w ./ inputVol
+    input_vol = ∛(abs(u × v ⋅ w))    # Rescale the basis to have a volume of 1, avoid floating point issues
+    u, v, w = u ./ input_vol, v ./ input_vol, w ./ input_vol
 
-norms=norm.([u,v,w]) # Compute the norms of the three input vectors
-ar = maximum(norms) / minimum(norms)
-if ar > 100
-    @warn "Aspect ratio is $(round(ar,digits=1)). Results may be unreliable for ratios above ~500."
-end
-
-A = [u v w] # Define a matrix with input vectors as columns
-Ai = inv(A)
-vol = abs(u×v⋅w) # Volume of the parallelipiped formed by the basis vectors
-
-# A list of all possible lattice vectors in a rotated basis. These are lattice points from the vertices of the 8 cells that have a corner at the origin. There are 27 of these (==3^3)
-c = [A*[i,j,k] for i ∈ (-1,0,1) for j ∈ (-1,0,1) for k ∈ (-1,0,1)]
-# Now keep only those vectors that have a norm close the norm one of the input vectors
-# efficiency: Gather three groups, according to length. This limits the candidates even more
-c1 = c[findall([isapprox(norms[1],norm(i),rtol=tol) for i ∈ c])] # All vectors with first norm
-c2 = c[findall([isapprox(norms[2],norm(i),rtol=tol) for i ∈ c])] # All vectors with second norm
-c3 = c[findall([isapprox(norms[3],norm(i),rtol=tol) for i ∈ c])] # All vectors with third norm
-# Construct all candidate bases, Rc (i.e., all combinations of c vectors), skip duplicate vectors.
-A′ = [[i j k] for i ∈ c1 for j ∈ c2 if !(i≈j) for k ∈ c3 if !(i≈k) && !(j≈k)] # All candidate bases
-A′ = A′[findall([isapprox(abs(det(i)),vol,rtol=tol*min(norms...)) for i in A′])] # Delete candidate bases with the wrong volume
-Rc = [i*Ai for i ∈ A′] # Compute the candidate rotations from the candidate bases
-
-# This is the Uᵀ ̇U, where U transforms original basis to candidate basis
-# If Tᵢ==identity then the Rc is orthogonal and is a symmetry of the lattice
-T = [transpose(rc)*rc for rc ∈ Rc]
-# Indices of candidate T's that match the identity
-idx = findall([isapprox(t,I(3),rtol=tol) for t ∈ T])
-Rc = Rc[idx]
-T = T[idx]
-# Convert the transformations to lattice coordinates representation (round to integer matrices; formally they should be)
-ops = [round.(Int,Ai*i*A) for i in Rc] # Need the 'Int' so integers are returned
-# Get norms of deviation from orthogonal case
-tn = [norm(t-I(3)) for t ∈ T]
-tp = sortperm(tn) # Sort by deviation
-# Find the largest number of (sorted) ops that form a group.
-maxl = 48
-for il ∈ [48,24,16,12,8,4,2] # These are the only possible group sizes for a 3D lattice
-     if il > length(idx) continue end
-     if isagroup(ops[tp[1:il]]) # Keep the largest set that is a group
-          maxl = il
-          break
-     end
-end
-result_ops = ops[tp][1:maxl]
-if needs_basis_change
-    # Map ops from the reduced-basis representation back to the user's basis:
-    # if R_cart = A_red · M_red · inv(A_red) = A_orig · M_orig · inv(A_orig)
-    # and A_orig = A_red · U_basis, then M_orig = U_basis⁻¹ · M_red · U_basis.
-    result_ops = [Uinv_basis * op * U_basis for op in result_ops]
-end
-if verify_stable
-    tight_tol = tol / 1000
-    # Skip auto_reduce in the recursion: at this point the local u,v,w are
-    # already reduced (and rescaled), and verify_stable only inspects the
-    # length of the returned group — which is invariant under basis choice.
-    tight_ops = pointGroup_robust(u, v, w; tol=tight_tol, verify_stable=false,
-                                            auto_reduce=false)
-    if length(tight_ops) != length(result_ops)
-        @warn "pointGroup_robust: group size depends on tolerance — lattice is near a symmetry boundary." tol group_at_tol=length(result_ops) tight_tol group_at_tight_tol=length(tight_ops)
+    norms = norm.([u, v, w])         # Compute the norms of the three input vectors
+    ar = maximum(norms) / minimum(norms)
+    if ar > 100
+        @warn "Aspect ratio is $(round(ar, digits=1)). Results may be unreliable for ratios above ~500."
     end
-end
-return result_ops
+
+    A = [u v w]                      # Define a matrix with input vectors as columns
+    Ai = inv(A)
+    vol = abs(u × v ⋅ w)             # Volume of the parallelipiped formed by the basis vectors
+
+    # A list of all possible lattice vectors in a rotated basis. These are lattice points from the vertices of the 8 cells that have a corner at the origin. There are 27 of these (==3^3)
+    c = [A * [i, j, k] for i ∈ (-1, 0, 1) for j ∈ (-1, 0, 1) for k ∈ (-1, 0, 1)]
+    # Now keep only those vectors that have a norm close the norm one of the input vectors
+    # efficiency: Gather three groups, according to length. This limits the candidates even more
+    c1 = c[findall(isapprox(norms[1], norm(x), rtol=tol) for x ∈ c)]   # All vectors with first norm
+    c2 = c[findall(isapprox(norms[2], norm(x), rtol=tol) for x ∈ c)]   # All vectors with second norm
+    c3 = c[findall(isapprox(norms[3], norm(x), rtol=tol) for x ∈ c)]   # All vectors with third norm
+    # Construct all candidate bases, Rc (i.e., all combinations of c vectors), skip duplicate vectors.
+    A′ = [[x y z] for x ∈ c1 for y ∈ c2 if !(x ≈ y) for z ∈ c3 if !(x ≈ z) && !(y ≈ z)]   # All candidate bases
+    A′ = A′[findall(isapprox(abs(det(M)), vol, rtol=tol * min(norms...)) for M in A′)]    # Delete candidate bases with the wrong volume
+    Rc = [M * Ai for M ∈ A′]         # Compute the candidate rotations from the candidate bases
+
+    # This is the Uᵀ ̇U, where U transforms original basis to candidate basis
+    # If Tᵢ==identity then the Rc is orthogonal and is a symmetry of the lattice
+    T = [transpose(rc) * rc for rc ∈ Rc]
+    # Indices of candidate T's that match the identity
+    idx = findall(isapprox(t, I(3), rtol=tol) for t ∈ T)
+    Rc = Rc[idx]
+    T = T[idx]
+    # Convert the transformations to lattice coordinates representation (round to integer matrices; formally they should be)
+    ops = [round.(Int, Ai * M * A) for M in Rc]   # Need the 'Int' so integers are returned
+    # Get norms of deviation from orthogonal case
+    tn = [norm(t - I(3)) for t ∈ T]
+    tp = sortperm(tn)                # Sort by deviation
+    # Find the largest number of (sorted) ops that form a group.
+    best_order = 48
+    for n ∈ [48, 24, 16, 12, 8, 4, 2]   # These are the only possible group sizes for a 3D lattice
+        if n > length(idx) continue end
+        if is_group(ops[tp[1:n]])    # Keep the largest set that is a group
+            best_order = n
+            break
+        end
+    end
+    result_ops = ops[tp][1:best_order]
+    if needs_basis_change
+        # Map ops from the reduced-basis representation back to the user's basis:
+        # if R_cart = A_red · M_red · inv(A_red) = A_orig · M_orig · inv(A_orig)
+        # and A_orig = A_red · U_basis, then M_orig = U_basis⁻¹ · M_red · U_basis.
+        result_ops = [Uinv_basis * op * U_basis for op in result_ops]
+    end
+    if verify_stable
+        tight_tol = tol / 1000
+        # Skip auto_reduce in the recursion: at this point the local u,v,w are
+        # already reduced (and rescaled), and verify_stable only inspects the
+        # length of the returned group — which is invariant under basis choice.
+        tight_ops = pointgroup_robust(u, v, w; tol=tight_tol, verify_stable=false,
+                                                auto_reduce=false)
+        if length(tight_ops) != length(result_ops)
+            @warn "pointgroup_robust: group size depends on tolerance — lattice is near a symmetry boundary." tol group_at_tol=length(result_ops) tight_tol group_at_tight_tol=length(tight_ops)
+        end
+    end
+    return result_ops
 end
 
 """
@@ -1123,7 +1132,7 @@ end
 
 For a candidate rotation `R` (integer matrix in `c.A`'s basis), enumerate
 the fractional translations `τ` such that the operation `(R, τ)` is a
-symmetry of `c`. Each surviving τ has been verified by [`isSpacegroupOp`](@ref).
+symmetry of `c`. Each surviving τ has been verified by [`is_spacegroup_op`](@ref).
 
 This is the inner loop of [`spacegroup`](@ref) and the core of
 [`_find_self_translations`](@ref) (which fixes `R = I`).
@@ -1136,7 +1145,7 @@ function _find_translations_for_rotation(R, c::Crystal, probe_indices, i0;
     τs = Vector{Float64}[]
     for j in probe_indices
         τ = mod.(c.r[:, j] .- image_i0, 1.0)
-        if isSpacegroupOp(R, τ, c; tol=pos_tol)
+        if is_spacegroup_op(R, τ, c; tol=pos_tol)
             push!(τs, τ)
         end
     end
@@ -1323,13 +1332,10 @@ near a position-symmetry boundary and the returned group depends on how
 permissive `pos_tol` is set).
 
 Algorithm: Minkowski-reduce the lattice, find the lattice point group
-(`pointGroup_robust`) in the reduced basis, enumerate candidate τ per R
-via probe-atom differences, verify with `isSpacegroupOp`, then transform
+(`pointgroup_robust`) in the reduced basis, enumerate candidate τ per R
+via probe-atom differences, verify with `is_spacegroup_op`, then transform
 surviving ops back to the user's basis via the integer change-of-basis
 matrix.
-
-See `spacegroup_plan.md` for design notes and `phase2_plan.md` for
-derivations.
 
 # Examples
 ```jldoctest
@@ -1371,7 +1377,7 @@ function spacegroup(c::Crystal; lattice_tol::Real=0.01,
     c_red = Crystal(A_red, r_red, c.types; coords=:fractional)
 
     # 4. Point group of the reduced lattice
-    LG_red = pointGroup_robust(u_red, v_red, w_red; tol=lattice_tol,
+    LG_red = pointgroup_robust(u_red, v_red, w_red; tol=lattice_tol,
                                                      auto_reduce=false)
 
     # 5. Choose the probe atom type — the one with the fewest atoms, so the
@@ -1380,7 +1386,7 @@ function spacegroup(c::Crystal; lattice_tol::Real=0.01,
     probe_indices, i0 = _probe_atoms(c_red)
 
     # 6. For each R_red, enumerate candidate τ_red via probe-atom differences,
-    #    test each with `isSpacegroupOp`, collect surviving (R_red, τ_red).
+    #    test each with `is_spacegroup_op`, collect surviving (R_red, τ_red).
     ops_red = Tuple{Matrix{Int}, Vector{Float64}}[]
     for R in LG_red
         for τ in _find_translations_for_rotation(R, c_red, probe_indices, i0; pos_tol)
@@ -1403,7 +1409,7 @@ function spacegroup(c::Crystal; lattice_tol::Real=0.01,
     end
 
     # 9. Opt-in stability check: re-run at tighter pos_tol and warn if the
-    # operation count changes. Mirrors `pointGroup_robust`'s verify_stable.
+    # operation count changes. Mirrors `pointgroup_robust`'s verify_stable.
     # Catches "near-miss" crystal cases — e.g. a ferroelectric where a
     # small atom displacement below pos_tol causes silent over-promotion
     # to the parent high-symmetry structure.
@@ -1420,11 +1426,11 @@ function spacegroup(c::Crystal; lattice_tol::Real=0.01,
 end
 
 """
-    snapToSymmetry_SVD(u, v, w, ops)
+    snap_to_symmetry_svd(u, v, w, ops)
 
 Snap a noisy lattice to its exact-symmetry form via singular value
 decomposition of the symmetry-averaged metric tensor. Given basis vectors
-`u, v, w` and lattice operations `ops` returned by [`pointGroup`](@ref)
+`u, v, w` and lattice operations `ops` returned by [`pointgroup`](@ref)
 (in lattice / integer-matrix form, the first element of its `(LG, G)`
 tuple), produces:
 
@@ -1434,18 +1440,18 @@ where:
 - `a, b, c::Vector{Float64}` — the snapped basis vectors. Lengths and
   inter-vector angles are the symmetry-averaged values; volume is preserved.
 - `iops::Vector{Matrix{Int}}` — the integer-matrix lattice operations of
-  the snapped lattice (recomputed via [`pointGroup`](@ref) on the snapped
+  the snapped lattice (recomputed via [`pointgroup`](@ref) on the snapped
   basis).
 - `rops::Vector{Matrix{Float64}}` — Cartesian rotations of the snapped lattice.
 
 After snapping, the integer ops should satisfy `A · iops[i] · inv(A) == rops[i]`
-to machine precision. Compare to the lighter [`snapToSymmetry_avg`](@ref),
+to machine precision. Compare to the lighter [`snap_to_symmetry_avg`](@ref),
 which averages each basis vector independently and is faster but less
 robust at high distortion.
 
 For accuracy-critical work — extracting symmetry operations from
 experimental refinements, post-processing DFT-relaxed structures, etc. —
-`pointGroup(...; tol)` followed by `snapToSymmetry_SVD(..., LG)` (using
+`pointgroup(...; tol)` followed by `snap_to_symmetry_svd(..., LG)` (using
 the integer-matrix half of the `(LG, G)` tuple) gives lattice vectors and
 rotations that are as exact as possible while remaining consistent with
 the input.
@@ -1453,41 +1459,42 @@ the input.
 For trusted/clean input (purely synthetic or already-snapped), this routine
 is unnecessary.
 """
-function snapToSymmetry_SVD(u,v,w,ops)
-A = [u v w] # Take the lattice basis as a matrix 
-Ap = [A*k for k ∈ ops] # Apply the integer tranforms to get new basis vectors
-lengths = mean([[norm(i) for i ∈ eachcol(b)] for b ∈ Ap]) 
-angles= mean([[acos(i⋅j/norm(i)/norm(j)) for i ∈ eachcol(b) for j ∈ eachcol(b) if j<i] for b ∈ Ap])
+function snap_to_symmetry_svd(u, v, w, ops)
+    A = [u v w]                       # Take the lattice basis as a matrix
+    Ap = [A * k for k ∈ ops]          # Apply the integer transforms to get new basis vectors
+    lengths = mean([[norm(col) for col ∈ eachcol(b)] for b ∈ Ap])
+    angles = mean([[acos(p ⋅ q / norm(p) / norm(q))
+                    for p ∈ eachcol(b) for q ∈ eachcol(b) if q < p] for b ∈ Ap])
 
-B = diagm(lengths.^2)
-n = length(lengths)
-# Fill in the off-diagonal components in the B matrix
-# get the "Cartesian indices" of the lower off-diagonal elements
-offDiag = [(i,j) for i ∈ 1:n for j ∈ 1:n if j < i]
-# for each index, assign the proper cos(angle)|a||b|==a⋅b 
-for (i,idx) ∈ enumerate(offDiag)
-     B[idx[1],idx[2]] = cos(angles[i])*lengths[idx[1]]*lengths[idx[2]]
-     B[idx[2],idx[1]] = B[idx[1],idx[2]] # Symmetric matrix, copy elements across diagonal
-end
-s = svd(B) # Averaged metric matrix
-Anew = diagm(sqrt.(s.S))*s.V' # Getting back to a basis matrix
-T = A*inv(Anew) # Finding the transformation to get from old basis to new
-# This transformation contains a rotational component and a distortion component
-t = svd(T)
-rescale = cbrt(abs(det(A)/det(Anew)))
-Afinal = t.U*t.V'*Anew*rescale # use the the ortho transform of the svd to get rid of the distortion component
-u,v,w=[Afinal[:,i] for i ∈ 1:length(u)]
-if det([u v w]) < 0 
-     u,v,w = v,u,w
-end
-iops = pointGroup_robust(u,v,w)
-rops = toCartesian(iops, hcat(u,v,w))
-return u,v,w,iops,rops
+    B = diagm(lengths .^ 2)
+    n = length(lengths)
+    # Fill in the off-diagonal components in the B matrix
+    # get the "Cartesian indices" of the lower off-diagonal elements
+    off_diag = [(i, j) for i ∈ 1:n for j ∈ 1:n if j < i]
+    # for each index, assign the proper cos(angle)|a||b|==a⋅b
+    for (i, idx) ∈ enumerate(off_diag)
+        B[idx[1], idx[2]] = cos(angles[i]) * lengths[idx[1]] * lengths[idx[2]]
+        B[idx[2], idx[1]] = B[idx[1], idx[2]]   # Symmetric matrix, copy elements across diagonal
+    end
+    s = svd(B)                        # Averaged metric matrix
+    Anew = diagm(sqrt.(s.S)) * s.V'   # Getting back to a basis matrix
+    T = A * inv(Anew)                 # Finding the transformation to get from old basis to new
+    # This transformation contains a rotational component and a distortion component
+    t = svd(T)
+    rescale = cbrt(abs(det(A) / det(Anew)))
+    Afinal = t.U * t.V' * Anew * rescale   # use the ortho transform of the svd to get rid of the distortion component
+    u, v, w = (Afinal[:, i] for i in 1:length(u))
+    if det([u v w]) < 0
+        u, v, w = v, u, w
+    end
+    iops = pointgroup_robust(u, v, w)
+    rops = to_cartesian(iops, hcat(u, v, w))
+    return u, v, w, iops, rops
 end
 
 """
-    pointGroup(u, v, w; tol=0.01, verify_stable=false, auto_reduce=true)
-    pointGroup(A; tol=0.01, verify_stable=false, auto_reduce=true)
+    pointgroup(u, v, w; tol=0.01, verify_stable=false, auto_reduce=true)
+    pointgroup(A; tol=0.01, verify_stable=false, auto_reduce=true)
 
 Find the point group of the 3D lattice spanned by basis vectors `u, v, w`,
 or equivalently by the columns of a 3×3 matrix `A`.
@@ -1495,18 +1502,13 @@ or equivalently by the columns of a 3×3 matrix `A`.
 Returns a `Vector{Matrix{Int}}` of the symmetry operations expressed in
 lattice coordinates. Each entry is a 3×3 integer matrix; if the basis
 matrix is `A` then the Cartesian rotation corresponding to op `M` is
-`A · M · inv(A)`. Use [`toCartesian`](@ref) to convert when needed.
+`A · M · inv(A)`. Use [`to_cartesian`](@ref) to convert when needed.
 
 By default the input is Minkowski-reduced internally, so any non-reduced
 basis is accepted. The returned operations are still expressed in the
 *input* basis (a unimodular change-of-basis maps them back). Pass
 `auto_reduce=false` to assert the input is already reduced — useful as a
 self-check; the function will error if the assertion fails.
-
-(The pre-v0.8 API returned a `(LG, G)` tuple of lattice and Cartesian
-forms together. The Cartesian half was almost always discarded by callers
-and the LG/G ambiguity was a documented footgun — see the v0.8 release
-notes. Convert with `toCartesian(LG, A)` if you actually need `G`.)
 
 # Keyword arguments
 - `tol::Real=0.01` — relative tolerance applied to the (volume-normalized)
@@ -1517,64 +1519,69 @@ notes. Convert with `toCartesian(LG, A)` if you actually need `G`.)
   count differs between the two runs (i.e. the lattice is near a
   symmetry boundary). The returned group is unchanged.
 
-This is the public entry point. It delegates to the internal
-[`Spacey.pointGroup_robust`](@ref) which is tolerance-tunable and designed
-for real-world noisy input. For other variants reachable via the qualified
-name, see [`Spacey.pointGroup_fast`](@ref) (clean input, production speed)
-and [`Spacey.pointGroup_simple`](@ref) (validation only, brute force).
-
 # Examples
 ```jldoctest
 julia> using LinearAlgebra
 
 julia> u = [1.0, 0, 0]; v = [0, 1.0, 0]; w = [0, 0, 1.0];
 
-julia> length(pointGroup(u, v, w))
+julia> length(pointgroup(u, v, w))
 48
 
-julia> length(pointGroup(Matrix{Float64}(I, 3, 3)))
+julia> length(pointgroup(Matrix{Float64}(I, 3, 3)))
 48
 ```
+
+# Extended help
+
+This is the public entry point. It delegates to the internal
+[`Spacey.pointgroup_robust`](@ref) which is tolerance-tunable and designed
+for real-world noisy input. For other variants reachable via the qualified
+name, see [`Spacey.pointgroup_fast`](@ref) (clean input, production speed)
+and [`Spacey.pointgroup_simple`](@ref) (validation only, brute force).
+
+The pre-v0.8 API returned a `(LG, G)` tuple of lattice and Cartesian
+forms together. The Cartesian half was almost always discarded by callers
+and the LG/G ambiguity was a documented footgun — see the v0.8 release
+notes. Convert with `to_cartesian(LG, A)` if you actually need `G`.
 """
-pointGroup(u::AbstractVector, v::AbstractVector, w::AbstractVector;
+pointgroup(u::AbstractVector, v::AbstractVector, w::AbstractVector;
            tol::Real=0.01, verify_stable::Bool=false, auto_reduce::Bool=true) =
-    pointGroup_robust(u, v, w; tol=tol, verify_stable=verify_stable,
+    pointgroup_robust(u, v, w; tol=tol, verify_stable=verify_stable,
                                 auto_reduce=auto_reduce)
 
-pointGroup(A::AbstractMatrix; tol::Real=0.01, verify_stable::Bool=false,
+pointgroup(A::AbstractMatrix; tol::Real=0.01, verify_stable::Bool=false,
                               auto_reduce::Bool=true) =
-    pointGroup_robust(A[:,1], A[:,2], A[:,3]; tol=tol, verify_stable=verify_stable,
-                                              auto_reduce=auto_reduce)
+    pointgroup_robust(eachcol(A)...; tol=tol, verify_stable=verify_stable,
+                                      auto_reduce=auto_reduce)
 
 """
-    Spacey.aspectRatio(a1, a2, a3)
+    Spacey.aspect_ratio(a1, a2, a3)
 
 Return the lattice aspect ratio: longest / shortest basis vector after
 Minkowski reduction. A useful diagnostic — high aspect ratios degrade the
-numerical reliability of [`pointGroup`](@ref), and the underlying
-`Spacey.pointGroup_robust` emits a `@warn` when the ratio exceeds 100.
+numerical reliability of [`pointgroup`](@ref), and the underlying
+`Spacey.pointgroup_robust` emits a `@warn` when the ratio exceeds 100.
 
-Internal helper — not exported. Reach as `Spacey.aspectRatio(...)`.
+Internal helper — not exported. Reach as `Spacey.aspect_ratio(...)`.
 
 # Examples
 ```jldoctest
-julia> Spacey.aspectRatio([1.0, 0, 0], [0, 1.0, 0], [0, 0, 2.0])
+julia> Spacey.aspect_ratio([1.0, 0, 0], [0, 1.0, 0], [0, 0, 2.0])
 2.0
 ```
 """
-function aspectRatio(a1,a2,a3)
-     a = minkReduce(a1,a2,a3)[1:3]
-     return max(norm(a[1]),norm(a[2]),norm(a[3]))/min(norm(a[1]),norm(a[2]),norm(a[3]))
+function aspect_ratio(a1, a2, a3)
+    a = minkReduce(a1, a2, a3)[1:3]
+    return maximum(norm, a) / minimum(norm, a)
 end
 
 """
-    Spacey.aspectRatio(A)
+    Spacey.aspect_ratio(A)
 
-Matrix-form wrapper around `Spacey.aspectRatio(a1, a2, a3)`: treats the
+Matrix-form wrapper around `Spacey.aspect_ratio(a1, a2, a3)`: treats the
 columns of `A` as the three basis vectors. Internal helper — not exported.
 """
-function aspectRatio(A)
-     return aspectRatio(A[:,1],A[:,2],A[:,3])
-end
+aspect_ratio(A) = aspect_ratio(eachcol(A)...)
 
 end

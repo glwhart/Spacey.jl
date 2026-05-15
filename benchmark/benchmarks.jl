@@ -7,14 +7,14 @@
 # comparison kills most of the noise.
 #
 # Coverage:
-#   - `pointGroup`: matrix-form and three-vector-form on canonical inputs
+#   - `pointgroup`: matrix-form and three-vector-form on canonical inputs
 #     (cubic, hexagonal, the FCC primitive, a high-aspect-ratio basis).
 #   - `spacegroup`: representative crystal sizes and types — NaCl primitive
 #     (2 atoms), diamond primitive (2 atoms, full O_h), BaTiO₃ (5 atoms,
 #     ferroelectric), HCP cadmium (2 atoms, hex).
-#   - `crystal_system`: wraps `pointGroup`, included as a regression check
+#   - `crystal_system`: wraps `pointgroup`, included as a regression check
 #     for that delegation.
-#   - `isSpacegroupOp`: hot inner-loop primitive used by `spacegroup`.
+#   - `is_spacegroup_op`: hot inner-loop primitive used by `spacegroup`.
 #
 # Selection rationale: each benchmark is small enough to run in milliseconds
 # (the suite finishes in seconds), and the inputs cover both the
@@ -39,28 +39,28 @@ using BenchmarkTools, Spacey, LinearAlgebra
 
 const SUITE = BenchmarkGroup()
 
-# --- pointGroup -----------------------------------------------------------
-SUITE["pointGroup"] = BenchmarkGroup()
+# --- pointgroup -----------------------------------------------------------
+SUITE["pointgroup"] = BenchmarkGroup()
 
 let A_cubic = Matrix{Float64}(I, 3, 3)
-    SUITE["pointGroup"]["matrix, simple cubic (48 ops)"] =
-        @benchmarkable pointGroup($A_cubic)
+    SUITE["pointgroup"]["matrix, simple cubic (48 ops)"] =
+        @benchmarkable pointgroup($A_cubic)
 end
 
 let u = [1.0, 0, 0], v = [-0.5, sqrt(3)/2, 0], w = [0.0, 0, sqrt(8/3)]
-    SUITE["pointGroup"]["3-vector, ideal HCP (24 ops)"] =
-        @benchmarkable pointGroup($u, $v, $w)
+    SUITE["pointgroup"]["3-vector, ideal HCP (24 ops)"] =
+        @benchmarkable pointgroup($u, $v, $w)
 end
 
 let A_fcc = [0.0 0.5 0.5; 0.5 0.0 0.5; 0.5 0.5 0.0]
-    SUITE["pointGroup"]["matrix, FCC primitive (48 ops)"] =
-        @benchmarkable pointGroup($A_fcc)
+    SUITE["pointgroup"]["matrix, FCC primitive (48 ops)"] =
+        @benchmarkable pointgroup($A_fcc)
 end
 
 # High aspect ratio — exercises the volume-normalization path
 let A_thin = [1.0 0 0; 0 1.0 0; 0 0 100.0]
-    SUITE["pointGroup"]["matrix, AR=100 tetragonal (16 ops)"] =
-        @benchmarkable pointGroup($A_thin)
+    SUITE["pointgroup"]["matrix, AR=100 tetragonal (16 ops)"] =
+        @benchmarkable pointgroup($A_thin)
 end
 
 # --- crystal_system -------------------------------------------------------
@@ -95,36 +95,36 @@ let A_BTO = 4.0 * Matrix{Float64}(I, 3, 3), δ = 0.05/4
     c_BaTiO3 = Crystal(A_BTO, r_BTO, [:Ba, :Ti, :O, :O, :O]; coords=:fractional)
     # Default pos_tol over-promotes to cubic (48 ops); tight pos_tol resolves
     # the displacement to 8 ops. Both are useful as benchmarks since they
-    # exercise different code paths through `isSpacegroupOp`.
+    # exercise different code paths through `is_spacegroup_op`.
     SUITE["spacegroup"]["BaTiO3 default pos_tol (48 ops, over-promoted)"] =
         @benchmarkable spacegroup($c_BaTiO3)
     SUITE["spacegroup"]["BaTiO3 tight pos_tol (8 ops, resolved)"] =
         @benchmarkable spacegroup($c_BaTiO3; pos_tol=1e-4)
 end
 
-# --- isSpacegroupOp -------------------------------------------------------
-SUITE["isSpacegroupOp"] = BenchmarkGroup()
+# --- is_spacegroup_op -------------------------------------------------------
+SUITE["is_spacegroup_op"] = BenchmarkGroup()
 
 let A_fcc = [0.0 0.5 0.5; 0.5 0.0 0.5; 0.5 0.5 0.0],
     c_NaCl = Crystal(A_fcc, [0.0 0.5; 0.0 0.5; 0.0 0.5], [:Na, :Cl]; coords=:fractional),
     R_I = Matrix{Int}(I, 3, 3), τ_zero = zeros(3)
 
-    SUITE["isSpacegroupOp"]["identity on NaCl (true)"] =
-        @benchmarkable isSpacegroupOp($R_I, $τ_zero, $c_NaCl)
+    SUITE["is_spacegroup_op"]["identity on NaCl (true)"] =
+        @benchmarkable is_spacegroup_op($R_I, $τ_zero, $c_NaCl)
 
     τ_off = [0.5, 0.0, 0.0]
-    SUITE["isSpacegroupOp"]["wrong shift on NaCl (false)"] =
-        @benchmarkable isSpacegroupOp($R_I, $τ_off, $c_NaCl)
+    SUITE["is_spacegroup_op"]["wrong shift on NaCl (false)"] =
+        @benchmarkable is_spacegroup_op($R_I, $τ_off, $c_NaCl)
 end
 
 # --- verify_stable overhead -----------------------------------------------
 SUITE["verify_stable"] = BenchmarkGroup()
 
 let A_cubic = Matrix{Float64}(I, 3, 3)
-    SUITE["verify_stable"]["pointGroup off"] =
-        @benchmarkable pointGroup($A_cubic; verify_stable=false)
-    SUITE["verify_stable"]["pointGroup on (re-runs at tol/1000)"] =
-        @benchmarkable pointGroup($A_cubic; verify_stable=true)
+    SUITE["verify_stable"]["pointgroup off"] =
+        @benchmarkable pointgroup($A_cubic; verify_stable=false)
+    SUITE["verify_stable"]["pointgroup on (re-runs at tol/1000)"] =
+        @benchmarkable pointgroup($A_cubic; verify_stable=true)
 end
 
 let A_fcc = [0.0 0.5 0.5; 0.5 0.0 0.5; 0.5 0.5 0.0]

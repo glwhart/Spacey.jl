@@ -1,6 +1,6 @@
 # Handle noisy real-world data
 
-Real lattices and atomic positions from experiment or simulation are not necessarily exact. This page is a working scientist's guide to choosing tolerances for [`pointGroup`](../reference/point-groups.md) and [`spacegroup`](../reference/space-groups.md) given the noise level in your input.
+Real lattices and atomic positions from experiment or simulation are not necessarily exact. This page is a working scientist's guide to choosing tolerances for [`pointgroup`](../reference/point-groups.md) and [`spacegroup`](../reference/space-groups.md) given the noise level in your input.
 
 ## Two tolerances, two scales
 
@@ -8,8 +8,8 @@ Spacey has two independent tolerances, each operating on a different quantity:
 
 | Keyword | Used by | Operates on | Default |
 |---|---|---|---|
-| `tol`         | `pointGroup`, `spacegroup` (as `lattice_tol`) | (volume-normalized) lattice vectors | `0.01` |
-| `pos_tol`     | `spacegroup`, `isSpacegroupOp`                | atomic positions in the user's lattice basis | `default_pos_tol(c)` ≈ 1% of `(V/N)^(1/3)` |
+| `tol`         | `pointgroup`, `spacegroup` (as `lattice_tol`) | (volume-normalized) lattice vectors | `0.01` |
+| `pos_tol`     | `spacegroup`, `is_spacegroup_op`                | atomic positions in the user's lattice basis | `default_pos_tol(c)` ≈ 1% of `(V/N)^(1/3)` |
 
 **Choose them independently.** Lattice noise (drift in unit-cell parameters) and position noise (drift in atomic coordinates) come from different sources and have different magnitudes. A DFT-relaxed structure typically has lattice parameters good to 4–5 significant figures but atomic positions good to only 3–4.
 
@@ -34,7 +34,7 @@ julia> using Spacey
 
 julia> u = [1.0, 0, 0]; v = [-0.5, sqrt(3)/2, 0]; w = [0, 0, sqrt(8/3)];   # ideal HCP
 
-julia> length(pointGroup(u, v, w; tol=1e-6))             # tight, finds 24
+julia> length(pointgroup(u, v, w; tol=1e-6))             # tight, finds 24
 24
 ```
 
@@ -47,10 +47,10 @@ julia> u = [1.0001, 0, 0]; v = [-0.5+1e-4, sqrt(3)/2 - 5e-5, 0]; w = [0, 0, sqrt
 
 julia> u, v, w = minkReduce(u, v, w)[1:3];   # noisy bases may need explicit reduction first
 
-julia> length(pointGroup(u, v, w; tol=1e-2))    # tol matched to the noise — finds 24
+julia> length(pointgroup(u, v, w; tol=1e-2))    # tol matched to the noise — finds 24
 24
 
-julia> length(pointGroup(u, v, w; tol=1e-6))    # tighter than the noise — symmetry breaks
+julia> length(pointgroup(u, v, w; tol=1e-6))    # tighter than the noise — symmetry breaks
 4
 ```
 
@@ -124,6 +124,6 @@ For a typical 4-Å cubic perovskite with 5 atoms per cell, `V/N = 64/5 ≈ 12.8 
 
 ## See also
 
-- Reference: [`default_pos_tol`](../reference/crystals.md), [`pointGroup`](../reference/point-groups.md), [`spacegroup`](../reference/space-groups.md)
+- Reference: [`default_pos_tol`](../reference/crystals.md), [`pointgroup`](../reference/point-groups.md), [`spacegroup`](../reference/space-groups.md)
 - How-to: [Detect tolerance-dependent answers](detect-tolerance-dependence.md), [Snap a noisy lattice to symmetry](snap-to-symmetry.md)
 - Explanation: [Tolerances](../explanation/tolerances.md), [Over-promotion](../explanation/over-promotion.md)

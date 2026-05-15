@@ -1,12 +1,12 @@
 # Algorithm overview
 
-This page walks through what Spacey actually *does* when you call `pointGroup` or `spacegroup`. It's the conceptual pipeline — not the code line-by-line, but enough that you can understand each step's purpose and what could go wrong.
+This page walks through what Spacey actually *does* when you call `pointgroup` or `spacegroup`. It's the conceptual pipeline — not the code line-by-line, but enough that you can understand each step's purpose and what could go wrong.
 
 The point-group algorithm is the foundation; `spacegroup` builds on it. We'll cover the point-group pipeline first, then say what changes for crystals.
 
 ## The point-group pipeline
 
-Given a 3×3 lattice matrix `A` (columns are basis vectors), `pointGroup` returns the integer-matrix and Cartesian forms of every symmetry operation of the lattice, in five steps:
+Given a 3×3 lattice matrix `A` (columns are basis vectors), `pointgroup` returns the integer-matrix and Cartesian forms of every symmetry operation of the lattice, in five steps:
 
 1. **Minkowski-reduce** the input basis. Replaces `A` with an equivalent basis whose vectors are as short as possible. See [Why Minkowski reduction](why-minkowski.md) for the theorem this depends on.
 2. **Generate** the 27 candidate vectors `A · [i, j, k]` for `i, j, k ∈ {-1, 0, 1}`. The 27-neighbor result guarantees that every lattice symmetry maps each basis vector into this set.
@@ -23,7 +23,7 @@ The rest of this page is what each step is doing and why.
 
 Calls into [MinkowskiReduction.jl](https://github.com/glwhart/MinkowskiReduction.jl). The output basis satisfies the 12 Minkowski conditions: each basis vector is the shortest possible given the previous ones, and angles are bounded in `[60°, 120°]`. This is what makes the search in step 2 *provably finite and complete* — see [Why Minkowski reduction](why-minkowski.md).
 
-If you call `pointGroup` directly with a non-reduced basis, the function errors out and asks you to reduce first. (`Spacey.pointGroup_robust` is the same: explicit Mink-reduction is required.) The matrix-form wrapper handles this transparently: it Mink-reduces the input columns automatically.
+If you call `pointgroup` directly with a non-reduced basis, the function errors out and asks you to reduce first. (`Spacey.pointgroup_robust` is the same: explicit Mink-reduction is required.) The matrix-form wrapper handles this transparently: it Mink-reduces the input columns automatically.
 
 ## Step 2: 27-candidate generation
 
@@ -63,7 +63,7 @@ This step is what makes Spacey robust to spurious near-misses on its own: a spur
 
 ## What changes for `spacegroup`
 
-`spacegroup(c::Crystal)` does steps 1–5 on `c.A` to get the lattice point group, then for each candidate rotation `R` it enumerates candidate translations `τ` by looking at differences of probe-atom positions. Each `(R, τ)` is verified by `isSpacegroupOp` (does the op map each atom to an atom of the same type, modulo the lattice?) and the surviving operations are returned. The `verify_stable` flag works analogously, re-running at `pos_tol/1000`.
+`spacegroup(c::Crystal)` does steps 1–5 on `c.A` to get the lattice point group, then for each candidate rotation `R` it enumerates candidate translations `τ` by looking at differences of probe-atom positions. Each `(R, τ)` is verified by `is_spacegroup_op` (does the op map each atom to an atom of the same type, modulo the lattice?) and the surviving operations are returned. The `verify_stable` flag works analogously, re-running at `pos_tol/1000`.
 
 ## How Spacey compares to other tools
 
@@ -79,5 +79,5 @@ Spacey's deliberate scope is *just* the symmetry operations themselves, with exp
 ## See also
 
 - Explanation: [Why Minkowski reduction](why-minkowski.md), [Tolerances](tolerances.md), [Over-promotion](over-promotion.md), [Validation strategy](validation-strategy.md)
-- Reference: [`pointGroup`](../reference/point-groups.md), [`spacegroup`](../reference/space-groups.md)
+- Reference: [`pointgroup`](../reference/point-groups.md), [`spacegroup`](../reference/space-groups.md)
 - How-to: [Find a point group](../how-to/find-pointgroup.md), [Find a space group](../how-to/find-spacegroup.md)

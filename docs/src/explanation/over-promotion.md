@@ -23,7 +23,7 @@ The mechanism has three steps, all flowing from the way the algorithm filters ca
 
 1. **Spurious operations pass the integer-matrix test.** For a near-symmetric input, the would-be-cubic operations on a tetragonal-near-cubic lattice produce small-but-nonzero residuals on the integer-matrix test. At a tolerance loose enough to absorb input noise, those residuals fall below `tol` and the operations pass.
 2. **The spurious operations close into a higher-symmetry group.** The group-closure step reports the *largest* subset of accepted operations that closes under composition. If the spurious operations from step 1 are mutually consistent — which they are, by design, since they came from a near-cubic lattice — they close into the cubic point group.
-3. **The user gets the higher-symmetry answer with no warning.** The standard return path of `pointGroup` and `spacegroup` is silent on this kind of disagreement.
+3. **The user gets the higher-symmetry answer with no warning.** The standard return path of `pointgroup` and `spacegroup` is silent on this kind of disagreement.
 
 The canonical illustration is a tetragonal lattice with `c/a = 1 + ε`. The 32 cubic-only operations (the ones that mix the c-axis with the a- or b-axes — for example, the 120° rotation about the body diagonal) appear in lattice coordinates with entries `a/c = 1 / (1 + ε)` and `c/a = 1 + ε`. Where the cubic case requires exactly `±1`, the tetragonal case has entries that differ from `±1` by `O(ε)`. At any `tol ≥ ε`, the integer test passes, and the 3-fold rotation joins the group. Eight of these spurious 3-fold operations close with the 16 tetragonal operations into the full 48-op cubic group. Result: 48 reported, 16 correct.
 
@@ -37,7 +37,7 @@ The shape of the failure region is geometric. Let `ε` be the structural distort
 - **`tol >> ε`**: tolerance loose enough that spurious operations pass. Higher-symmetry parent reported (over-promotion).
 - **`tol ≈ ε`**: the boundary. Tolerance comparable to the distortion. The reported group depends sensitively on which operations happen to land just below or just above `tol`.
 
-The boundary is where the answer is *fragile*. A 10× change in `tol` flips the reported group. The user has no signal that they're at the boundary — the same `pointGroup(A; tol=...)` call returns a different number depending on `tol`. The diagnostic at `test/nearMissBoundary.jl` plots a `(tol, ε)` heatmap of group-size-reported, with a clear diagonal failure region exactly along `tol ≈ ε`.
+The boundary is where the answer is *fragile*. A 10× change in `tol` flips the reported group. The user has no signal that they're at the boundary — the same `pointgroup(A; tol=...)` call returns a different number depending on `tol`. The diagnostic at `test/nearMissBoundary.jl` plots a `(tol, ε)` heatmap of group-size-reported, with a clear diagonal failure region exactly along `tol ≈ ε`.
 
 ## What `verify_stable` does
 
@@ -71,4 +71,4 @@ The honest behavior in those cases is not to commit to one side. Spacey's design
 
 - Explanation: [Tolerances](tolerances.md), [Algorithm overview](algorithm-overview.md), [Why Minkowski reduction](why-minkowski.md)
 - How-to: [Detect tolerance-dependent answers](../how-to/detect-tolerance-dependence.md), [Handle noisy real-world data](../how-to/handle-noisy-data.md), [Snap a noisy lattice to symmetry](../how-to/snap-to-symmetry.md)
-- Reference: [`pointGroup`](../reference/point-groups.md), [`spacegroup`](../reference/space-groups.md)
+- Reference: [`pointgroup`](../reference/point-groups.md), [`spacegroup`](../reference/space-groups.md)

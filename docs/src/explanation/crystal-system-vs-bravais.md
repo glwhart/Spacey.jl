@@ -8,7 +8,7 @@ There are two natural levels of granularity for "what kind of lattice is this?":
 
 | Layer | Output | Cost | Coverage |
 |---|---|---|---|
-| 1 | Crystal **system** (7 classes: tri / mono / ortho / tet / trig / hex / cubic) | Trivial — wrapper over `pointGroup` | Catches lattice over-promotion (`a/b ≈ 1`) and lattice mis-identification within a system |
+| 1 | Crystal **system** (7 classes: tri / mono / ortho / tet / trig / hex / cubic) | Trivial — wrapper over `pointgroup` | Catches lattice over-promotion (`a/b ≈ 1`) and lattice mis-identification within a system |
 | 2 | Full **Bravais lattice** (14 classes: P / C / I / F variants of each system) | Non-trivial — needs Niggli or metric-tensor classification with edge cases | Catches centering mis-identification on top of Layer 1 |
 
 `crystal_system(A)` is Layer 1.
@@ -27,7 +27,7 @@ Each crystal system has a unique *holohedry* — the point group of the lattice 
 | 24 | hexagonal | D_6h |
 | 48 | cubic | O_h |
 
-Because the orders are all distinct, getting the system from a lattice is two lines of Julia: run `pointGroup` on the Minkowski-reduced basis, look up the order in the table above. That's exactly what `crystal_system(A)` does. Same tolerance behaviour and same failure modes as `pointGroup` — including over-promotion at boundary cases (a tetragonal lattice with `c/a` very close to 1 will return `:cubic` at default `tol`).
+Because the orders are all distinct, getting the system from a lattice is two lines of Julia: run `pointgroup` on the Minkowski-reduced basis, look up the order in the table above. That's exactly what `crystal_system(A)` does. Same tolerance behaviour and same failure modes as `pointgroup` — including over-promotion at boundary cases (a tetragonal lattice with `c/a` very close to 1 will return `:cubic` at default `tol`).
 
 ## Layer 2 is a different problem
 
@@ -40,7 +40,7 @@ Going from "system" (7 classes) to "Bravais lattice" (14 classes) means distingu
 
 The decision tree is roughly thirty branches over the metric tensor `G = AᵀA`, with several edge cases at boundaries between Bravais types. Modern implementations (FINDSYM, spglib, AFLOW-SYM) all do this via Niggli reduction followed by a lookup table from the canonical Niggli parameters. Each handles the boundary cases differently, with documented failure modes around the edges.
 
-That's a few days of careful work, useful but not yet motivated for Spacey's current use cases. Spacey's downstream consumers (cluster expansion, k-point grid generation) consume the symmetry operations directly and don't need the Bravais label — they get all the information they need from `pointGroup` and `spacegroup`. The Layer 1 label is sufficient for the validation use case (see below).
+That's a few days of careful work, useful but not yet motivated for Spacey's current use cases. Spacey's downstream consumers (cluster expansion, k-point grid generation) consume the symmetry operations directly and don't need the Bravais label — they get all the information they need from `pointgroup` and `spacegroup`. The Layer 1 label is sufficient for the validation use case (see below).
 
 ## Why ship Layer 1 at all
 
@@ -70,6 +70,6 @@ If the use case ever appears (a downstream consumer that needs the centering, or
 
 ## See also
 
-- Reference: [`crystal_system`](../reference/crystals.md), [`pointGroup`](../reference/point-groups.md)
+- Reference: [`crystal_system`](../reference/crystals.md), [`pointgroup`](../reference/point-groups.md)
 - How-to: [Classify the Bravais system](../how-to/classify-bravais.md)
 - Explanation: [Validation strategy](validation-strategy.md) — the AFLOW corpus tests that motivate Layer 1

@@ -1,21 +1,21 @@
 # Point groups
 
-The public point-group API is one function: [`pointGroup`](#Spacey.pointGroup). It accepts either three basis vectors or a 3×3 matrix and returns a `Vector{Matrix{Int}}` of integer-matrix lattice operations. For the Cartesian-rotation form of the same operations, use [`toCartesian`](space-groups.md#Spacey.toCartesian).
+The public point-group API is one function: [`pointgroup`](#Spacey.pointgroup). It accepts either three basis vectors or a 3×3 matrix and returns a `Vector{Matrix{Int}}` of integer-matrix lattice operations. For the Cartesian-rotation form of the same operations, use [`to_cartesian`](space-groups.md#Spacey.to_cartesian).
 
 ## Public API
 
 ```@docs
-pointGroup
+pointgroup
 ```
 
 ## Internals
 
-These three variants are kept inside the package and reachable as `Spacey.<name>`. They are not exported and not part of the API contract — signatures may change without a major-version bump. `pointGroup` is a thin wrapper around `Spacey.pointGroup_robust` with the same defaults.
+These three variants are kept inside the package and reachable as `Spacey.<name>`. They are not exported and not part of the API contract — signatures may change without a major-version bump. `pointgroup` is a thin wrapper around `Spacey.pointgroup_robust` with the same defaults.
 
 ```@docs
-Spacey.pointGroup_robust
-Spacey.pointGroup_fast
-Spacey.pointGroup_simple
+Spacey.pointgroup_robust
+Spacey.pointgroup_fast
+Spacey.pointgroup_simple
 ```
 
 ## Index
